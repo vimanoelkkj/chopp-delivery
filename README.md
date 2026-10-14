@@ -4,8 +4,11 @@
 
 React/Vite consulta `GET /api/products` na mesma origem. A Pages Function lê o binding
 `DELEGAS_DB` do Cloudflare D1. Não há fallback para catálogo estático, estoque, pedidos,
-reservas, login ou painel nesta etapa. Os dados de `src/features/catalog/products.ts`
+reservas ou painel nesta etapa. Os dados de `src/features/catalog/products.ts`
 são apenas uma fixture histórica dos testes; não são importados pela interface.
+
+A infraestrutura de autenticação F2 está em [docs/admin-auth.md](docs/admin-auth.md),
+com contratos, bootstrap local, cookies, guards e política de segurança. Não há UI de login.
 
 ### Desenvolvimento local no Windows
 
@@ -126,8 +129,8 @@ e excluído do Biome para preservar a saída oficial do gerador.
 
 Ainda não existe D1 remoto ou publicação. Antes disso, criar banco exclusivo do
 Delegas, revisar a configuração de ambientes e aplicar migrations mediante autorização.
-A próxima fase pode acrescentar autenticação e edição administrativa com validação
-monetária, aproveitando esta fundação, sem misturar visibilidade com estoque.
+A F2 acrescenta autenticação e autorização; interface e edição administrativa
+ficam para a próxima fase, sem misturar visibilidade com estoque.
 
 O hardening pós-F1 fixou as dependências transitivas do Miniflare 4 com overrides
 de `sharp 0.35.5` e `undici 7.29.1`, sem trocar sua versão principal. O seletor do

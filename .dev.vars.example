@@ -1,0 +1,4 @@
+# Apenas referência. O bootstrap local gera .dev.vars, sem imprimir o pepper.
+ADMIN_ORIGIN=http://127.0.0.1:8788
+ADMIN_ALLOW_INSECURE_LOCAL=1
+ADMIN_PASSWORD_PEPPER=

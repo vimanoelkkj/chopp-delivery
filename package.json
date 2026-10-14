@@ -16,7 +16,9 @@
     "db:init": "wrangler d1 migrations apply DELEGAS_DB --local",
     "dev:backend": "wrangler pages dev dist --ip 127.0.0.1 --port 8788",
     "dev:full": "npm run db:init && npm run build && npm run dev:backend",
-    "types:backend": "wrangler types --include-runtime false"
+    "types:backend": "wrangler types --include-runtime false",
+    "test:auth": "vitest run tests/backend/auth",
+    "admin:bootstrap": "node scripts/bootstrap-admin.mjs --local"
   },
   "dependencies": {
     "@fontsource/big-shoulders-display": "^5.3.0",
