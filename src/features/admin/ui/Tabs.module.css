@@ -1,0 +1,90 @@
+.list {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: var(--tap-min);
+  padding: 0 1.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.tab:hover {
+  color: var(--color-bone);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--color-gold);
+}
+
+/* Sublinhado dourado entra por scaleX (transform), sem mexer em layout. */
+.tab::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--color-gold);
+  transform: scaleX(0);
+  transition: transform 0.22s var(--admin-ease);
+}
+
+.tab[aria-selected='true']::after {
+  transform: scaleX(1);
+}
+
+.count {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.panel {
+  animation: panel-in 0.22s var(--admin-ease) both;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .list {
+    margin-right: calc(var(--gutter) * -1);
+    margin-left: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .tab::after {
+    transition: none;
+  }
+
+  .panel {
+    animation: none;
+  }
+}

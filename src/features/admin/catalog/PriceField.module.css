@@ -1,0 +1,77 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.label {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  min-height: 3.125rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0;
+  background: var(--color-black);
+  color: var(--color-bone);
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  transition: border-color 0.15s;
+}
+
+.input::placeholder {
+  color: #8a8272; /* 5,5:1 sobre o preto do campo */
+}
+
+.input:hover {
+  border-color: var(--color-line-strong);
+}
+
+.input:focus-visible {
+  border-color: var(--color-gold);
+  outline-offset: 0;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--admin-danger);
+  animation: nudge 0.3s ease-in-out;
+}
+
+.error {
+  color: var(--admin-danger);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+@keyframes nudge {
+  25% {
+    transform: translateX(-0.25rem);
+  }
+
+  75% {
+    transform: translateX(0.25rem);
+  }
+}
+
+@media (min-width: 64rem) {
+  .label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input {
+    transition: none;
+  }
+
+  .input[aria-invalid='true'] {
+    animation: none;
+  }
+}

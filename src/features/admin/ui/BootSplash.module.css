@@ -1,0 +1,75 @@
+.splash {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1.25rem;
+  min-height: 100dvh;
+  background: var(--color-black);
+  opacity: 0;
+  animation: appear 0.2s 0.5s forwards;
+}
+
+.seal {
+  border-radius: 50%;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.bar {
+  position: relative;
+  width: 11.5rem;
+  height: 2px;
+  overflow: hidden;
+  background: var(--color-steel);
+}
+
+.bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-gold);
+  transform: translateX(-100%);
+  animation: slide 1.3s ease-in-out infinite;
+}
+
+.label {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes slide {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    animation-duration: 0.01ms;
+  }
+
+  .seal,
+  .bar::after {
+    animation: none;
+  }
+
+  .bar::after {
+    transform: none;
+    opacity: 0.5;
+  }
+}

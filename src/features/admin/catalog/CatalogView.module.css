@@ -1,0 +1,317 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 2rem var(--gutter) 2.5rem;
+}
+
+/* A barra fixa de baixo não pode cobrir o campo focado. É margem de rolagem dos controles do
+   conteúdo (e não scroll-padding no html): assim os botões da própria barra não provocam rolagem. */
+.content :is(input, button, a, [role='switch'], [role='tab']) {
+  scroll-margin-bottom: 9rem;
+}
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  color: var(--color-gold);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.eyebrowDesktop {
+  display: none;
+}
+
+.title {
+  margin-top: 0.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 2.4rem + 5.2vw, 6.25rem);
+  font-weight: 900;
+  line-height: 0.88;
+  text-transform: uppercase;
+}
+
+.chips {
+  display: none;
+  gap: 0.75rem;
+}
+
+.chip {
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--color-line-strong);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chipGold {
+  border-color: var(--color-line);
+  color: var(--color-gold);
+}
+
+/* Colunas da tabela (a partir de 64rem), iguais no cabeçalho e nas linhas. */
+.table {
+  --slots: 2;
+  --table-columns: 4.625rem minmax(0, 1fr) repeat(var(--slots), 13.5rem) 10.5rem 6.25rem;
+}
+
+.head {
+  display: none;
+}
+
+.list {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.note {
+  margin-top: 1.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.noteLong {
+  display: none;
+}
+
+.skeleton {
+  display: grid;
+  grid-template-columns: 4.125rem 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  background: var(--admin-row);
+}
+
+.skeletonBlock {
+  position: relative;
+  min-height: 3.5rem;
+  overflow: hidden;
+  background: var(--color-steel);
+}
+
+.skeletonBlock:last-child {
+  grid-column: 1 / -1;
+}
+
+.skeletonBlock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.05), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.failure,
+.empty {
+  padding: 2.5rem 0;
+}
+
+.empty {
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--color-line-strong);
+}
+
+.failureTitle {
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 2rem + 3vw, 4.25rem);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.failureText {
+  max-width: 34rem;
+  margin-top: 1rem;
+  color: var(--color-soft);
+}
+
+.failureActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.siteLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-min);
+  padding: 0 1.5rem;
+  border: 1px solid var(--color-line-strong);
+  font-weight: 600;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.siteLink:hover {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+/* Barra fixa embaixo: estado do salvamento e ações. O aviso de resultado sobe de dentro dela. */
+.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-black);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.toastSlot {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 0 var(--gutter) 0.75rem;
+  pointer-events: none;
+}
+
+.barInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 0.875rem var(--gutter);
+}
+
+.message {
+  color: var(--color-muted);
+  font-size: 0.9375rem;
+}
+
+.message[data-dirty='true'] {
+  color: var(--color-bone);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.short {
+  display: inline;
+}
+
+.long {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .eyebrowDesktop {
+    display: inline;
+  }
+
+  .eyebrowMobile {
+    display: none;
+  }
+
+  .chips {
+    display: flex;
+  }
+
+  .noteLong {
+    display: inline;
+  }
+
+  .noteShort {
+    display: none;
+  }
+
+  .barInner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 1.125rem;
+  }
+
+  .actions {
+    display: flex;
+  }
+
+  .short {
+    display: none;
+  }
+
+  .long {
+    display: inline;
+  }
+
+  .toastSlot {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 64rem) {
+  .skeleton {
+    grid-template-columns: 4.625rem minmax(0, 1fr) 28rem;
+    padding: 1.25rem;
+  }
+
+  .skeletonBlock:last-child {
+    grid-column: auto;
+  }
+
+  .head {
+    display: grid;
+    grid-template-columns: var(--table-columns);
+    gap: 1.25rem;
+    padding: 0 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--color-line-strong);
+    margin-bottom: 1rem;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .content {
+    padding-top: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBlock::after {
+    animation: none;
+  }
+
+  .siteLink {
+    transition: none;
+  }
+}

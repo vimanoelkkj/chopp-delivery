@@ -1,0 +1,3 @@
+# Fim de linha LF em qualquer sistema: o autocrlf do Git para Windows gerava checkouts CRLF
+# que o Biome (lineEnding lf) recusa. Não altera o conteúdo já versionado.
+* text=auto eol=lf

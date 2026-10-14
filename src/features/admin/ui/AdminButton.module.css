@@ -1,0 +1,97 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: var(--tap-min);
+  padding: 0 1.5rem;
+  border: 1px solid transparent;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    opacity 0.15s,
+    transform 0.12s var(--admin-ease);
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.gold {
+  background: var(--color-gold);
+  color: var(--color-black);
+}
+
+.gold:hover:not(:disabled) {
+  background: var(--color-gold-hover);
+}
+
+.outline {
+  background: transparent;
+  border-color: var(--color-line-strong);
+  color: var(--color-bone);
+}
+
+.outline:hover:not(:disabled) {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+.cream {
+  background: var(--admin-cream);
+  color: var(--color-black);
+}
+
+.cream:hover:not(:disabled) {
+  background: #fff;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pending {
+  cursor: progress;
+}
+
+.pending.gold {
+  background: var(--admin-gold-pending);
+}
+
+.spinner {
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+
+  .button:active:not(:disabled) {
+    transform: none;
+  }
+
+  /* Sem giro: o anel fica parado e o rótulo ("Salvando…") continua informando o estado. */
+  .spinner {
+    animation: none;
+  }
+}
