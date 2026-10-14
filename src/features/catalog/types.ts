@@ -21,3 +21,8 @@ export type Cachaca = {
   bottleMl: number
   price: number
 }
+
+export type Catalog = {
+  products: Product[]
+  cachaca: (Cachaca & { id: string }) | null
+}

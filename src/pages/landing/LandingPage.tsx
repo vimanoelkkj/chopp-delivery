@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useCatalog } from '@/features/catalog/useCatalog'
 import { useInView } from '@/shared/lib/useInView'
 import styles from './LandingPage.module.css'
 import { AboutSection } from './sections/AboutSection'
@@ -14,6 +15,7 @@ import { StickyCta } from './sections/StickyCta'
 import { Ticker } from './sections/Ticker'
 
 export function LandingPage() {
+  const { state: catalogState, retry } = useCatalog()
   const heroCtaRef = useRef<HTMLDivElement>(null)
   const finalCtaRef = useRef<HTMLDivElement>(null)
   const heroCtaInView = useInView(heroCtaRef)
@@ -25,8 +27,8 @@ export function LandingPage() {
       <main id="conteudo">
         <Hero ctaRef={heroCtaRef} />
         <Ticker />
-        <CatalogSection />
-        <BarrelsSection />
+        <CatalogSection state={catalogState} retry={retry} />
+        <BarrelsSection state={catalogState} />
         <HowItWorks />
         <PromoSection />
         <AboutSection />

@@ -1,11 +1,17 @@
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
+
+// As verificações visuais precisam medir o catálogo real, depois da leitura D1.
+async function openLanding(page: Page) {
+  await page.goto('/')
+  await expect(page.locator('tbody tr')).toHaveCount(8)
+}
 
 const viewports = [1440, 820, 412, 390, 360]
 
 for (const width of viewports) {
   test(`sem rolagem horizontal em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -17,7 +23,7 @@ for (const width of viewports) {
   // que está dentro de um contêiner que corta de propósito (a faixa em movimento).
   test(`nenhum elemento vaza da tela em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
     const leaks = await page.evaluate(() => {
       const clipped = (el: Element) => {
@@ -35,7 +41,7 @@ for (const width of viewports) {
 }
 
 test('mostra os oito chopes e a cachaça com os preços dos dados', async ({ page }) => {
-  await page.goto('/')
+  await openLanding(page)
   await expect(page.locator('tbody tr')).toHaveCount(8)
   await expect(page.getByRole('row', { name: /Brahma/ })).toContainText('não disponível')
   await expect(page.getByRole('row', { name: /Dronken/ })).toContainText('R$ 510')
@@ -43,7 +49,7 @@ test('mostra os oito chopes e a cachaça com os preços dos dados', async ({ pag
 })
 
 test('FAQ abre e fecha por teclado, um item por vez', async ({ page }) => {
-  await page.goto('/')
+  await openLanding(page)
   const first = page.getByRole('button', { name: /Qual a diferença/ })
   const second = page.getByRole('button', { name: /Vocês entregam/ })
   await expect(first).toHaveAttribute('aria-expanded', 'true')
@@ -57,7 +63,7 @@ test('FAQ abre e fecha por teclado, um item por vez', async ({ page }) => {
 
 test('links de navegação levam às seções', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
+  await openLanding(page)
   await page
     .getByRole('navigation', { name: 'Principal' })
     .getByRole('link', { name: 'Barris' })
@@ -68,7 +74,7 @@ test('links de navegação levam às seções', async ({ page }) => {
 
 test('menu mobile abre, lista os links e fecha com Escape', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await openLanding(page)
   const toggle = page.getByRole('button', { name: 'Abrir menu' })
   await toggle.click()
   await expect(page.getByRole('link', { name: 'Como funciona' })).toBeVisible()
@@ -82,7 +88,7 @@ test('menu mobile abre, lista os links e fecha com Escape', async ({ page }) => 
 
 test('sem número configurado, o WhatsApp avisa em vez de fingir que abre', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
+  await openLanding(page)
   await expect(page.locator('a[href*="wa.me"]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Pedir no WhatsApp' }).first().click()
   await expect(
@@ -93,7 +99,7 @@ test('sem número configurado, o WhatsApp avisa em vez de fingir que abre', asyn
 test('título do Hero: quebra fixa em quatro linhas no desktop', async ({ page }) => {
   for (const width of [1440, 820]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
     const title = page.locator('#hero-title')
     const lines = await title.evaluate((h1) => {
@@ -125,7 +131,7 @@ test('título do Hero: quebra fixa em quatro linhas no desktop', async ({ page }
 test('título do Hero: "na porta." fica na mesma linha no celular', async ({ page }) => {
   for (const width of [412, 390]) {
     await page.setViewportSize({ width, height: 844 })
-    await page.goto('/')
+    await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
     const [na, porta] = await page.locator('#hero-title span').evaluateAll((spans) => {
       const span = spans[0]
@@ -140,7 +146,7 @@ test('título do Hero: "na porta." fica na mesma linha no celular', async ({ pag
 test('aviso de maiores de 18 anos aparece no Hero e no rodapé, sem modal', async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
+    await openLanding(page)
     await expect(page.getByRole('dialog')).toHaveCount(0)
     for (const id of ['hero', 'footer']) {
       const notice = page.getByTestId(`age-notice-${id}`)
@@ -154,7 +160,7 @@ test('aviso de maiores de 18 anos aparece no Hero e no rodapé, sem modal', asyn
 })
 
 test('FAQ de pagamento não afirma formas nem taxas sem confirmação', async ({ page }) => {
-  await page.goto('/')
+  await openLanding(page)
   await page.getByRole('button', { name: 'Quais as formas de pagamento?' }).click()
   const panel = page.getByRole('region', { name: 'Quais as formas de pagamento?' })
   await expect(panel).toContainText('confirmação comercial')
@@ -167,7 +173,7 @@ test.describe('CTA fixo no celular', () => {
   test('some enquanto o CTA do Hero está à vista, aparece depois e some no CTA final', async ({
     page,
   }) => {
-    await page.goto('/')
+    await openLanding(page)
     const bar = page.getByTestId('sticky-cta')
     await expect(bar).toHaveAttribute('data-visible', 'false')
     await expect(bar.getByRole('button')).toBeHidden()
@@ -181,7 +187,7 @@ test.describe('CTA fixo no celular', () => {
   })
 
   test('não cobre conteúdo: o fim da página deixa espaço para a barra', async ({ page }) => {
-    await page.goto('/')
+    await openLanding(page)
     const padding = await page
       .locator('#topo')
       .evaluate((el) => Number.parseFloat(getComputedStyle(el).paddingBottom))
@@ -189,7 +195,7 @@ test.describe('CTA fixo no celular', () => {
   })
 
   test('escondido, não entra na ordem de foco do teclado', async ({ page }) => {
-    await page.goto('/')
+    await openLanding(page)
     await expect(page.getByTestId('sticky-cta')).toHaveAttribute('inert', '')
     const reached: string[] = []
     for (let i = 0; i < 8; i++) {
@@ -208,13 +214,13 @@ test.describe('CTA fixo no celular', () => {
 
 test('no desktop o CTA fixo nunca aparece', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
+  await openLanding(page)
   await page.locator('#barris').scrollIntoViewIfNeeded()
   await expect(page.getByTestId('sticky-cta')).toBeHidden()
 })
 
 test('teclado: o link de pular conteúdo recebe o foco com contorno visível', async ({ page }) => {
-  await page.goto('/')
+  await openLanding(page)
   await page.keyboard.press('Tab')
   const skip = page.getByRole('link', { name: 'Ir para o conteúdo' })
   await expect(skip).toBeFocused()
@@ -227,7 +233,7 @@ test.describe('movimento reduzido', () => {
   test.use({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 } })
 
   test('a faixa em movimento para e a barra fixa não anima', async ({ page }) => {
-    await page.goto('/')
+    await openLanding(page)
     const animated = await page.evaluate(
       () =>
         [...document.querySelectorAll('body *')].filter(
@@ -247,7 +253,7 @@ test.describe('movimento reduzido', () => {
 })
 
 test('com movimento normal a faixa anima (controle do teste acima)', async ({ page }) => {
-  await page.goto('/')
+  await openLanding(page)
   const animated = await page.evaluate(
     () =>
       [...document.querySelectorAll('body *')].filter(

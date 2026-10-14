@@ -5,13 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.backend.json",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:backend": "vitest run tests/backend shared/money.test.ts",
+    "db:init": "wrangler d1 migrations apply DELEGAS_DB --local",
+    "dev:backend": "wrangler pages dev dist --ip 127.0.0.1 --port 8788",
+    "dev:full": "npm run db:init && npm run build && npm run dev:backend",
+    "types:backend": "wrangler types --include-runtime false"
   },
   "dependencies": {
     "@fontsource/big-shoulders-display": "^5.3.0",
@@ -22,13 +27,16 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@cloudflare/workers-types": "^5.20261014.1",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "miniflare": "^4.20260730.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.4",
+    "wrangler": "^4.151.0"
   }
 }

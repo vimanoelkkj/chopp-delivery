@@ -46,7 +46,7 @@ export function PriceTable({ products }: PriceTableProps) {
                       <span className="visually-hidden">não disponível</span>
                     </>
                   ) : (
-                    formatBRL(price, { cents: false })
+                    formatBRL(price, { cents: !Number.isInteger(price) })
                   )}
                 </td>
               )

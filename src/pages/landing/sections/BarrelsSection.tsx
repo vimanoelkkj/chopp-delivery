@@ -1,6 +1,6 @@
 import { joinNames, lowestPrice, onlyLargeBarrel } from '@/features/catalog/pricing'
-import { products } from '@/features/catalog/products'
-import type { BarrelSize } from '@/features/catalog/types'
+import type { BarrelSize, Product } from '@/features/catalog/types'
+import type { CatalogState } from '@/features/catalog/useCatalog'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { Container } from '@/shared/ui/Container'
@@ -14,12 +14,13 @@ const usage: Record<BarrelSize, string> = {
   50: 'Para festas e eventos.',
 }
 
-function startingAt(size: BarrelSize): string {
+function startingAt(products: Product[], size: BarrelSize): string {
   const price = lowestPrice(products, size)
   return price === null ? '' : ` A partir de ${formatBRL(price)}.`
 }
 
-export function BarrelsSection() {
+export function BarrelsSection({ state }: { state: CatalogState }) {
+  const products = state.status === 'ready' ? state.catalog.products : []
   const largeOnly = onlyLargeBarrel(products).map((product) => product.name)
 
   return (
@@ -41,11 +42,18 @@ export function BarrelsSection() {
                 <span className={styles.liters}>{size} L</span>
                 <span className={styles.usage}>
                   {usage[size]}
-                  {startingAt(size)}
+                  {startingAt(products, size)}
                 </span>
               </li>
             ))}
           </ul>
+          {state.status !== 'ready' && (
+            <p className={styles.note}>
+              {state.status === 'loading'
+                ? 'Carregando preços…'
+                : 'Preços indisponíveis no momento.'}
+            </p>
+          )}
           {largeOnly.length > 0 && (
             <p className={styles.note}>{joinNames(largeOnly)} só em barril de 50 L.</p>
           )}

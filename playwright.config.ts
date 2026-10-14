@@ -17,9 +17,9 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: `npm run build && npm run preview -- --port ${port} --strictPort`,
+    command: `npm run build && npm run db:init -- --persist-to .wrangler/e2e-state && wrangler pages dev dist --ip 127.0.0.1 --port ${port} --persist-to .wrangler/e2e-state`,
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

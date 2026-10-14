@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@cloudflare/workers-types"],
+    "tsBuildInfoFile": "node_modules/.cache/backend.tsbuildinfo"
+  },
+  "include": [
+    "functions",
+    "shared",
+    "tests",
+    "e2e",
+    "worker-configuration.d.ts",
+    "playwright.config.ts"
+  ]
+}

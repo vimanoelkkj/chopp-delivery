@@ -1,7 +1,7 @@
 import type { Cachaca, Product } from './types'
 
 /**
- * Dados iniciais de demonstração, copiados da tabela de valores enviada pelo estabelecimento.
+ * Fixture histórica dos testes: corresponde ao seed D1. Não é fonte de dados da interface.
  * Sujeitos à confirmação comercial. Fotos ainda não existem.
  */
 export const products: Product[] = [

@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chopp-delivery-delegas",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-08-06",
+  "d1_databases": [
+    {
+      "binding": "DELEGAS_DB",
+      "database_name": "delegas-catalog-local",
+      "database_id": "delegas-local-only",
+      "preview_database_id": "DELEGAS_DB",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
