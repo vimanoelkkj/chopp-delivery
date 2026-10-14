@@ -32,7 +32,11 @@ Migrations aplicadas devem permanecer imutáveis; mudanças futuras ganham novos
 O arquivo `wrangler.jsonc` contém um identificador deliberadamente local (`delegas-local-only`),
 sem UUID de banco remoto, e `preview_database_id` exclusivo do binding Delegas.
 Nenhum recurso Cloudflare foi criado. Não use `--remote`, nem publique esta configuração.
-A data `2026-08-06` corresponde à data mais recente suportada pelo workerd instalado.
+A data de compatibilidade `2026-08-06` fixa o comportamento do runtime e foi validada
+nos testes locais; não indica a versão do workerd nem sua data máxima suportada.
+O lockfile atual contém duas cadeias: Miniflare 4 usa workerd `1.20260730.1`, enquanto
+Wrangler usa workerd `1.20261012.1`. Consulte `npm ls miniflare workerd` ao atualizar
+essas ferramentas; os runtimes de testes de handlers e Pages local podem diferir.
 
 ### Schema e contrato
 
@@ -81,6 +85,11 @@ com centavos; os valores inteiros atuais mantêm sua apresentação.
 Falhas de banco/conversão retornam 503 com
 `{"error":{"code":"CATALOG_UNAVAILABLE","message":"Catálogo indisponível no momento."}}`.
 Detalhes ficam no log do servidor. Métodos diferentes de GET retornam 405 e `Allow: GET`.
+HEAD também retorna 405, com os mesmos headers e sem corpo. OPTIONS retorna 405:
+a integração usa GET na mesma origem, sem CORS ou necessidade de preflight.
+Endpoints desconhecidos em `/api/` retornam 404 JSON com código `NOT_FOUND`,
+sem cair no HTML da SPA. O catch-all respeita a prioridade das Functions específicas
+e não captura rotas React ou assets fora de `/api/`.
 Nenhuma consulta pública grava dados. A interface mostra carregamento, erro com
 tentativa manual e estado vazio; leitura limitada a 10 segundos e cancelada no unmount.
 
@@ -120,11 +129,12 @@ Delegas, revisar a configuração de ambientes e aplicar migrations mediante aut
 A próxima fase pode acrescentar autenticação e edição administrativa com validação
 monetária, aproveitando esta fundação, sem misturar visibilidade com estoque.
 
-O audit de 2026-10-14 sinalizou avisos high em dependências de desenvolvimento do
-Miniflare (`sharp` e `undici`). Não são dependências do bundle público nem do handler
-publicado; esta F1 não processa imagens ou URLs externas. O servidor local escuta
-somente em loopback. Revisar versões oficiais corrigidas antes da publicação;
-não foi aplicado `npm audit fix --force` ou override não validado.
+O hardening pós-F1 fixou as dependências transitivas do Miniflare 4 com overrides
+de `sharp 0.35.5` e `undici 7.29.1`, sem trocar sua versão principal. O seletor do
+override acompanha a faixa da dependência direta e não afeta o Miniflare 5 do
+Wrangler. Revalidar audit e testes ao atualizar essa faixa; remover os overrides
+quando a versão oficial adotada já incorporar as correções. Não foi usado
+`npm audit fix --force`. O servidor local continua restrito a loopback.
 
 Referências: [Pages/D1 local](https://developers.cloudflare.com/d1/best-practices/local-development/),
 [testes D1 com Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/storage/d1/),

@@ -170,13 +170,17 @@ describe('GET /api/products com D1 descartável', () => {
     expect(log).toHaveBeenCalled()
   })
 
-  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('recusa %s sem consultar o banco', async (method) => {
-    const prepare = vi.fn(db.prepare.bind(db))
-    const response = await handleProducts({ method }, { prepare, batch: db.batch.bind(db) })
-    expect(response.status).toBe(405)
-    expect(response.headers.get('allow')).toBe('GET')
-    expect(prepare).not.toHaveBeenCalled()
-  })
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])(
+    'recusa %s sem consultar o banco',
+    async (method) => {
+      const prepare = vi.fn(db.prepare.bind(db))
+      const response = await handleProducts({ method }, { prepare, batch: db.batch.bind(db) })
+      expect(response.status).toBe(405)
+      expect(response.headers.get('allow')).toBe('GET')
+      expect(prepare).not.toHaveBeenCalled()
+      if (method === 'HEAD') expect(await response.text()).toBe('')
+    },
+  )
 
   it('schema rejeita preços fracionários em centavos e negativos', async () => {
     for (const price of [1.5, -1]) {

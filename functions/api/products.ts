@@ -24,10 +24,11 @@ export async function handleProducts(
   db: Pick<D1Database, 'prepare' | 'batch'>,
 ): Promise<Response> {
   if (request.method !== 'GET') {
-    return Response.json(
+    const response = Response.json(
       { error: { code: 'METHOD_NOT_ALLOWED', message: 'Método não permitido.' } },
       { status: 405, headers: { ...headers, Allow: 'GET' } },
     )
+    return request.method === 'HEAD' ? new Response(null, response) : response
   }
 
   try {
