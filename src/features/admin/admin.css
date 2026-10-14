@@ -1,0 +1,19 @@
+/* Tokens do painel. Só existem dentro de [data-admin]; o site público não é afetado.
+   A única cor fora da paleta preto/dourado/branco é o vermelho de erro, usado com parcimônia. */
+[data-admin] {
+  --admin-cream: #efe9dd;
+  --admin-gold-pending: #cf9508;
+  --admin-danger: #ff8d78;
+  --admin-row: #12100c;
+  --admin-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --admin-bar-h: 4.75rem;
+  background: var(--color-coal);
+  color: var(--color-bone);
+  min-height: 100dvh;
+  color-scheme: dark;
+}
+
+[data-admin] :is(button, a, [role='tab'], [role='switch']) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
