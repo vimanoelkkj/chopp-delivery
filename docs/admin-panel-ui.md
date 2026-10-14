@@ -126,9 +126,21 @@ no PDF** foram feitos na mesma linguagem visual:
 
 ## Comportamento
 
-- **Preço**: aceita `510`, `510,5`, `510.50`, `1.020,50`; formata em `510,00` ao sair do
-  campo; vazio = "não vende"; zero e > R$ 99.999,99 são recusados. Erros aparecem ao sair do
-  campo ou ao tentar salvar (o foco vai ao primeiro inválido, trocando de aba se preciso).
+- **Preço (máscara monetária, `PriceField` + `catalog/price.ts`)**: digita-se em centavos, da
+  direita para a esquerda (`4` → `0,04`, `49` → `0,49`, `490` → `4,90`, `4900` → `49,00`,
+  `125050` → `1.250,50`, máximo `99.999,99`). Todo caminho de edição (teclado físico, IME/teclado
+  virtual, recortar, Backspace/Delete, Ctrl+A) chega pelo evento `change` e é recalculado a
+  partir dos dígitos: o 8º dígito é recusado, não numéricos são ignorados, zero e vazio ficam
+  vazios ("não vende" nos barris; a cachaça mostra `0,00` e exige preço). Depois de cada edição o cursor
+  vai para o fim; a seleção ao focar (Tab, Ctrl+A, clique duplo) é respeitada. `inputmode="numeric"` abre o teclado numérico no celular.
+- **Colar**: substitui o campo inteiro e só aceita leitura única: `R$ 490,00`, `1.250,50`,
+  `490,5`, `490.50`. Recusa o ambíguo, com aviso e mantendo o valor anterior: `490` (reais ou
+  centavos?), `1.250` (milhar ou decimal?), `1,250`, `1,234.56`, mistura de separadores, zero
+  e acima do limite.
+- **Estado canônico**: o rascunho guarda o texto mascarado e o catálogo salvo recebe centavos
+  inteiros ou `null` (`buildCatalog`), sem `parseFloat`. Regras: mínimo 1 centavo, máximo
+  9.999.999; cachaça exige preço; produto visível exige ao menos um tamanho com preço.
+  Digitar de volta o valor salvo não conta como alteração pendente.
 - **Chope visível sem nenhum preço** é recusado ("Informe ao menos um preço ou oculte o produto.").
 - **Salvar** mostra giro no botão ("Salvando…", sem perder o foco), depois o aviso
   "Salvo. As mudanças já estão no site." por 3 s. Falha mantém o rascunho.

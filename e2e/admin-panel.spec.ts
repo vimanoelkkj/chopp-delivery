@@ -78,7 +78,7 @@ test.describe('login', () => {
 
   test('sessão expirada ao salvar volta ao login com aviso', async ({ page }) => {
     await openPanel(page, '?mock=expired')
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await save(page).click()
     await expect(page.getByText('Sua sessão expirou. Entre novamente.')).toBeVisible()
     await expect(page.getByLabel('Usuário')).toBeVisible()
@@ -164,7 +164,7 @@ test.describe('painel desktop', () => {
 
   test('editar preço e visibilidade marca alterações e salva com feedback', async ({ page }) => {
     await openPanel(page)
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await price(page, '30 L', 'Dronken').blur()
     await expect(price(page, '30 L', 'Dronken')).toHaveValue('515,00')
     await page.getByRole('switch', { name: 'Kaiser visível no site' }).click()
@@ -187,21 +187,27 @@ test.describe('painel desktop', () => {
     await expect(toast).toBeHidden({ timeout: 5000 })
   })
 
-  test('valida preço: erro após sair do campo e foco no primeiro inválido ao salvar', async ({
+  test('cachaça exige preço: erro ao sair do campo e foco no campo ao tentar salvar', async ({
     page,
   }) => {
     await openPanel(page)
-    const field = price(page, '50 L', 'Palato Beber')
-    await field.fill('abc')
+    await page.getByRole('tab', { name: /Cachaças/ }).click()
+    const field = page.getByLabel('Garrafa, preço em reais, Cachaça')
+    await expect(field).toHaveAttribute('placeholder', '0,00')
+    await field.press('Control+A')
+    await field.press('Backspace')
     await expect(field).not.toHaveAttribute('aria-invalid', 'true')
     await field.blur()
     await expect(field).toHaveAttribute('aria-invalid', 'true')
-    await expect(page.getByText('Use o formato 510,00.')).toBeVisible()
-    const message = await field.getAttribute('aria-describedby')
-    expect(message).toBeTruthy()
-    await page.getByLabel('30 L, preço em reais, Dronken').focus()
+    await expect(page.getByText('Informe o preço.')).toBeVisible()
+    expect(await field.getAttribute('aria-describedby')).toBeTruthy()
+    await page.getByRole('tab', { name: /Chopes/ }).click()
     await save(page).click()
     await expect(page.getByRole('alert').filter({ hasText: 'Corrija os campos' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /Cachaças/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     await expect(field).toBeFocused()
   })
 
@@ -247,7 +253,7 @@ test.describe('modais', () => {
     page,
   }) => {
     await openPanel(page)
-    await price(page, '30 L', 'Dronken').fill('999')
+    await price(page, '30 L', 'Dronken').fill('999,00')
     await page.getByRole('button', { name: 'Descartar' }).click()
     const dialog = page.getByRole('dialog', { name: 'Descartar alterações?' })
     await expect(dialog).toBeVisible()
@@ -278,7 +284,7 @@ test.describe('modais', () => {
 
   test('sair com alterações pede confirmação; sem alterações sai direto', async ({ page }) => {
     await openPanel(page)
-    await price(page, '30 L', 'Dronken').fill('999')
+    await price(page, '30 L', 'Dronken').fill('999,00')
     await page.getByRole('button', { name: 'Sair', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Sair sem salvar?' })
     await expect(dialog).toBeVisible()
@@ -342,7 +348,7 @@ test.describe('estados', () => {
     page,
   }) => {
     await openPanel(page, '?mock=save-error')
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await save(page).click()
     await expect(page.getByRole('alert')).toContainText('Não foi possível salvar')
     await expect(price(page, '30 L', 'Dronken')).toHaveValue('515,00')
@@ -359,7 +365,7 @@ test.describe('estados', () => {
     })
     await page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true })))
     expect(dialogs).toEqual([])
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     const prevented = await page.evaluate(() => {
       const event = new Event('beforeunload', { cancelable: true })
       window.dispatchEvent(event)
@@ -374,7 +380,7 @@ test.describe('edição concorrente', () => {
     page,
   }) => {
     await openPanel(page, '?mock=conflict')
-    await price(page, '50 L', 'Kaiser').fill('900')
+    await price(page, '50 L', 'Kaiser').fill('900,00')
     await save(page).click()
     const dialog = page.getByRole('dialog', { name: 'O catálogo mudou' })
     await expect(dialog).toBeVisible()
@@ -398,14 +404,14 @@ test.describe('edição concorrente', () => {
     await expect(price(page, '30 L', 'Dronken')).toHaveValue('530,00')
     await expect(price(page, '50 L', 'Kaiser')).toHaveValue('890,00')
     await expect(page.getByText('Tudo salvo.')).toBeVisible()
-    await price(page, '50 L', 'Kaiser').fill('900')
+    await price(page, '50 L', 'Kaiser').fill('900,00')
     await save(page).click()
     await expect(page.getByText('Salvo. As mudanças já estão no site.')).toBeVisible()
   })
 
   test('em conflito, Descartar recarrega do servidor', async ({ page }) => {
     await openPanel(page, '?mock=conflict')
-    await price(page, '50 L', 'Kaiser').fill('900')
+    await price(page, '50 L', 'Kaiser').fill('900,00')
     await save(page).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Continuar editando' }).click()
     await page.getByRole('button', { name: 'Descartar' }).click()
@@ -448,7 +454,7 @@ test.describe('movimento reduzido', () => {
 
   test('modal, toast e botões não animam', async ({ page }) => {
     await openPanel(page)
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await page.getByRole('button', { name: 'Descartar' }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
@@ -467,7 +473,7 @@ test.describe('movimento reduzido', () => {
 test.describe('movimento normal', () => {
   test('modal e toast usam animação curta de transform/opacity', async ({ page }) => {
     await openPanel(page)
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await page.getByRole('button', { name: 'Descartar' }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toHaveCSS('animation-name', /dialog-in|sheet-in/)
@@ -504,7 +510,7 @@ test.describe('painel mobile', () => {
     await openPanel(page)
     const toggle = await page.getByRole('switch', { name: 'Dronken visível no site' }).boundingBox()
     expect(toggle?.height).toBeGreaterThanOrEqual(48)
-    await price(page, '30 L', 'Dronken').fill('515')
+    await price(page, '30 L', 'Dronken').fill('515,00')
     await page.getByRole('button', { name: 'Descartar' }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()

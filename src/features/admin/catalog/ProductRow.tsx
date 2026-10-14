@@ -48,13 +48,14 @@ export function ProductRow({
         <p className={styles.description}>{item.description}</p>
       </div>
       <div className={styles.prices}>
-        {slots.map(({ slot, label }) => (
+        {slots.map(({ slot, label, required }) => (
           <PriceField
             key={slot}
             label={label}
             ariaLabel={`${label.replace(' (R$)', '')}, preço em reais, ${item.name}`}
             fieldKey={`${item.id}:${slot}`}
             value={text[slot] ?? ''}
+            placeholder={required ? '0,00' : 'não vende'}
             error={errors[slot]}
             onChange={(value) => onPrice(slot, value)}
             onBlur={() => onBlur(slot)}
