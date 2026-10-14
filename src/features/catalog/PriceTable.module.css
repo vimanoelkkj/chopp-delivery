@@ -1,0 +1,106 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.nameCol {
+  width: 46%;
+}
+
+.head {
+  padding: 0 0 0.5rem;
+  border-bottom: 1px solid var(--color-line-strong);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.sizeLong {
+  display: none;
+}
+
+.row {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.name,
+.price,
+.unavailable {
+  padding: 0.75rem 0;
+  vertical-align: middle;
+}
+
+.name {
+  text-align: left;
+  font-weight: 400;
+}
+
+.title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.description {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.price,
+.unavailable {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-gold);
+  white-space: nowrap;
+}
+
+.unavailable {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@media (min-width: 48rem) {
+  .nameCol {
+    width: 50%;
+  }
+
+  .head {
+    font-size: 0.75rem;
+  }
+
+  .sizeLong {
+    display: inline;
+  }
+
+  .name,
+  .price,
+  .unavailable {
+    padding: 1.375rem 0;
+  }
+
+  .title {
+    font-size: 2.125rem;
+    line-height: 1;
+  }
+
+  .description {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .price,
+  .unavailable {
+    font-size: 1.375rem;
+  }
+}

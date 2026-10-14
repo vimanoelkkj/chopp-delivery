@@ -1,0 +1,40 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.full {
+  display: flex;
+  width: 100%;
+}
+
+.notice {
+  position: absolute;
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2rem));
+  background: var(--color-bone);
+  color: var(--color-black);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.notice:not(:empty) {
+  padding: 0.75rem 1rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+.below {
+  top: calc(100% + 0.5rem);
+}
+
+.above {
+  bottom: calc(100% + 0.5rem);
+}
+
+.wrap > button,
+.wrap > a {
+  flex: 1 1 auto;
+}

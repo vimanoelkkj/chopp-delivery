@@ -1,0 +1,45 @@
+/* Tokens de design. Breakpoint único de layout: 48rem (768px).
+   Media queries não aceitam var(), por isso o valor aparece literal nos módulos. */
+:root {
+  /* Cores */
+  --color-black: #000;
+  --color-coal: #0b0a08;
+  --color-panel: #14120e;
+  --color-steel: #221f19;
+  --color-line: #2b2822;
+  --color-line-strong: #6b6454;
+  --color-muted: #a59e8e;
+  --color-soft: #cfc8b8;
+  --color-bone: #f3eee4;
+  --color-gold: #f4b10b;
+  --color-gold-hover: #ffc83a;
+
+  /* Tipografia */
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Escala de títulos (fluida entre 390px e 1440px) */
+  --text-hero: clamp(5.375rem, 3.47rem + 7.81vw, 10.5rem);
+  --text-cta: clamp(6rem, 3.9rem + 8.6vw, 9.375rem);
+  --text-h2: clamp(3.5rem, 2.2rem + 5.5vw, 5.25rem);
+  --text-h2-large: clamp(3.375rem, 2.3rem + 4.7vw, 5.5rem);
+
+  /* Espaçamento */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --section-y: clamp(3.5rem, 2rem + 6.5vw, 6.5rem);
+  --gutter: clamp(1rem, 0.3rem + 2.9vw, 2.5rem);
+  --container: 80rem;
+
+  /* Componentes */
+  --tap-min: 3rem;
+  --radius-pill: 999px;
+  --focus-ring: 2px solid var(--color-gold);
+}

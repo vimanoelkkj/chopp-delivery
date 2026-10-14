@@ -1,0 +1,17 @@
+.section {
+  background: var(--color-coal);
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 62.5rem;
+  padding-block: var(--section-y);
+}
+
+@media (min-width: 48rem) {
+  .inner {
+    gap: 2.5rem;
+  }
+}

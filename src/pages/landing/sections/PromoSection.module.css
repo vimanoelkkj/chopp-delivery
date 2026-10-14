@@ -1,0 +1,57 @@
+.section {
+  background: var(--color-gold);
+  color: var(--color-black);
+}
+
+.inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-block: 2.5rem;
+}
+
+.copy {
+  display: flex;
+  flex: 1 1 32rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(3.375rem, 2.2rem + 5vw, 5.5rem);
+  font-weight: 900;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.text {
+  max-width: 35rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 48rem) {
+  .inner {
+    padding-block: 4.5rem;
+    gap: 2rem;
+  }
+
+  .eyebrow {
+    font-size: 0.8125rem;
+  }
+
+  .text {
+    font-size: 1.125rem;
+  }
+}

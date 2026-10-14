@@ -1,0 +1,56 @@
+.ticker {
+  overflow: hidden;
+  background: var(--color-gold);
+  color: var(--color-black);
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  animation: slide 40s linear infinite;
+}
+
+.row {
+  display: flex;
+  flex: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0;
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.item::after {
+  content: '·';
+  padding-inline: 1.25rem;
+}
+
+@keyframes slide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 48rem) {
+  .item {
+    padding-block: 0.875rem;
+    font-size: 2.75rem;
+  }
+
+  .item::after {
+    padding-inline: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+  }
+}

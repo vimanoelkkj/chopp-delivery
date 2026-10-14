@@ -1,0 +1,51 @@
+.list {
+  border-top: 1px solid var(--color-line);
+}
+
+.item {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.heading {
+  margin: 0;
+  font: inherit;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.75rem 0;
+  border: 0;
+  background: none;
+  color: var(--color-bone);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sign {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  color: var(--color-gold);
+}
+
+.answer {
+  max-width: 47.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+@media (min-width: 48rem) {
+  .trigger {
+    font-size: 1.25rem;
+  }
+}

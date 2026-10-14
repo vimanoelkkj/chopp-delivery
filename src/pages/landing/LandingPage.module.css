@@ -1,0 +1,10 @@
+/* Reserva o espaço da barra fixa de WhatsApp no celular. */
+.page {
+  padding-bottom: 5rem;
+}
+
+@media (min-width: 48rem) {
+  .page {
+    padding-bottom: 0;
+  }
+}

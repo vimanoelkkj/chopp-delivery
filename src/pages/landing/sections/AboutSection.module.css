@@ -1,0 +1,45 @@
+.section {
+  background: var(--color-black);
+}
+
+.inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2rem;
+  padding-block: var(--section-y);
+}
+
+.copy {
+  display: flex;
+  flex: 1 1 30rem;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.text {
+  max-width: 32.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-soft);
+}
+
+.photo {
+  flex: 1 1 26rem;
+  min-height: 13.75rem;
+}
+
+@media (min-width: 48rem) {
+  .inner {
+    gap: 4rem;
+  }
+
+  .text {
+    font-size: 1.125rem;
+  }
+
+  .photo {
+    min-height: 26rem;
+  }
+}

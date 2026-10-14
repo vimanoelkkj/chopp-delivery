@@ -1,0 +1,33 @@
+.photo {
+  display: flex;
+  align-items: flex-end;
+  min-height: 12rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  background: repeating-linear-gradient(135deg, #17150f 0 12px, #1c1912 12px 24px);
+  color: var(--color-muted);
+}
+
+.glow {
+  background:
+    radial-gradient(ellipse at 50% 70%, rgb(244 177 11 / 0.14), transparent 60%),
+    repeating-linear-gradient(135deg, #17150f 0 12px, #1c1912 12px 24px);
+}
+
+.caption {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+@media (min-width: 48rem) {
+  .photo {
+    padding: 1rem;
+  }
+
+  .caption {
+    font-size: 0.75rem;
+  }
+}

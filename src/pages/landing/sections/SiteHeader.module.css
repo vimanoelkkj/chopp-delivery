@@ -1,0 +1,145 @@
+.header {
+  position: relative;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-black);
+}
+
+.skip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  padding: 0.75rem 1rem;
+  background: var(--color-gold);
+  color: var(--color-black);
+  font-weight: 600;
+  transform: translateY(-120%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.875rem;
+}
+
+.logo {
+  display: flex;
+}
+
+.logo img {
+  height: 3.5rem;
+  width: auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: 1px solid var(--color-line);
+  background: none;
+  cursor: pointer;
+}
+
+.bars,
+.bars::before {
+  display: block;
+  width: 1.375rem;
+  height: 2px;
+  background: var(--color-bone);
+}
+
+.bars {
+  position: relative;
+  top: -3px;
+}
+
+.bars::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+}
+
+.links {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  padding: 0.5rem var(--gutter) 1rem;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-black);
+}
+
+.links[data-open='true'] {
+  display: flex;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  font-size: 1.0625rem;
+  color: var(--color-soft);
+}
+
+.link:hover {
+  color: var(--color-gold);
+}
+
+.cta {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .bar {
+    flex-wrap: wrap;
+    padding-block: 1.125rem;
+  }
+
+  .logo img {
+    height: 4.5rem;
+  }
+
+  .toggle {
+    display: none;
+  }
+
+  .links {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    gap: 1.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .link {
+    min-height: 0;
+    font-size: 0.9375rem;
+  }
+
+  .nav {
+    margin-inline: auto;
+  }
+
+  .cta {
+    display: block;
+  }
+}

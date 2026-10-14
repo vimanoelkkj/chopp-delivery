@@ -1,0 +1,9 @@
+.break {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .break {
+    display: inline;
+  }
+}

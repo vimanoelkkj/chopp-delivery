@@ -1,0 +1,39 @@
+.bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 15;
+  display: flex;
+  padding: 0.75rem var(--gutter);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  background: linear-gradient(rgb(0 0 0 / 0), var(--color-black) 30%);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition:
+    transform 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+
+.shown {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}
+
+.bar > span,
+.bar > a {
+  width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .bar {
+    display: none;
+  }
+}
