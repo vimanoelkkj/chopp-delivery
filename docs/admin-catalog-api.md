@@ -4,6 +4,10 @@ Base: F2/F2.1 consolidada no commit local `a5a4563`. Branch `feat/admin-catalog-
 Esta fase cria somente leitura e edição administrativa dos registros existentes.
 Nenhuma migration, seed, dependência, binding ou interface gráfica foi adicionada.
 
+F3A consolidada no commit local `6e6e96d`, após corrigir os P2 de validação.
+A extensão [F3A.1](admin-catalog-atomic.md) acrescenta snapshot, PUT atômico e
+revisionamento via migration 0004, preservando todos os endpoints descritos aqui.
+
 ## Schema e escopo
 
 O schema real do D1 local foi inspecionado via `sqlite_master`, com Wrangler `--local`.
@@ -152,7 +156,8 @@ npm.cmd run test:e2e
 git diff --check
 ```
 
-Integração usa Miniflare/D1 descartável com as três migrations existentes.
+Integração usa Miniflare/D1 descartável; a fixture atual também aplica a migration
+0004 da F3A.1 para verificar os PATCHs com revisionamento global.
 As fixtures fazem login real com credenciais sintéticas, sem mocks de autorização
 ou de execução SQL. Proxies de teste somente observam bind/SQL ou controlam o
 momento de uma revogação/falha, executando operações reais no D1. E2E verifica o
@@ -161,9 +166,9 @@ os testes D1 cobrem escrita autenticada, dinheiro, no-op, revogação e rollback
 
 ## Riscos e decisões para a próxima fase
 
-- **P2:** edições simultâneas do mesmo campo seguem a última escrita autorizada.
-  Campos omitidos não são sobrescritos. Antes de múltiplos editores, considerar
-  revisão/ETag ou controle de concorrência, com necessidade de schema demonstrada.
+- **P2:** PATCHs individuais do mesmo campo seguem a última escrita autorizada.
+  Campos omitidos não são sobrescritos. O salvamento completo da F3A.1 usa revisão
+  otimista/ETag; alterações individuais invalidam snapshots anteriores.
 - **P2:** permanecem riscos de ataque distribuído, quotas compartilhadas e orçamento
   CPU da F2.1. Não foram criados recursos de borda, remoto ou de proteção adicional.
 - **P2:** não há histórico/auditoria persistente de alterações. Antes de publicar um
@@ -175,6 +180,6 @@ os testes D1 cobrem escrita autenticada, dinheiro, no-op, revogação e rollback
   O repositório reduz risco de omitir a prova; futuras mutações devem usá-lo ou
   manter a mesma autorização no SQL, com regressões próprias.
 
-O storefront, migrations, seed e autenticação aprovados permanecem intactos.
-Não foi feito commit da F3A, publicação ou operação remota. A entrega aguarda revisão
-independente e aprovação antes da próxima etapa.
+O storefront, migrations anteriores, seed e autenticação aprovados permanecem intactos.
+A F3A foi consolidada localmente; não houve publicação ou operação remota.
+A F3A.1 permanece sem commit, aguardando revisão independente e aprovação.

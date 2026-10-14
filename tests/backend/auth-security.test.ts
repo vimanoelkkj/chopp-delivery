@@ -175,12 +175,17 @@ describe('concorrência e guards administrativos', () => {
     const proof = adminWriteProof(authorization.principal, authorization.config)
     const update = () =>
       fixture.db
-        .prepare(`UPDATE products SET name = ? WHERE id = ? AND ${proof.sql}`)
+        .prepare(`UPDATE products SET name = ? WHERE id = ? AND ${proof.sql} RETURNING id`)
         .bind('Alteração de teste', 'dronken', ...proof.values)
-        .run()
-    expect((await update()).meta.changes).toBe(1)
+        .all()
+    // meta.changes inclui a escrita da revisão feita pelo trigger da migration 0004.
+    expect((await update()).results).toEqual([{ id: 'dronken' }])
+    expect(await fixture.db.prepare('SELECT revision FROM catalog_meta').first('revision')).toBe(1)
     await fixture.db.prepare('UPDATE admin_users SET active = 0').run()
-    expect((await update()).meta.changes).toBe(0)
+    const blocked = await update()
+    expect(blocked.results).toEqual([])
+    expect(blocked.meta.changes).toBe(0)
+    expect(await fixture.db.prepare('SELECT revision FROM catalog_meta').first('revision')).toBe(1)
   })
 
   it('sessão do Delegas não autentica em outro banco', async () => {

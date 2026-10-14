@@ -6,7 +6,10 @@ export const PATCH_BODY_TIMEOUT_MS = 5000
 export const MAX_PRICE_CENTS = 9_999_999
 
 /** JSON limitado em bytes reais e duração, sem confiar no Content-Length. */
-export async function readPatchBody(request: Request): Promise<{ value: unknown } | null> {
+export async function readPatchBody(
+  request: Request,
+  byteLimit = PATCH_BODY_LIMIT,
+): Promise<{ value: unknown } | null> {
   if (
     request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !==
       'application/json' ||
@@ -28,7 +31,7 @@ export async function readPatchBody(request: Request): Promise<{ value: unknown 
       const { done, value } = await Promise.race([reader.read(), deadline])
       if (done) break
       length += value.byteLength
-      if (length > PATCH_BODY_LIMIT) {
+      if (length > byteLimit) {
         void reader.cancel().catch(() => {})
         return null
       }
@@ -81,7 +84,7 @@ function hasVisibleCharacter(value: string): boolean {
   return /[\p{Letter}\p{Number}\p{Punctuation}\p{Symbol}]/u.test(visible)
 }
 
-function validText(value: unknown, name: boolean): value is string {
+export function validText(value: unknown, name: boolean): value is string {
   return (
     typeof value === 'string' &&
     !unsafeUnicode(value) &&
@@ -90,7 +93,7 @@ function validText(value: unknown, name: boolean): value is string {
   )
 }
 
-function validCents(value: unknown): value is number {
+export function validCents(value: unknown): value is number {
   if (
     typeof value !== 'number' ||
     !Number.isSafeInteger(value) ||

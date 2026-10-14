@@ -7,7 +7,19 @@ export const TEST_ORIGIN = 'http://127.0.0.1:8788'
 export const TEST_PASSWORD = 'Uma frase longa apenas para testes'
 export const TEST_PEPPER = 'ab'.repeat(32)
 
-export async function authFixture() {
+export async function applyTestMigration(db: D1Database, file: string) {
+  const sql = readFileSync(`migrations/${file}`, 'utf8').replace(/^--.*$/gm, '')
+  const [ordinary, ...triggers] = sql.split(/(?=^CREATE TRIGGER)/m)
+  await db.batch(
+    ordinary
+      .split(';')
+      .filter((part) => part.trim())
+      .map((part) => db.prepare(part)),
+  )
+  for (const trigger of triggers) await db.prepare(trigger).run()
+}
+
+export async function authFixture(includeCatalogRevision = true) {
   const runtime = new Miniflare({
     modules: true,
     script: 'export default { fetch() { return new Response("test") } }',
@@ -16,17 +28,13 @@ export async function authFixture() {
     d1Persist: false,
   })
   const db = await runtime.getD1Database('DELEGAS_DB')
-  for (const file of ['0001_catalog.sql', '0002_catalog_seed.sql', '0003_admin_auth.sql']) {
-    const sql = readFileSync(`migrations/${file}`, 'utf8').replace(/^--.*$/gm, '')
-    const trigger = sql.indexOf('CREATE TRIGGER')
-    const ordinary = trigger < 0 ? sql : sql.slice(0, trigger)
-    await db.batch(
-      ordinary
-        .split(';')
-        .filter((part) => part.trim())
-        .map((part) => db.prepare(part)),
-    )
-    if (trigger >= 0) await db.prepare(sql.slice(trigger)).run()
+  for (const file of [
+    '0001_catalog.sql',
+    '0002_catalog_seed.sql',
+    '0003_admin_auth.sql',
+    ...(includeCatalogRevision ? ['0004_catalog_revision.sql'] : []),
+  ]) {
+    await applyTestMigration(db, file)
   }
   const env: AuthEnv = {
     DELEGAS_DB: db,

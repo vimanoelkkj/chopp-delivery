@@ -13,6 +13,10 @@ com contratos, bootstrap local, cookies, guards e política de segurança. Não 
 As APIs administrativas de leitura e edição do catálogo F3A estão em
 [docs/admin-catalog-api.md](docs/admin-catalog-api.md). Não há painel gráfico nesta fase.
 
+O snapshot e o salvamento atômico com revisão otimista F3A.1 estão em
+[docs/admin-catalog-atomic.md](docs/admin-catalog-atomic.md), incluindo o contrato
+compatível com AdminCatalogGateway e a migration 0004, validada somente localmente.
+
 ### Desenvolvimento local no Windows
 
 Requer Node.js e dependências instaladas com `npm ci`. Não execute `playwright install`

@@ -59,6 +59,10 @@ it('Wrangler reaplica a inicialização local sem perder catálogo, proprietári
       .bind(12345, 'dronken')
       .run()
     await db.prepare('UPDATE admin_users SET active = 0').run()
+    const revision = await db
+      .prepare('SELECT revision FROM catalog_meta WHERE singleton = 1')
+      .first('revision')
+    expect(revision).toBe(1)
     await runtime.dispose()
     runtime = undefined
     expect(migrate()).toContain('No migrations to apply')
@@ -74,6 +78,9 @@ it('Wrangler reaplica a inicialização local sem perder catálogo, proprietári
     expect(
       await db.prepare('SELECT username, active, auth_version FROM admin_users').first(),
     ).toEqual({ username: 'owner', active: 0, auth_version: 2 })
+    expect(
+      await db.prepare('SELECT revision FROM catalog_meta WHERE singleton = 1').first('revision'),
+    ).toBe(revision)
   } finally {
     await runtime?.dispose()
     await cleanupOwned(scratch, marker, ownership)
