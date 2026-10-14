@@ -10,6 +10,9 @@ são apenas uma fixture histórica dos testes; não são importados pela interfa
 A infraestrutura de autenticação F2 está em [docs/admin-auth.md](docs/admin-auth.md),
 com contratos, bootstrap local, cookies, guards e política de segurança. Não há UI de login.
 
+As APIs administrativas de leitura e edição do catálogo F3A estão em
+[docs/admin-catalog-api.md](docs/admin-catalog-api.md). Não há painel gráfico nesta fase.
+
 ### Desenvolvimento local no Windows
 
 Requer Node.js e dependências instaladas com `npm ci`. Não execute `playwright install`
