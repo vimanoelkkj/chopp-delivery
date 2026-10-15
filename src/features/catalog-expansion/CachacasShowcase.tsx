@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { contact } from '@/features/contact/config'
+import { formatBRL } from '@/shared/lib/format'
 import { buildWhatsAppUrl } from '@/shared/lib/whatsapp'
 import styles from './CachacasShowcase.module.css'
-import { type CatalogItemV2, formatPriceFromCents } from './types'
+import { type CatalogItemV2, centsToReaisSafe, formatPriceFromCents } from './types'
 
 type CachacasShowcaseProps = {
   items: CatalogItemV2[]
@@ -45,9 +46,11 @@ export function buildCachacaWhatsAppMessage(
   variant: { label: string; priceCents: number | null },
 ): string {
   const cleanName = itemName.replace(' (Demonstração)', '').replace(' (Referência)', '')
-  const volumePart = variant.label ? ` (${variant.label})` : ''
-  const priceText = formatPriceFromCents(variant.priceCents)
-  return `Olá! Gostaria de pedir a ${cleanName}${volumePart} por ${priceText}.`
+  const volumeNumber = variant.label.replace(/garrafa\s+/i, '')
+  const priceValue = variant.priceCents !== null ? centsToReaisSafe(variant.priceCents) : null
+  const priceFormatted = priceValue !== null ? formatBRL(priceValue, { cents: true }) : '—'
+
+  return `Olá! Gostaria de pedir uma garrafa de ${cleanName} ${volumeNumber} por ${priceFormatted}.`
 }
 
 function CachacaCard({ item }: { item: CatalogItemV2 }) {

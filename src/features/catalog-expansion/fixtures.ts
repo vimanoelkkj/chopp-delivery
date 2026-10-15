@@ -276,7 +276,7 @@ export const EXPANDED_CATALOG_FIXTURE: PublicCatalogV2 = {
         // Cachaça 1 (existente no cardápio Delegas: conservada em barril de umburana com jequitibá rosa, 700 ml, R$ 30)
         {
           id: 'cachaca-umburana',
-          name: 'Temos cachaça',
+          name: 'Cachaça',
           description: 'Conservada em barril de umburana com jequitibá rosa',
           visible: true,
           sortOrder: 0,
