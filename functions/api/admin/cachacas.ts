@@ -1,4 +1,3 @@
-import { handleAdminList } from '../../../server/admin-catalog/handlers'
-
+import { handleLegacyAdmin } from '../../../server/catalog-expansion/legacy'
 export const onRequest: PagesFunction<Env> = ({ request, env }) =>
-  handleAdminList(request, env, 'cachacas')
+  handleLegacyAdmin(request, env, 'cachacas')

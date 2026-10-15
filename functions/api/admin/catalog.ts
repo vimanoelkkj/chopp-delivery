@@ -1,3 +1,3 @@
-import { handleCatalog } from '../../../server/admin-catalog/catalog-handler'
-
-export const onRequest: PagesFunction<Env> = ({ request, env }) => handleCatalog(request, env)
+import { handleLegacyAdmin } from '../../../server/catalog-expansion/legacy'
+export const onRequest: PagesFunction<Env> = ({ request, env }) =>
+  handleLegacyAdmin(request, env, 'catalog')

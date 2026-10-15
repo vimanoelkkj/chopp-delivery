@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchCatalog } from './api'
-import type { Catalog } from './types'
+import { fetchExpandedCatalog, type StorefrontCatalog } from './expanded-api'
 
-export type CatalogState = { status: 'loading' | 'error' } | { status: 'ready'; catalog: Catalog }
+export type CatalogState =
+  | { status: 'loading' | 'error' }
+  | { status: 'ready'; catalog: StorefrontCatalog }
 
 export function useCatalog() {
   const [state, setState] = useState<CatalogState>({ status: 'loading' })
@@ -13,7 +14,7 @@ export function useCatalog() {
     const timeout = setTimeout(() => controller.abort(), 10_000)
     let active = true
     if (attempt > 0) setState({ status: 'loading' })
-    fetchCatalog(controller.signal)
+    fetchExpandedCatalog(controller.signal)
       .then((catalog) => {
         if (active) setState({ status: 'ready', catalog })
       })

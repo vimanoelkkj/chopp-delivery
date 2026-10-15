@@ -1,8 +1,13 @@
 import { formatBRL } from '@/shared/lib/format'
+import type { PublicCatalog } from '../../../shared/catalog'
+import { centsToReais } from '../../../shared/money'
 import styles from './CachacaBanner.module.css'
 import type { Cachaca } from './types'
 
-export function CachacaBanner({ item }: { item: Cachaca }) {
+type ExpandedBottle = Pick<Cachaca, 'title' | 'description'> & {
+  variants: PublicCatalog['categories'][number]['items'][number]['variants']
+}
+export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
   return (
     <aside className={styles.banner} aria-label={item.title}>
       <div className={styles.copy}>
@@ -10,7 +15,19 @@ export function CachacaBanner({ item }: { item: Cachaca }) {
         <p className={styles.description}>{item.description}</p>
       </div>
       <p className={styles.price}>
-        Garrafa {item.bottleMl} ml · {formatBRL(item.price)}
+        {'variants' in item ? (
+          item.variants.map((v, index) => (
+            <span key={v.code}>
+              {index > 0 && <br />}
+              {v.label} {v.volumeMl} ml ·{' '}
+              {v.priceCents === null ? 'Não comercializado' : formatBRL(centsToReais(v.priceCents))}
+            </span>
+          ))
+        ) : (
+          <>
+            Garrafa {item.bottleMl} ml · {formatBRL(item.price)}
+          </>
+        )}
       </p>
     </aside>
   )

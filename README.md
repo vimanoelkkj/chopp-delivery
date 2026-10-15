@@ -2,7 +2,8 @@
 
 ## Backend F1: catálogo público
 
-React/Vite consulta `GET /api/products` na mesma origem. A Pages Function lê o binding
+React/Vite consulta `GET /api/catalog` na mesma origem. O contrato legado `/api/products`
+só responde quando a projeção é completa e fiel. A Pages Function lê o binding
 `DELEGAS_DB` do Cloudflare D1. Não há fallback para catálogo estático, estoque, pedidos,
 reservas ou painel nesta etapa. Os dados de `src/features/catalog/products.ts`
 são apenas uma fixture histórica dos testes; não são importados pela interface.
@@ -16,6 +17,12 @@ As APIs administrativas de leitura e edição do catálogo F3A estão em
 O snapshot e o salvamento atômico com revisão otimista F3A.1 estão em
 [docs/admin-catalog-atomic.md](docs/admin-catalog-atomic.md), incluindo o contrato
 compatível com AdminCatalogGateway e a migration 0004, validada somente localmente.
+
+A expansão F3A.2 usa uma única migration 0005, catálogo unificado e GET/PUT
+`/api/admin/catalog/v2`. Escritas administrativas v1 retornam 410 após autenticação/CSRF.
+Consulte [docs/catalog-expansion.md](docs/catalog-expansion.md) para contratos, limites,
+recuperação por creationRef e corte com **backup e janela sem escritores** antes de
+atualizar um banco local existente. A F3B continua fora do escopo.
 
 ### Desenvolvimento local no Windows
 
@@ -35,8 +42,8 @@ para `http://127.0.0.1:8788`. Para refletir alterações de frontend na URL do P
 execute o build novamente. Alterações de dados no D1 não exigem rebuild.
 
 `npm.cmd run db:init` pode ser repetido: o controle de migrations não reaplica seeds
-já executados. Mesmo uma reexecução isolada do seed usa `ON CONFLICT(id) DO NOTHING`,
-sem atualizar preços, textos ou visibilidade existentes. Não rode seeds no handler.
+já executados. Após 0005, não reexecute o seed isoladamente: os triggers bloqueiam
+escritas legadas. Nunca rode seeds no handler nem os use para atualizar dados existentes.
 Migrations aplicadas devem permanecer imutáveis; mudanças futuras ganham novos arquivos.
 
 O arquivo `wrangler.jsonc` contém um identificador deliberadamente local (`delegas-local-only`),
@@ -48,7 +55,10 @@ O lockfile atual contém duas cadeias: Miniflare 4 usa workerd `1.20260730.1`, e
 Wrangler usa workerd `1.20261012.1`. Consulte `npm ls miniflare workerd` ao atualizar
 essas ferramentas; os runtimes de testes de handlers e Pages local podem diferir.
 
-### Schema e contrato
+### Schema e contrato histórico F1
+
+A fonte vigente após 0005 é o [catálogo unificado](docs/catalog-expansion.md).
+As tabelas abaixo permanecem congeladas para conferência/recuperação.
 
 `products`: `id` TEXT estável, `name`, `description`, `price_30_cents` e
 `price_50_cents` INTEGER nullable, `visible` 0/1 e `sort_order` INTEGER.

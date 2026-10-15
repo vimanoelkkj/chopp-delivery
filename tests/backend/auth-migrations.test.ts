@@ -55,14 +55,14 @@ it('Wrangler reaplica a inicialização local sem perder catálogo, proprietári
     let db = await runtime.getD1Database('DELEGAS_DB')
     await bootstrapOwner(db, 'owner', TEST_PASSWORD, TEST_PEPPER)
     await db
-      .prepare('UPDATE products SET price_30_cents = ? WHERE id = ?')
+      .prepare("UPDATE catalog_variants SET price_cents = ? WHERE item_id = ? AND code = '30'")
       .bind(12345, 'dronken')
       .run()
     await db.prepare('UPDATE admin_users SET active = 0').run()
     const revision = await db
       .prepare('SELECT revision FROM catalog_meta WHERE singleton = 1')
       .first('revision')
-    expect(revision).toBe(1)
+    expect(revision).toBe(2)
     await runtime.dispose()
     runtime = undefined
     expect(migrate()).toContain('No migrations to apply')
@@ -71,9 +71,9 @@ it('Wrangler reaplica a inicialização local sem perder catálogo, proprietári
     expect(await db.prepare('SELECT COUNT(*) FROM products').first('COUNT(*)')).toBe(8)
     expect(
       await db
-        .prepare('SELECT price_30_cents FROM products WHERE id = ?')
+        .prepare("SELECT price_cents FROM catalog_variants WHERE item_id = ? AND code = '30'")
         .bind('dronken')
-        .first('price_30_cents'),
+        .first('price_cents'),
     ).toBe(12345)
     expect(
       await db.prepare('SELECT username, active, auth_version FROM admin_users').first(),

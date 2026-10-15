@@ -21,7 +21,16 @@ function startingAt(products: Product[], size: BarrelSize): string {
 
 export function BarrelsSection({ state }: { state: CatalogState }) {
   const products = state.status === 'ready' ? state.catalog.products : []
-  const largeOnly = onlyLargeBarrel(products).map((product) => product.name)
+  const largeOnly = onlyLargeBarrel(products)
+    .filter(
+      (product) =>
+        state.status === 'ready' &&
+        state.catalog.expanded.categories
+          .find((c) => c.id === 'chopes')
+          ?.items.find((i) => i.id === product.id)
+          ?.variants.every((v) => v.priceCents === null || v.volumeMl === 50000),
+    )
+    .map((product) => product.name)
 
   return (
     <section id="barris" className={styles.section} aria-labelledby="barris-title">

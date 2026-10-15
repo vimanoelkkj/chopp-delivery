@@ -1,5 +1,10 @@
 # F3A.1 — snapshot e salvamento atômico
 
+> Documento histórico F3A/F3A.1. Na F3A.2, as escritas v1 são aposentadas (410),
+> as leituras legadas exigem projeção fiel e a fonte passa a ser o catálogo unificado.
+> Contrato vigente e procedimento de corte: [catalog-expansion.md](catalog-expansion.md).
+
+
 Base: F3A consolidada em `6e6e96d`; branch `feat/admin-catalog-atomic`.
 Esta extensão permanece sem commit, aguardando revisão independente e aprovação.
 Não integra a UI F3B nem modifica storefront, autenticação ou dados comerciais.

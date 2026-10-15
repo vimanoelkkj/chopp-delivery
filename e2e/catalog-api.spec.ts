@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import type { PublicCatalog } from '../shared/catalog'
 import type { Catalog } from '../src/features/catalog/types'
 
 test('API pública atende o catálogo real em JSON', async ({ request }) => {
@@ -19,7 +20,7 @@ test('mostra carregamento sem preços estáticos e depois mostra o catálogo', a
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route('**/api/products', async (route) => {
+  await page.route('**/api/catalog', async (route) => {
     await gate
     await route.continue()
   })
@@ -38,7 +39,7 @@ test('mostra carregamento sem preços estáticos e depois mostra o catálogo', a
 
 test('falha da API não mostra seed e tentar novamente recupera o catálogo', async ({ page }) => {
   let fail = true
-  await page.route('**/api/products', async (route) => {
+  await page.route('**/api/catalog', async (route) => {
     if (fail) await route.fulfill({ status: 503, json: { error: { code: 'CATALOG_UNAVAILABLE' } } })
     else await route.continue()
   })
@@ -54,8 +55,16 @@ test('falha da API não mostra seed e tentar novamente recupera o catálogo', as
 })
 
 test('catálogo vazio e cachaça oculta têm estado explícito', async ({ page }) => {
-  await page.route('**/api/products', (route) =>
-    route.fulfill({ json: { products: [], cachaca: null } }),
+  await page.route('**/api/catalog', (route) =>
+    route.fulfill({
+      json: {
+        revision: 'r1',
+        categories: [
+          { id: 'chopes', name: 'Chopes', items: [] },
+          { id: 'cachacas', name: 'Cacha?as', items: [] },
+        ],
+      },
+    }),
   )
   await page.goto('/')
   await expect(
@@ -70,12 +79,12 @@ test('preço decimal da API aparece sem arredondamento e muda após nova leitura
   page,
   request,
 }) => {
-  const data = (await (await request.get('/api/products')).json()) as Catalog
-  data.products[0].prices[30] = 510.29
-  await page.route('**/api/products', (route) => route.fulfill({ json: data }))
+  const data = (await (await request.get('/api/catalog')).json()) as PublicCatalog
+  data.categories[0].items[0].variants[0].priceCents = 51029
+  await page.route('**/api/catalog', (route) => route.fulfill({ json: data }))
   await page.goto('/')
   await expect(page.getByRole('row', { name: /Dronken/ })).toContainText('R$ 510,29')
-  data.products[0].prices[30] = 510.99
+  data.categories[0].items[0].variants[0].priceCents = 51099
   await page.reload()
   await expect(page.getByRole('row', { name: /Dronken/ })).toContainText('R$ 510,99')
 })

@@ -1,5 +1,10 @@
 # F3A — APIs administrativas do catálogo
 
+> Documento histórico F3A/F3A.1. Na F3A.2, as escritas v1 são aposentadas (410),
+> as leituras legadas exigem projeção fiel e a fonte passa a ser o catálogo unificado.
+> Contrato vigente e procedimento de corte: [catalog-expansion.md](catalog-expansion.md).
+
+
 Base: F2/F2.1 consolidada no commit local `a5a4563`. Branch `feat/admin-catalog-api`.
 Esta fase cria somente leitura e edição administrativa dos registros existentes.
 Nenhuma migration, seed, dependência, binding ou interface gráfica foi adicionada.

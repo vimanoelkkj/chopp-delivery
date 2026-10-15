@@ -1,3 +1,4 @@
+import { handleLegacyPublic } from '../../server/catalog-expansion/legacy'
 import { centsToReais } from '../../shared/money'
 import type { Catalog } from '../../src/features/catalog/types'
 
@@ -79,4 +80,4 @@ export async function handleProducts(
 }
 
 export const onRequest: PagesFunction<Env> = ({ request, env }) =>
-  handleProducts(request, env.DELEGAS_DB)
+  handleLegacyPublic(request, env.DELEGAS_DB)
