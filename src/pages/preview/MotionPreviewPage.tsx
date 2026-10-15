@@ -1,14 +1,26 @@
 import { useState } from 'react'
+import { ExpandableCatalogView } from '@/features/catalog-expansion/ExpandableCatalogView'
+import { FIXTURE_PUBLIC_CATALOG_V2 } from '@/features/catalog-expansion/fixtures'
 import { TickerMarquee } from '@/features/motion/TickerMarquee'
 import { Hero } from '@/pages/landing/sections/Hero'
 import { HeroRefined } from '@/pages/landing/sections/HeroRefined'
 import styles from './MotionPreviewPage.module.css'
 
-type TabType = 'marquee' | 'hero' | 'integrated'
+type TabType = 'marquee' | 'hero' | 'integrated' | 'catalog'
 type ViewportPreset = 360 | 390 | 430 | 768 | 1440 | 2560 | 3840 | '100%'
 
+function getInitialTab(): TabType {
+  if (typeof window === 'undefined') return 'marquee'
+  const search = new URLSearchParams(window.location.search)
+  const tab = search.get('preview')
+  if (tab === 'catalog') return 'catalog'
+  if (tab === 'hero') return 'hero'
+  if (tab === 'integrated') return 'integrated'
+  return 'marquee'
+}
+
 export function MotionPreviewPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('marquee')
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
 
   // Estado do Marquee
   const [marqueePaused, setMarqueePaused] = useState(false)
@@ -27,6 +39,10 @@ export function MotionPreviewPage() {
   const [heroMode, setHeroMode] = useState<'refined' | 'original' | 'split'>('refined')
   const [heroReplayKey, setHeroReplayKey] = useState(0)
 
+  // Estado do Catálogo Expansível (v2)
+  const [filterHidden, setFilterHidden] = useState(true)
+  const [omitEmptyCategories, setOmitEmptyCategories] = useState(true)
+
   const hasZeroGaps =
     marqueeMetrics.containerWidth > 0 &&
     marqueeMetrics.sequenceWidth >= marqueeMetrics.containerWidth
@@ -36,11 +52,11 @@ export function MotionPreviewPage() {
       {/* Barra superior de navegação do laboratório */}
       <header className={styles.topBar}>
         <div className={styles.brand}>
-          <span className={styles.badge}>Motion F1</span>
+          <span className={styles.badge}>Motion &amp; Catalog</span>
           <h1 className={styles.brandTitle}>Chopp Delivery Delegas</h1>
         </div>
 
-        <nav className={styles.tabList} aria-label="Abas do laboratório de movimento">
+        <nav className={styles.tabList} aria-label="Abas do laboratório de movimento e catálogo">
           <button
             type="button"
             className={[styles.tabBtn, activeTab === 'marquee' ? styles.tabBtnActive : ''].join(
@@ -65,6 +81,15 @@ export function MotionPreviewPage() {
             onClick={() => setActiveTab('integrated')}
           >
             3. Composição Integrada
+          </button>
+          <button
+            type="button"
+            className={[styles.tabBtn, activeTab === 'catalog' ? styles.tabBtnActive : ''].join(
+              ' ',
+            )}
+            onClick={() => setActiveTab('catalog')}
+          >
+            4. Catálogo Expansível (v2)
           </button>
         </nav>
 
@@ -380,6 +405,133 @@ export function MotionPreviewPage() {
                 paused={marqueePaused}
                 forceReducedMotion={reducedMotion}
               />
+            </div>
+          </section>
+        )}
+
+        {/* ABA 4: CATÁLOGO EXPANSÍVEL (V2) */}
+        {activeTab === 'catalog' && (
+          <section aria-labelledby="catalog-preview-heading">
+            <div className={styles.sectionHeader}>
+              <h2 id="catalog-preview-heading" className={styles.sectionTitle}>
+                Prévia do Catálogo Público Expansível (Contrato v2)
+              </h2>
+              <p className={styles.sectionDesc}>
+                Interface modular e responsiva com múltiplos produtos e variantes comerciais (9
+                chopes, opções de cachaça com suporte a garrafa de 700 ml e teste de múltiplos
+                volumes, barris de 7,5 L a 50 L, preços em centavos e proteção de itens ocultos).
+              </p>
+            </div>
+
+            {/* Painel de telemetria da fixture v2 */}
+            <div className={styles.diagnosticGrid}>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Chopes Visíveis</div>
+                <div className={[styles.diagValue, styles.diagOk].join(' ')}>
+                  9 Rótulos (8 + 1 Novo)
+                </div>
+              </div>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Opções de Cachaça</div>
+                <div className={styles.diagValue}>1 Real (700 ml) + 2 Demonstração</div>
+              </div>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Barris Suportados</div>
+                <div className={styles.diagValue}>7,5 L · 20 L · 30 L · 50 L</div>
+              </div>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Volumes de Garrafa</div>
+                <div className={styles.diagValue}>500 ml · 700 ml · 750 ml · 1.000 ml</div>
+              </div>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Segurança Preço Nulo</div>
+                <div className={styles.diagValue}>Brahma 30 L = "—" (Não Comprável)</div>
+              </div>
+              <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Proteção Itens Ocultos</div>
+                <div className={[styles.diagValue, styles.diagOk].join(' ')}>
+                  {filterHidden ? '✓ 2 Itens Ocultos Filtrados' : 'Exibindo Tudo (Debug)'}
+                </div>
+              </div>
+            </div>
+
+            {/* Controles do simulador */}
+            <div className={styles.controlsBar}>
+              <div className={styles.controlGroup}>
+                <span className={styles.controlLabel}>Filtros do Contrato:</span>
+                <button
+                  type="button"
+                  className={[styles.btnAction, filterHidden ? styles.btnActionActive : ''].join(
+                    ' ',
+                  )}
+                  onClick={() => setFilterHidden((v) => !v)}
+                >
+                  {filterHidden
+                    ? '✓ Ocultar visible: false (Padrão Público)'
+                    : '⚠ Exibir Produtos Ocultos'}
+                </button>
+
+                <button
+                  type="button"
+                  className={[
+                    styles.btnAction,
+                    omitEmptyCategories ? styles.btnActionActive : '',
+                  ].join(' ')}
+                  onClick={() => setOmitEmptyCategories((v) => !v)}
+                >
+                  {omitEmptyCategories
+                    ? '✓ Omitir Categorias Vazias (Padrão)'
+                    : 'Exibir Categorias Vazias'}
+                </button>
+              </div>
+            </div>
+
+            {/* Frame da visualização pública do catálogo */}
+            <div className={styles.previewFrameWrapper}>
+              <div className={styles.previewFrameHeader}>
+                <span>Prévia de Produção — Componente ExpandableCatalogView</span>
+                <span className={styles.diagOk}>Contrato v2 F3A.2</span>
+              </div>
+              <ExpandableCatalogView
+                catalog={FIXTURE_PUBLIC_CATALOG_V2}
+                filterHidden={filterHidden}
+                omitEmptyCategories={omitEmptyCategories}
+              />
+            </div>
+
+            {/* Destaques arquiteturais */}
+            <div className={styles.featureList}>
+              <div className={styles.featureCard}>
+                <div className={styles.featureTitle}>1. Tabela Dinâmica Multi-Variante</div>
+                <div className={styles.featureText}>
+                  Detecta automaticamente as variantes de barril presentes no catálogo (7,5 L, 20 L,
+                  30 L, 50 L), expandindo as colunas no desktop e chips de seleção no mobile sem
+                  presumir quantidades fixas.
+                </div>
+              </div>
+              <div className={styles.featureCard}>
+                <div className={styles.featureTitle}>2. Vitrine de Cachaças Multi-Volume</div>
+                <div className={styles.featureText}>
+                  Apresenta os rótulos de cachaça artesanal com suporte a volumes variáveis (500 ml,
+                  700 ml, 750 ml, 1.000 ml). Cada produto permite alternar o volume desejado
+                  atualizando o preço em centavos em tempo real.
+                </div>
+              </div>
+              <div className={styles.featureCard}>
+                <div className={styles.featureTitle}>3. Tratamento Seguro de Preços Nulos</div>
+                <div className={styles.featureText}>
+                  Variantes com <code>priceCents: null</code> (como Brahma 30 L) exibem travessão
+                  "—" com legenda acessível <em>não disponível</em>, e no card mobile o botão fica
+                  desabilitado, impedindo envio de pedidos inválidos via WhatsApp.
+                </div>
+              </div>
+              <div className={styles.featureCard}>
+                <div className={styles.featureTitle}>4. Conformidade e Isolamento DEV-Only</div>
+                <div className={styles.featureText}>
+                  Preserva aviso legal 18+, nota de logística (entrega e instalação de chopeiras em
+                  SJDR e região), e mantém 0 bytes de impacto no build de produção da LandingPage.
+                </div>
+              </div>
             </div>
           </section>
         )}
