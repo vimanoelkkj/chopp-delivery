@@ -38,7 +38,13 @@ export function useAdminSession() {
   }, [])
   const signedIn = useCallback((user: AdminUser) => setState({ status: 'authenticated', user }), [])
   const expired = useCallback(
-    () => setState({ status: 'anonymous', notice: 'Sua sessão expirou. Entre novamente.' }),
+    (kept = false) =>
+      setState({
+        status: 'anonymous',
+        notice: kept
+          ? 'Sua sessão expirou. Entre novamente: as alterações não salvas ficam guardadas nesta aba até você recarregar a página.'
+          : 'Sua sessão expirou. Entre novamente.',
+      }),
     [],
   )
   /** `false` quando o servidor não confirmou a saída: a sessão pode continuar válida. */
