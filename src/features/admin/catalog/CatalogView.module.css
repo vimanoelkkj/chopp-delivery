@@ -14,7 +14,7 @@
 
 /* A barra fixa de baixo não pode cobrir o campo focado. É margem de rolagem dos controles do
    conteúdo (e não scroll-padding no html): assim os botões da própria barra não provocam rolagem. */
-.content :is(input, button, a, [role='switch'], [role='tab']) {
+.content :is(input, textarea, button, a, [role='switch'], [role='tab']) {
   scroll-margin-bottom: 9rem;
 }
 
@@ -46,6 +46,18 @@
   font-weight: 900;
   line-height: 0.88;
   text-transform: uppercase;
+}
+
+.headingActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.newButton {
+  width: 100%;
 }
 
 .chips {
@@ -232,6 +244,14 @@
 }
 
 @media (min-width: 48rem) {
+  .headingActions {
+    width: auto;
+  }
+
+  .newButton {
+    width: auto;
+  }
+
   .eyebrowDesktop {
     display: inline;
   }

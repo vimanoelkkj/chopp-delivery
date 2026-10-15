@@ -432,6 +432,8 @@ test.describe('teclado e foco', () => {
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Sair', exact: true })).toBeFocused()
     await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Novo produto' })).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(page.getByRole('tab', { name: /Chopes/ })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Subir Dronken' })).toBeDisabled()
