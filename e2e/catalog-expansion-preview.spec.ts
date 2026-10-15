@@ -16,9 +16,10 @@ test.describe('Catálogo Expansível v2 - Isolamento e Produção Segura', () =>
       await expect(page.locator('#topo')).toBeVisible()
       await expect(page.locator('#conteudo')).toBeVisible()
 
-      // A prévia isolada de catálogo v2 NUNCA pode existir no DOM de produção
+      // A vitrine é pública; laboratório e fixtures continuam exclusivos de DEV.
       await expect(page.locator('#catalogo-expansivel')).toHaveCount(0)
-      await expect(page.locator('[data-testid="expandable-catalog-view"]')).toHaveCount(0)
+      await expect(page.locator('#chopes[data-testid="expandable-catalog-view"]')).toHaveCount(1)
+      await expect(page.getByRole('button', { name: '4. Catálogo Expansível (v2)' })).toHaveCount(0)
       await expect(page.getByText('Prévia do Catálogo Público Expansível')).toHaveCount(0)
     }
   })
@@ -36,7 +37,6 @@ test.describe('Catálogo Expansível v2 - Isolamento e Produção Segura', () =>
       // Símbolos exclusivos do laboratório e da fixture DEV v2
       expect(content).not.toContain('FIXTURE_PUBLIC_CATALOG_V2')
       expect(content).not.toContain('EXPANDED_CATALOG_FIXTURE')
-      expect(content).not.toContain('ExpandableCatalogView')
       expect(content).not.toContain('chope-imperial-stout-oculto')
       expect(content).not.toContain('cachaca-safra-antiga-oculta')
       expect(content).not.toContain('Delegas Session IPA (Demonstração)')

@@ -14,9 +14,11 @@ export function useCatalog() {
     const timeout = setTimeout(() => controller.abort(), 10_000)
     let active = true
     if (attempt > 0) setState({ status: 'loading' })
-    fetchExpandedCatalog(controller.signal)
+    // A discarded StrictMode effect must not send an extra request.
+    Promise.resolve()
+      .then(() => (active ? fetchExpandedCatalog(controller.signal) : undefined))
       .then((catalog) => {
-        if (active) setState({ status: 'ready', catalog })
+        if (active && catalog) setState({ status: 'ready', catalog })
       })
       .catch(() => {
         if (active) setState({ status: 'error' })

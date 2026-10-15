@@ -1,10 +1,10 @@
 import { useRef } from 'react'
 import { useCatalog } from '@/features/catalog/useCatalog'
+import { ExpandableCatalogView } from '@/features/catalog-expansion/ExpandableCatalogView'
 import { useInView } from '@/shared/lib/useInView'
 import styles from './LandingPage.module.css'
 import { AboutSection } from './sections/AboutSection'
 import { BarrelsSection } from './sections/BarrelsSection'
-import { CatalogSection } from './sections/CatalogSection'
 import { ContactSection } from './sections/ContactSection'
 import { FaqSection } from './sections/FaqSection'
 import { Hero } from './sections/Hero'
@@ -27,7 +27,13 @@ export function LandingPage() {
       <main id="conteudo">
         <Hero ctaRef={heroCtaRef} />
         <Ticker />
-        <CatalogSection state={catalogState} retry={retry} />
+        <ExpandableCatalogView
+          state={catalogState}
+          onRetry={retry}
+          id="chopes"
+          titleId="chopes-title"
+          showCompliance={false}
+        />
         <BarrelsSection state={catalogState} />
         <HowItWorks />
         <PromoSection />

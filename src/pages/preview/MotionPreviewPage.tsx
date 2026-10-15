@@ -571,7 +571,8 @@ export function MotionPreviewPage() {
                 <div className={styles.featureTitle}>4. Conformidade e Isolamento DEV-Only</div>
                 <div className={styles.featureText}>
                   Preserva aviso legal 18+, nota de logística (entrega e instalação de chopeiras em
-                  SJDR e região), e mantém 0 bytes de impacto no build de produção da LandingPage.
+                  SJDR e região), e mantém controles e fixtures do laboratório fora do build
+                  público.
                 </div>
               </div>
             </div>

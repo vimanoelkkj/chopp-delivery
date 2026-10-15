@@ -224,3 +224,50 @@
     display: flex;
   }
 }
+
+.offerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+a.priceAction,
+button.priceAction {
+  padding: 0.4rem;
+  background: transparent;
+  border: 0;
+  color: var(--color-bone);
+  font: inherit;
+  min-height: 2.75rem;
+}
+.priceAction .chipPrice {
+  margin: 0;
+}
+.variantChip > span {
+  display: flex;
+  flex-direction: column;
+}
+.variantChipDisabled {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.nameCell,
+.cardTitle,
+.cardDesc {
+  overflow-wrap: anywhere;
+}
+.wrapper .nameCol {
+  width: 35%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .variantChip {
+    transition: none;
+  }
+  .variantChipAvailable:hover {
+    transform: none;
+  }
+}

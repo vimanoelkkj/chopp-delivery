@@ -45,7 +45,9 @@ test('mostra os oito chopes e a cachaça com os preços dos dados', async ({ pag
   await expect(page.locator('tbody tr')).toHaveCount(8)
   await expect(page.getByRole('row', { name: /Brahma/ })).toContainText('não disponível')
   await expect(page.getByRole('row', { name: /Dronken/ })).toContainText('R$ 510')
-  await expect(page.getByText('Garrafa 700 ml')).toBeVisible()
+  const bottle = page.getByTestId('cachaca-card-cachaca')
+  await expect(bottle.getByText('Garrafa 700 ml', { exact: true })).toBeVisible()
+  await expect(bottle).toContainText('R$ 30')
 })
 
 test('FAQ abre e fecha por teclado, um item por vez', async ({ page }) => {

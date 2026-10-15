@@ -109,3 +109,10 @@
   border: 1px dashed var(--color-line);
   border-radius: 6px;
 }
+
+.categoryTitle {
+  margin-block: 2.5rem 1rem;
+  font-family: var(--font-display);
+  color: var(--color-cream);
+  font-size: 1.5rem;
+}

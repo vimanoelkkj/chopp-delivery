@@ -30,6 +30,11 @@ function command(args: string[]): Promise<void> {
 export async function startIntegration({
   port = 4185,
   password = randomBytes(24).toString('hex'),
+  mode = 'admin-integration',
+}: {
+  port?: number
+  password?: string
+  mode?: 'admin-integration' | 'production'
 } = {}) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid local port')
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'delegas-admin-integration-')))
@@ -83,7 +88,7 @@ export async function startIntegration({
     await build({
       root,
       envDir: false,
-      mode: 'admin-integration',
+      mode,
       build: { outDir: dist, emptyOutDir: true },
     })
     await command([

@@ -2,7 +2,13 @@ import { startIntegration } from '../../scripts/dev-admin-integration.mts'
 
 // A plain Node child avoids inheriting Playwright's loader into Miniflare's RPC threads.
 let stopping = false
-const pending = startIntegration({ port: Number(process.env.DELEGAS_INTEGRATION_PORT || 4185) })
+const mode = process.env.DELEGAS_INTEGRATION_MODE || 'admin-integration'
+if (mode !== 'admin-integration' && mode !== 'production')
+  throw new Error('Invalid local build mode')
+const pending = startIntegration({
+  port: Number(process.env.DELEGAS_INTEGRATION_PORT || 4185),
+  mode,
+})
 async function stop() {
   if (stopping) return
   stopping = true

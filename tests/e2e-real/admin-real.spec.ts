@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
 type Ready = {
   origin: string
@@ -13,12 +13,23 @@ type Ready = {
   error?: string
 }
 type Integration = Ready & { database: DatabaseSync }
-const test = base.extend<{ integration: Integration }>({
+const test = base.extend<{
+  integration: Integration
+  runtimeMode: 'admin-integration' | 'production'
+  whatsappNumber: string
+}>({
+  runtimeMode: ['admin-integration', { option: true }],
+  whatsappNumber: ['', { option: true }],
   integration: [
-    async ({ browserName }, use) => {
+    async ({ browserName, runtimeMode, whatsappNumber }, use) => {
       if (browserName !== 'chromium') throw new Error('This suite targets local Chrome/Chromium')
       const child = fork('tests/e2e-real/server.mts', [], {
         execArgv: [],
+        env: {
+          ...process.env,
+          DELEGAS_INTEGRATION_MODE: runtimeMode,
+          VITE_WHATSAPP_NUMBER: whatsappNumber,
+        },
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         windowsHide: true,
       })
@@ -410,4 +421,188 @@ test('uncertain result remains recoverable after reverting draft to the old pric
   await expect(
     page.getByText('1 produto tem alterações não salvas.', { exact: true }),
   ).toBeVisible()
+})
+
+async function whatsappMessage(link: Locator) {
+  const href = await link.getAttribute('href')
+  if (!href) throw new Error('Missing WhatsApp link')
+  const url = new URL(href)
+  expect(url.hostname).toBe('wa.me')
+  return url.searchParams.get('text')
+}
+
+test.describe('F3C.4: painel, D1, API, landing e WhatsApp', () => {
+  test.use({ whatsappNumber: '5500000000000' })
+  for (const width of [1440, 390]) {
+    test(`catálogo persistido e pedido em ${width}px`, async ({ page, browser, integration }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await login(page, integration)
+      await price(page).fill('51029')
+      await page
+        .getByRole('listitem')
+        .filter({ has: page.getByRole('heading', { name: 'Brahma', exact: true }) })
+        .getByRole('switch')
+        .uncheck()
+      const name = 'Chope Integrado (Novo)'
+      const item = await add(page, 'Chopes', name, '20', '12345')
+      await item.getByLabel('Rótulo', { exact: true }).fill('Barril especial')
+      await item.getByRole('button', { name: 'Adicionar variante' }).click()
+      await item.getByLabel('Rótulo', { exact: true }).last().fill('Barril pequeno')
+      await item.getByLabel('Volume (L)', { exact: true }).last().fill('7,5')
+      await item.getByRole('switch').check()
+      await item.getByRole('button', { name: `Subir ${name}`, exact: true }).click()
+      await saved(page)
+      await page.reload()
+      await expect(price(page)).toHaveValue('510,29')
+      const chope = row<{ id: string }>(
+        integration,
+        'SELECT id FROM catalog_items WHERE name=?',
+        name,
+      )
+      const variants = integration.database
+        .prepare(
+          'SELECT code,volume_ml,price_cents FROM catalog_variants WHERE item_id=? ORDER BY sort_order,code',
+        )
+        .all(chope.id)
+      expect(variants).toMatchObject([
+        { volume_ml: 20000, price_cents: 12345 },
+        { volume_ml: 7500, price_cents: null },
+      ])
+      const bottleName = 'Cachaça Integração'
+      const bottle = await add(page, 'Cachaças', bottleName, '700', '2501')
+      await bottle.getByLabel('Rótulo', { exact: true }).fill('Garrafa especial')
+      await bottle.getByRole('button', { name: 'Adicionar variante' }).click()
+      await bottle.getByLabel('Rótulo', { exact: true }).last().fill('Garrafa pequena')
+      await bottle.getByLabel('Volume (ml)', { exact: true }).last().fill('500')
+      await bottle
+        .getByLabel(/^Preço em reais/)
+        .last()
+        .fill('1999')
+      await bottle.getByRole('switch').check()
+      await saved(page)
+      await page.reload()
+      await page.getByRole('tab', { name: /Cachaças/ }).click()
+      await expect(
+        page
+          .getByRole('listitem', { name: bottleName, exact: true })
+          .getByLabel('Nome', { exact: true }),
+      ).toHaveValue(bottleName)
+      const anon = await browser.newContext({
+        baseURL: integration.origin,
+        viewport: { width, height: 900 },
+      })
+      try {
+        const publicData = await (await anon.request.get('/api/catalog')).json()
+        expect(publicData.revision).toBe((await (await page.request.get(path)).json()).revision)
+        expect(JSON.stringify(publicData)).not.toContain('creationRef')
+        const beers = publicData.categories.find((c: { id: string }) => c.id === 'chopes').items
+        expect(beers.some((i: { id: string }) => i.id === 'brahma')).toBe(false)
+        expect(
+          row<{ visible: number }>(
+            integration,
+            'SELECT visible FROM catalog_items WHERE id=?',
+            'brahma',
+          ).visible,
+        ).toBe(0)
+        expect(beers.map((i: { id: string }) => i.id)).toEqual(
+          integration.database
+            .prepare(
+              "SELECT id FROM catalog_items WHERE category_id='chopes' AND visible=1 ORDER BY sort_order,id",
+            )
+            .all()
+            .map((i) => i.id),
+        )
+        expect(
+          beers
+            .find((i: { id: string }) => i.id === chope.id)
+            .variants.map((v: { code: string; volumeMl: number; priceCents: number | null }) => ({
+              code: v.code,
+              volume_ml: v.volumeMl,
+              price_cents: v.priceCents,
+            })),
+        ).toEqual(variants)
+        const shop = await anon.newPage()
+        let reads = 0
+        shop.on('request', (r) => {
+          if (new URL(r.url()).pathname === '/api/catalog') reads++
+        })
+        await shop.goto('/')
+        await expect(shop.getByTestId('catalog-count-note')).toBeVisible()
+        expect(reads).toBe(1)
+        const offer =
+          width >= 768
+            ? shop.locator('tbody tr').filter({ hasText: name })
+            : shop.getByRole('article', { name, exact: true })
+        await expect(offer).toBeVisible()
+        expect(variants.every((v) => typeof v.code === 'string' && v.code.startsWith('v_'))).toBe(
+          true,
+        )
+        expect(
+          await offer
+            .locator('[data-variant-code]')
+            .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-variant-code'))),
+        ).toEqual(variants.map((v) => v.code))
+        await expect(offer).toContainText('Barril especial · 20 L')
+        await expect(offer).toContainText('123,45')
+        await expect(offer).toContainText('Barril pequeno · 7,5 L')
+        await expect(offer.getByRole('link', { name: /7,5 L/ })).toHaveCount(0)
+        const message = await whatsappMessage(offer.getByRole('link', { name: /20 L/ }))
+        expect(message).toContain(name)
+        expect(message).toContain('Barril especial · 20 L')
+        expect(message).toContain('123,45')
+        await expect(shop.locator('[data-item-id="brahma"]')).toHaveCount(0)
+        const dronken =
+          width >= 768
+            ? shop.getByRole('row', { name: /Dronken/ })
+            : shop.getByRole('article', { name: 'Dronken', exact: true })
+        await expect(dronken).toContainText('510,29')
+        const card = shop.getByRole('article', { name: bottleName, exact: true })
+        await expect(card.getByRole('link')).toHaveCount(0)
+        await card.getByRole('button', { name: /Garrafa especial 700 ml/ }).click()
+        const bottleMessage = await whatsappMessage(card.getByRole('link'))
+        expect(bottleMessage).toContain(bottleName)
+        expect(bottleMessage).toContain('Garrafa especial · 700 ml')
+        expect(bottleMessage).toContain('25,01')
+        await card.getByRole('button', { name: /Garrafa pequena 500 ml/ }).click()
+        expect(await whatsappMessage(card.getByRole('link'))).toContain('19,99')
+        await expect(shop.getByTestId('age-notice-hero')).toHaveCount(1)
+        await expect(shop.getByTestId('age-notice-footer')).toHaveCount(1)
+        for (const id of ['chopes', 'barris', 'como', 'faq', 'contato'])
+          await expect(shop.locator(`#${id}`)).toHaveCount(1)
+        expect(
+          await shop.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          ),
+        ).toBe(0)
+        await shop.reload()
+        await expect(shop.getByTestId('catalog-count-note')).toBeVisible()
+        expect(reads).toBe(2)
+        await expect(shop.getByTestId('cachaca-card-cachaca')).toBeVisible()
+      } finally {
+        await anon.close()
+      }
+    })
+  }
+})
+test.describe('F3C.4: build normal', () => {
+  test.use({ runtimeMode: 'production' })
+  test('admin desativado, vitrine real e WhatsApp sem número', async ({ page }) => {
+    await page.goto('/admin')
+    await expect(page.getByLabel('Senha', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Novo produto', { exact: true })).toHaveCount(0)
+    await expect(page.locator('body')).toContainText('administrativo')
+    await page.goto('/?preview=catalog')
+    await expect(page.getByTestId('catalog-count-note')).toBeVisible()
+    await expect(page.getByRole('button', { name: '4. Catálogo Expansível (v2)' })).toHaveCount(0)
+    await expect(page.getByTestId('cachaca-card-cachaca')).toBeVisible()
+    await expect(page.locator('a[href*="wa.me"]')).toHaveCount(0)
+    await page.getByTestId('cachaca-card-cachaca').getByRole('button', { name: /Pedir/ }).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'ainda não foi configurado' }),
+    ).toBeVisible()
+    expect((await page.request.get('/api/admin/catalog/v2')).status()).toBe(401)
+    expect(
+      (await (await page.request.get('/api/catalog')).json()).categories[0].items,
+    ).toHaveLength(8)
+  })
 })

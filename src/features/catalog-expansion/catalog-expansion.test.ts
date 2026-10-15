@@ -196,7 +196,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 3500,
       })
       expect(msg500).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 500 ml por R$ 35,00.',
+        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata (Demonstração) 500 ml por R$ 35,00.',
       )
 
       const msg700 = buildCachacaWhatsAppMessage('Cachaça Prata (Demonstração)', {
@@ -204,7 +204,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 4500,
       })
       expect(msg700).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 700 ml por R$ 45,00.',
+        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata (Demonstração) 700 ml por R$ 45,00.',
       )
 
       const msg1000 = buildCachacaWhatsAppMessage('Cachaça Prata (Demonstração)', {
@@ -212,7 +212,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 6000,
       })
       expect(msg1000).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 1.000 ml por R$ 60,00.',
+        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata (Demonstração) 1.000 ml por R$ 60,00.',
       )
     })
 
@@ -247,7 +247,6 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
       const content = fs.readFileSync(path.join(distDir, f), 'utf-8')
       // O bundle de produção nunca deve conter a prévia ou fixture DEV
       expect(content).not.toContain('FIXTURE_PUBLIC_CATALOG_V2')
-      expect(content).not.toContain('ExpandableCatalogView')
       expect(content).not.toContain('chope-imperial-stout-oculto')
     }
   })

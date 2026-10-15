@@ -7,6 +7,7 @@ import styles from './WhatsAppButton.module.css'
 
 type WhatsAppButtonProps = {
   message: MessageKey
+  customMessage?: string
   variant?: 'gold' | 'outline' | 'dark'
   size?: 'md' | 'lg'
   fullWidth?: boolean
@@ -24,12 +25,13 @@ const NOTICE_MS = 5000
  */
 export function WhatsAppButton({
   message,
+  customMessage,
   noticePlacement = 'below',
   className,
   children,
   ...style
 }: WhatsAppButtonProps) {
-  const url = buildWhatsAppUrl(contact.whatsappNumber, messages[message])
+  const url = buildWhatsAppUrl(contact.whatsappNumber, customMessage ?? messages[message])
   const noticeId = useId()
   const [showNotice, setShowNotice] = useState(false)
   const timer = useRef<number | undefined>(undefined)

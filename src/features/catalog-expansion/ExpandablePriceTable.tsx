@@ -1,167 +1,144 @@
-import { useMemo } from 'react'
-import { contact } from '@/features/contact/config'
-import { messages } from '@/features/contact/messages'
-import { buildWhatsAppUrl } from '@/shared/lib/whatsapp'
+import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
+import { sharedVariantColumns } from './columns'
 import styles from './ExpandablePriceTable.module.css'
-import { type CatalogItemV2, formatPriceFromCents } from './types'
+import { buildCatalogWhatsAppMessage, formatVariantLabel, type VolumeUnit } from './messages'
+import { type CatalogItemV2, type CatalogVariantV2, formatPriceFromCents } from './types'
 
-type ExpandablePriceTableProps = {
-  items: CatalogItemV2[]
-  caption?: string
+type Props = { items: CatalogItemV2[]; caption?: string; volumeUnit?: VolumeUnit }
+
+function VariantOffer({
+  item,
+  variant,
+  volumeUnit,
+  compact = false,
+}: {
+  item: CatalogItemV2
+  variant: CatalogVariantV2
+  volumeUnit: VolumeUnit
+  compact?: boolean
+}) {
+  const label = formatVariantLabel(variant, volumeUnit)
+  const message = buildCatalogWhatsAppMessage(item.name, variant, volumeUnit)
+  if (message === null)
+    return (
+      <span
+        className={[compact ? '' : styles.variantChip, styles.variantChipDisabled].join(' ')}
+        aria-disabled="true"
+        data-variant-code={variant.code}
+      >
+        {!compact && <span className={styles.chipSize}>{label}</span>}
+        <span aria-hidden="true">—</span>
+        <span className="visually-hidden">não disponível</span>
+        {!compact && <span className={styles.chipUnavail}>Indisponível</span>}
+      </span>
+    )
+  return (
+    <WhatsAppButton
+      message="order"
+      customMessage={message}
+      className={
+        compact ? styles.priceAction : [styles.variantChip, styles.variantChipAvailable].join(' ')
+      }
+    >
+      <span data-variant-code={variant.code}>
+        {!compact && <span className={styles.chipSize}>{label}</span>}
+        <span className={styles.chipPrice}>{formatPriceFromCents(variant.priceCents)}</span>
+        <span className="visually-hidden">
+          {' '}
+          — Pedir {item.name}, {label} no WhatsApp
+        </span>
+      </span>
+    </WhatsAppButton>
+  )
 }
 
-/**
- * Tabela e cards de preços dinâmicos para catálogo expansível v2.
- * Detecta dinamicamente todas as variantes comercializadas (ex.: 7,5 L, 20 L, 30 L, 50 L),
- * sem hardcode de colunas fixas e tratando variantes sem preço como indisponíveis/não compráveis.
- */
+/** An aligned table for homogeneous presentations; otherwise each item keeps its own variants. */
 export function ExpandablePriceTable({
   items,
   caption = 'Valores dos barris de chopp por tamanho',
-}: ExpandablePriceTableProps) {
-  // Extrai todas as variantes distintas presentes nos produtos, ordenando por volume
-  const variantColumns = useMemo(() => {
-    const colMap = new Map<string, { code: string; label: string; volumeMl?: number | null }>()
-
-    for (const item of items) {
-      for (const variant of item.variants) {
-        if (!colMap.has(variant.code)) {
-          colMap.set(variant.code, {
-            code: variant.code,
-            label: variant.label,
-            volumeMl: variant.volumeMl,
-          })
-        }
-      }
-    }
-
-    return Array.from(colMap.values()).sort((a, b) => {
-      const volA = a.volumeMl ?? 0
-      const volB = b.volumeMl ?? 0
-      return volA - volB
-    })
-  }, [items])
-
-  const orderUrl = buildWhatsAppUrl(contact.whatsappNumber, messages.order) ?? '#'
-
+  volumeUnit = 'L',
+}: Props) {
+  const columns = sharedVariantColumns(items)
   return (
     <>
-      {/* Visualização em Tabela para Desktop */}
       <div className={styles.wrapper}>
         <table className={styles.table}>
           <caption className="visually-hidden">{caption}</caption>
           <thead>
             <tr>
               <th scope="col" className={[styles.head, styles.nameCol].join(' ')}>
-                Chopp
+                Produto
               </th>
-              {variantColumns.map((col) => (
-                <th
-                  key={col.code}
-                  scope="col"
-                  className={[styles.head, styles.headPrice].join(' ')}
-                >
-                  {col.label}
+              {columns ? (
+                columns.map((col) => (
+                  <th
+                    key={col.code}
+                    scope="col"
+                    className={[styles.head, styles.headPrice].join(' ')}
+                  >
+                    {formatVariantLabel(col, volumeUnit)}
+                  </th>
+                ))
+              ) : (
+                <th scope="col" className={styles.head}>
+                  Apresentações e valores
                 </th>
-              ))}
+              )}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => {
-              const hasManyVariants = item.variants.length > 2
-              const isNew = item.id.includes('session-ipa') || item.name.includes('(Novo)')
-
-              return (
-                <tr key={item.id} className={styles.row}>
-                  <th scope="row" className={styles.nameCell}>
-                    <div className={styles.titleGroup}>
-                      <span className={styles.title}>{item.name.replace(' (Novo)', '')}</span>
-                      {isNew && <span className={styles.badgeNew}>Novo</span>}
-                      {hasManyVariants && (
-                        <span className={styles.badgeMulti}>{item.variants.length} tamanhos</span>
-                      )}
-                    </div>
-                    <span className={styles.description}>{item.description}</span>
-                  </th>
-                  {variantColumns.map((col) => {
-                    const variant = item.variants.find((v) => v.code === col.code)
-                    const isUnavail = !variant || variant.priceCents === null
-
-                    if (isUnavail) {
-                      return (
-                        <td key={col.code} className={styles.unavailable}>
-                          <span aria-hidden="true">—</span>
-                          <span className="visually-hidden">não disponível</span>
-                        </td>
-                      )
-                    }
-
-                    const priceText = formatPriceFromCents(variant.priceCents)
-
-                    return (
-                      <td key={col.code} className={styles.priceCell}>
-                        {priceText}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
+            {items.map((item) => (
+              <tr key={item.id} className={styles.row} data-item-id={item.id}>
+                <th scope="row" className={styles.nameCell}>
+                  <span className={styles.title}>{item.name}</span>
+                  <span className={styles.description}>{item.description}</span>
+                </th>
+                {columns ? (
+                  item.variants.map((variant) => (
+                    <td key={variant.code} className={styles.priceCell}>
+                      <VariantOffer item={item} variant={variant} volumeUnit={volumeUnit} compact />
+                    </td>
+                  ))
+                ) : (
+                  <td className={styles.priceCell}>
+                    <ul className={styles.offerList}>
+                      {item.variants.map((variant) => (
+                        <li key={variant.code}>
+                          <VariantOffer item={item} variant={variant} volumeUnit={volumeUnit} />
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
+                )}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-
-      {/* Visualização em Cards com Chips de Variantes para Mobile */}
       <div className={styles.mobileCards}>
-        {items.map((item) => {
-          const isNew = item.id.includes('session-ipa') || item.name.includes('(Novo)')
-
-          return (
-            <article key={`card-${item.id}`} className={styles.card}>
-              <header className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>
-                  {item.name.replace(' (Novo)', '')}
-                  {isNew && <span className={styles.badgeNew}>Novo</span>}
-                </h3>
-                <p className={styles.cardDesc}>{item.description}</p>
-              </header>
-
-              <div className={styles.variantGrid}>
-                {variantColumns.map((col) => {
-                  const variant = item.variants.find((v) => v.code === col.code)
-                  const isAvailable = Boolean(variant && variant.priceCents !== null)
-
-                  if (!isAvailable) {
-                    return (
-                      <div
-                        key={`chip-unavail-${item.id}-${col.code}`}
-                        className={[styles.variantChip, styles.variantChipDisabled].join(' ')}
-                        aria-disabled="true"
-                      >
-                        <span className={styles.chipSize}>{col.label}</span>
-                        <span className={styles.chipUnavail}>Indisponível</span>
-                      </div>
-                    )
-                  }
-
-                  const priceText = formatPriceFromCents(variant?.priceCents)
-
-                  return (
-                    <a
-                      key={`chip-${item.id}-${col.code}`}
-                      href={orderUrl}
-                      className={[styles.variantChip, styles.variantChipAvailable].join(' ')}
-                      aria-label={`Pedir ${item.name} ${col.label} por ${priceText}`}
-                    >
-                      <span className={styles.chipSize}>{col.label}</span>
-                      <span className={styles.chipPrice}>{priceText}</span>
-                    </a>
-                  )
-                })}
-              </div>
-            </article>
-          )
-        })}
+        {items.map((item) => (
+          <article
+            key={item.id}
+            className={styles.card}
+            aria-label={item.name}
+            data-item-id={item.id}
+          >
+            <header className={styles.cardHeader}>
+              <h3 className={styles.cardTitle}>{item.name}</h3>
+              <p className={styles.cardDesc}>{item.description}</p>
+            </header>
+            <div className={styles.variantGrid}>
+              {item.variants.map((variant) => (
+                <VariantOffer
+                  key={variant.code}
+                  item={item}
+                  variant={variant}
+                  volumeUnit={volumeUnit}
+                />
+              ))}
+            </div>
+          </article>
+        ))}
       </div>
     </>
   )

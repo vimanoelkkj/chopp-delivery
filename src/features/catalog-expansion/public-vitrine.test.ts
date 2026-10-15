@@ -149,7 +149,9 @@ describe('Vitrine Pública Conectada à API Real (F3C.3)', () => {
     expect(normalizeCachacaName('Temos cachaça')).toBe('Cachaça')
     expect(normalizeCachacaName('Temos cachaca')).toBe('Cachaça')
     expect(normalizeCachacaName('Cachaça')).toBe('Cachaça')
-    expect(normalizeCachacaName('Cachaça Prata (Demonstração)')).toBe('Cachaça Prata')
+    expect(normalizeCachacaName('Cachaça Prata (Demonstração)')).toBe(
+      'Cachaça Prata (Demonstração)',
+    )
 
     // Rótulo da garrafa
     expect(formatBottleLabel({ label: 'Garrafa', volumeMl: 700 })).toBe('Garrafa 700 ml')

@@ -59,18 +59,21 @@ for (const width of [1280, 390])
     })
     await page.route('**/api/catalog', (route) => route.fulfill({ json: data }))
     await page.goto('/')
-    await expect(page.getByRole('article', { name: 'Dronken' })).toContainText(
-      'Barril especial · 20000 ml · R$ 321,29',
+    const offers = (name: string) =>
+      width >= 768
+        ? page.getByRole('row', { name: new RegExp(name) })
+        : page.getByRole('article', { name, exact: true })
+    await expect(offers('Dronken')).toContainText('Barril especial · 20 L')
+    await expect(offers('Dronken')).toContainText('321,29')
+    await expect(offers('Brahma')).toContainText('não disponível')
+    await expect(page.getByTestId('cachaca-card-cachaca')).toBeVisible()
+    await expect(page.getByTestId('cachaca-card-new-bottle')).toContainText(
+      'Garrafa grande 1.000 ml',
     )
-    await expect(page.getByRole('article', { name: 'Brahma' })).toContainText('Não comercializado')
-    await expect(page.getByRole('complementary', { name: 'Temos cachaça' })).toBeVisible()
-    await expect(page.getByRole('complementary', { name: 'Cachaça segunda' })).toContainText(
-      'Garrafa grande 1000 ml · R$ 59,01',
-    )
+    await expect(page.getByTestId('cachaca-card-new-bottle')).toContainText('59,01')
     await expect(page.getByRole('heading', { name: 'Categoria futura' })).toBeVisible()
-    await expect(page.getByRole('article', { name: 'Produto futuro' })).toContainText(
-      'Unidade · R$ 1,99',
-    )
+    await expect(offers('Produto futuro')).toContainText('Unidade')
+    await expect(offers('Produto futuro')).toContainText('1,99')
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),

@@ -12,6 +12,11 @@ const forbidden = [
   'owner-id',
   '/api/admin/catalog/v2', // gateway HTTP continua desligado
   'If-Match',
+  'MotionPreviewPage',
+  'simulatedViewport',
+  'EXPANDED_CATALOG_FIXTURE',
+  'chope-imperial-stout-oculto',
+  'cachaca-safra-antiga-oculta',
 ]
 
 const walk = (dir) =>
