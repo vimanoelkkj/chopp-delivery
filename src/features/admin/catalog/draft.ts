@@ -2,92 +2,222 @@ import { formatPriceText, parsePriceText } from './price'
 import {
   type AdminCatalog,
   type AdminItem,
-  type PriceSlot,
-  SLOTS,
-  TAB_IDS,
-  type TabId,
+  type CategoryId,
+  DESCRIPTION_MAX,
+  type ItemInput,
+  LABEL_MAX,
+  NAME_MAX,
+  PRICE_REQUIRED,
+  type SaveInput,
+  STANDARD_COLUMNS,
+  type VariantInput,
 } from './types'
+import { parseVolume, volumeUnit } from './volume'
 
-/** Rascunho: o que está na tela. Preços ficam como texto digitado até o envio. */
-export type Draft = {
-  order: Record<TabId, string[]>
-  visible: Record<string, boolean>
-  text: Record<string, Partial<Record<PriceSlot, string>>>
+/**
+ * Variante em edição. `key` é a identidade de rascunho: o `code` quando persistida ou o
+ * clientId temporário quando nova (`code` null). Preços ficam como texto mascarado.
+ */
+export type DraftVariant = {
+  key: string
+  code: string | null
+  label: string
+  volumeText: string
+  priceText: string
 }
 
-export type FieldErrors = Record<string, Partial<Record<PriceSlot | 'row', string>>>
+/** Item em edição. `key` = `creationRef` ou `id` (estável), ou o clientId se ainda não salvo. */
+export type DraftItem = {
+  key: string
+  /** Id definitivo; null enquanto o item só existe no rascunho. */
+  id: string | null
+  categoryId: CategoryId
+  name: string
+  description: string
+  visible: boolean
+  variants: DraftVariant[]
+}
+
+export type Draft = {
+  order: Record<CategoryId, string[]>
+  items: Record<string, DraftItem>
+}
+
+/** Mensagens por campo: `name`, `description`, `variants`, `row`, `price:<k>`, `label:<k>`, `volume:<k>`. */
+export type FieldErrors = Record<string, Record<string, string>>
+
+export const newClientId = () => `tmp:${crypto.randomUUID()}`
+
+export const isNewItem = (item: DraftItem) => item.id === null
+
+export function newVariantDraft(): DraftVariant {
+  return { key: newClientId(), code: null, label: '', volumeText: '', priceText: '' }
+}
+
+export function newItemDraft(categoryId: CategoryId): DraftItem {
+  return {
+    key: newClientId(),
+    id: null,
+    categoryId,
+    name: '',
+    description: '',
+    visible: false, // cadastro começa oculto: só vai ao site quando o dono ligar
+    variants: [newVariantDraft()],
+  }
+}
+
+function itemDraft(item: AdminItem, categoryId: CategoryId): DraftItem {
+  return {
+    key: item.creationRef ?? item.id,
+    id: item.id,
+    categoryId,
+    name: item.name,
+    description: item.description,
+    visible: item.visible,
+    variants: item.variants.map((variant) => ({
+      key: variant.creationRef ?? variant.code,
+      code: variant.code,
+      label: variant.label,
+      volumeText: variant.volumeMl === null ? '' : String(variant.volumeMl),
+      priceText: formatPriceText(variant.priceCents),
+    })),
+  }
+}
 
 export function draftFrom(catalog: AdminCatalog): Draft {
-  const draft: Draft = { order: { chopes: [], cachacas: [] }, visible: {}, text: {} }
-  for (const tab of TAB_IDS)
-    for (const item of catalog[tab]) {
-      draft.order[tab].push(item.id)
-      draft.visible[item.id] = item.visible
-      draft.text[item.id] = Object.fromEntries(
-        SLOTS[tab].map(({ slot }) => [slot, formatPriceText(item.prices[slot])]),
-      )
+  const draft: Draft = { order: {}, items: {} }
+  for (const category of catalog.categories) {
+    draft.order[category.id] = []
+    for (const item of category.items) {
+      const next = itemDraft(item, category.id)
+      draft.order[category.id].push(next.key)
+      draft.items[next.key] = next
     }
+  }
   return draft
 }
 
-export function findItem(catalog: AdminCatalog, id: string): AdminItem | undefined {
-  return [...catalog.chopes, ...catalog.cachacas].find((item) => item.id === id)
+/** Item persistido cujas variantes são exatamente as colunas padrão da categoria: vai na tabela. */
+export function isStandardRow(item: DraftItem): boolean {
+  const columns = STANDARD_COLUMNS[item.categoryId]
+  return (
+    !isNewItem(item) &&
+    !!columns &&
+    columns.length === item.variants.length &&
+    columns.every((column, index) => item.variants[index].code === column.code)
+  )
 }
 
 export function validate(draft: Draft): FieldErrors {
   const errors: FieldErrors = {}
-  for (const tab of TAB_IDS)
-    for (const id of draft.order[tab]) {
-      const found: FieldErrors[string] = {}
+  for (const [categoryId, keys] of Object.entries(draft.order))
+    for (const key of keys) {
+      const item = draft.items[key]
+      const found: Record<string, string> = {}
+      const name = item.name.trim()
+      if (!name) found.name = 'Informe o nome.'
+      else if ([...name].length > NAME_MAX) found.name = `Use até ${NAME_MAX} caracteres.`
+      if ([...item.description].length > DESCRIPTION_MAX)
+        found.description = `Use até ${DESCRIPTION_MAX} caracteres.`
+      if (item.variants.length === 0) found.variants = 'Inclua ao menos uma variante.'
       let priced = 0
-      for (const { slot, required } of SLOTS[tab]) {
-        const result = parsePriceText(draft.text[id]?.[slot] ?? '')
-        if (!result.ok) found[slot] = result.message
-        else if (result.cents === null && required) found[slot] = 'Informe o preço.'
-        else if (result.cents !== null) priced++
+      let priceProblem = false
+      for (const variant of item.variants) {
+        if (variant.code === null) {
+          const label = variant.label.trim()
+          if (!label) found[`label:${variant.key}`] = 'Informe o rótulo.'
+          else if ([...label].length > LABEL_MAX)
+            found[`label:${variant.key}`] = `Use até ${LABEL_MAX} caracteres.`
+          const volume = parseVolume(variant.volumeText, volumeUnit(categoryId))
+          if (!volume.ok) found[`volume:${variant.key}`] = volume.message
+        }
+        const price = parsePriceText(variant.priceText)
+        if (!price.ok) {
+          found[`price:${variant.key}`] = price.message
+          priceProblem = true
+        } else if (price.cents === null && PRICE_REQUIRED.has(categoryId)) {
+          found[`price:${variant.key}`] = 'Informe o preço.'
+          priceProblem = true
+        } else if (price.cents !== null) priced++
       }
-      if (tab === 'chopes' && draft.visible[id] && priced === 0 && Object.keys(found).length === 0)
+      if (item.visible && priced === 0 && !priceProblem && item.variants.length > 0)
         found.row = 'Informe ao menos um preço ou oculte o produto.'
-      if (Object.keys(found).length) errors[id] = found
+      if (Object.keys(found).length) errors[key] = found
     }
   return errors
 }
 
-/** Itens com preço, visibilidade ou posição diferentes do que está salvo. */
-export function changedIds(saved: AdminCatalog, draft: Draft): string[] {
+/** Chaves dos itens novos, ou persistidos com preço, visibilidade, texto, variantes ou posição alterados. */
+export function changedKeys(saved: AdminCatalog, draft: Draft): string[] {
   const changed: string[] = []
-  for (const tab of TAB_IDS) {
-    const savedIds = saved[tab].map((item) => item.id)
-    draft.order[tab].forEach((id, index) => {
-      const item = findItem(saved, id)
-      if (!item) return
+  for (const category of saved.categories) {
+    const byId = new Map(category.items.map((item, index) => [item.id, { item, index }]))
+    draft.order[category.id]?.forEach((key, index) => {
+      const item = draft.items[key]
+      if (isNewItem(item)) {
+        changed.push(key)
+        return
+      }
+      const before = byId.get(item.id as string)
+      if (!before) return
+      const { item: original } = before
       const same =
-        savedIds[index] === id &&
-        draft.visible[id] === item.visible &&
-        SLOTS[tab].every(
-          ({ slot }) => draft.text[id]?.[slot]?.trim() === formatPriceText(item.prices[slot]),
+        before.index === index &&
+        item.visible === original.visible &&
+        item.name === original.name &&
+        item.description === original.description &&
+        item.variants.length === original.variants.length &&
+        item.variants.every(
+          (variant, i) =>
+            variant.priceText.trim() === formatPriceText(original.variants[i].priceCents),
         )
-      if (!same) changed.push(id)
+      if (!same) changed.push(key)
     })
   }
   return changed
 }
 
-/** Monta o catálogo a salvar. Só chamar com `validate(draft)` vazio. */
-export function buildCatalog(saved: AdminCatalog, draft: Draft): AdminCatalog {
-  const next: AdminCatalog = { revision: saved.revision, chopes: [], cachacas: [] }
-  for (const tab of TAB_IDS)
-    for (const id of draft.order[tab]) {
-      const item = findItem(saved, id)
-      if (!item) continue
-      const prices: AdminItem['prices'] = {}
-      for (const { slot } of SLOTS[tab]) {
-        const result = parsePriceText(draft.text[id]?.[slot] ?? '')
-        prices[slot] = result.ok ? result.cents : null
-      }
-      next[tab].push({ ...item, visible: draft.visible[id], prices })
-    }
-  return next
+function variantInput(variant: DraftVariant, categoryId: string): VariantInput {
+  const price = parsePriceText(variant.priceText)
+  // Variante nova: o texto está na unidade da categoria (L nos chopes) e vira ml exatos.
+  // Persistida: o texto já é o volume em ml vindo do servidor (somente leitura).
+  const parsed =
+    variant.code === null ? parseVolume(variant.volumeText, volumeUnit(categoryId)) : null
+  const fields = {
+    label: variant.label.trim(),
+    volumeMl: parsed
+      ? parsed.ok
+        ? parsed.ml
+        : null
+      : variant.volumeText
+        ? Number(variant.volumeText)
+        : null,
+    priceCents: price.ok ? price.cents : null,
+  }
+  return variant.code === null
+    ? { clientId: variant.key, ...fields }
+    : { code: variant.code, ...fields }
+}
+
+function itemInput(item: DraftItem): ItemInput {
+  const fields = {
+    name: item.name.trim(),
+    description: item.description,
+    visible: item.visible,
+    variants: item.variants.map((variant) => variantInput(variant, item.categoryId)),
+  }
+  return item.id === null ? { clientId: item.key, ...fields } : { id: item.id, ...fields }
+}
+
+/** Monta o pedido de salvamento completo. Só chamar com `validate(draft)` vazio. */
+export function buildSaveInput(saved: AdminCatalog, draft: Draft): SaveInput {
+  return {
+    revision: saved.revision,
+    categories: saved.categories.map((category) => ({
+      id: category.id,
+      items: (draft.order[category.id] ?? []).map((key) => itemInput(draft.items[key])),
+    })),
+  }
 }
 
 export function moveId(order: string[], id: string, direction: -1 | 1): string[] {
@@ -98,4 +228,13 @@ export function moveId(order: string[], id: string, direction: -1 | 1): string[]
   next[from] = order[to]
   next[to] = id
   return next
+}
+
+/** Algo digitado em item novo? Decide se cancelar pede confirmação. */
+export function hasContent(item: DraftItem): boolean {
+  return (
+    !!item.name.trim() ||
+    !!item.description.trim() ||
+    item.variants.some((v) => v.label.trim() || v.volumeText.trim() || v.priceText.trim())
+  )
 }

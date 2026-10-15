@@ -1,14 +1,27 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
-import { buildCatalog, changedIds, type Draft, draftFrom, moveId, validate } from './draft'
+import {
+  buildSaveInput,
+  changedKeys,
+  type Draft,
+  type DraftItem,
+  type DraftVariant,
+  draftFrom,
+  moveId,
+  newItemDraft,
+  newVariantDraft,
+  validate,
+} from './draft'
 import { AdminApiError, type AdminCatalogGateway } from './gateway'
 import { formatPriceText, parsePriceText } from './price'
-import type { AdminCatalog, PriceSlot, TabId } from './types'
+import type { AdminCatalog, CategoryId } from './types'
 
 type State = {
   load: { status: 'loading' } | { status: 'error' } | { status: 'ready'; saved: AdminCatalog }
   draft: Draft | null
-  /** Campos já visitados ("id:slot"): só eles mostram erro antes da primeira tentativa de salvar. */
+  /** Campos já visitados ("itemKey:campo"): só eles mostram erro antes da primeira tentativa de salvar. */
   touched: Record<string, true>
+  /** Campos que o usuário já alterou: erro de campo vazio só aparece depois de editar e sair, ou ao salvar. */
+  edited: Record<string, true>
   attempted: boolean
   saving: boolean
   /** Outra sessão salvou antes: salvar fica bloqueado até recarregar. */
@@ -16,14 +29,23 @@ type State = {
   conflictOpen: boolean
 }
 
+export type ItemField = 'name' | 'description'
+export type VariantField = 'label' | 'volumeText' | 'priceText'
+
 type Action =
   | { type: 'loading' }
   | { type: 'load-failed' }
   | { type: 'loaded'; catalog: AdminCatalog }
-  | { type: 'price'; id: string; slot: PriceSlot; text: string }
-  | { type: 'blur'; id: string; slot: PriceSlot }
-  | { type: 'visible'; id: string; visible: boolean }
-  | { type: 'move'; tab: TabId; id: string; direction: -1 | 1 }
+  | { type: 'item-field'; key: string; field: ItemField; text: string }
+  | { type: 'variant-field'; key: string; variant: string; field: VariantField; text: string }
+  | { type: 'touch'; path: string }
+  | { type: 'blur-price'; key: string; variant: string }
+  | { type: 'visible'; key: string; visible: boolean }
+  | { type: 'move'; category: CategoryId; key: string; direction: -1 | 1 }
+  | { type: 'add-item'; item: DraftItem }
+  | { type: 'cancel-item'; key: string }
+  | { type: 'add-variant'; key: string; variant: DraftVariant }
+  | { type: 'remove-variant'; key: string; variant: string }
   | { type: 'discard' }
   | { type: 'attempt' }
   | { type: 'saving' }
@@ -33,17 +55,37 @@ type Action =
   | { type: 'conflict-open' }
   | { type: 'conflict-close' }
 
-const initial: State = {
+const VARIANT_PATH: Record<VariantField, string> = {
+  label: 'label',
+  volumeText: 'volume',
+  priceText: 'price',
+}
+
+export type EditorState = State
+export type EditorAction = Action
+
+export const initial: State = {
   load: { status: 'loading' },
   draft: null,
   touched: {},
+  edited: {},
   attempted: false,
   saving: false,
   conflict: false,
   conflictOpen: false,
 }
 
-function reducer(state: State, action: Action): State {
+const withItem = (draft: Draft, key: string, change: (item: DraftItem) => DraftItem): Draft =>
+  draft.items[key]
+    ? { ...draft, items: { ...draft.items, [key]: change(draft.items[key]) } }
+    : draft
+
+const withVariant = (item: DraftItem, key: string, change: (v: DraftVariant) => DraftVariant) => ({
+  ...item,
+  variants: item.variants.map((variant) => (variant.key === key ? change(variant) : variant)),
+})
+
+export function reducer(state: State, action: Action): State {
   const { draft } = state
   switch (action.type) {
     case 'loading':
@@ -51,11 +93,6 @@ function reducer(state: State, action: Action): State {
     case 'load-failed':
       return { ...initial, load: { status: 'error' } }
     case 'loaded':
-      return {
-        ...initial,
-        load: { status: 'ready', saved: action.catalog },
-        draft: draftFrom(action.catalog),
-      }
     case 'saved':
       return {
         ...initial,
@@ -75,6 +112,7 @@ function reducer(state: State, action: Action): State {
     case 'attempt':
       return { ...state, attempted: true }
     case 'discard':
+      // Itens ainda não persistidos somem junto: o rascunho volta ao snapshot salvo.
       return state.load.status === 'ready'
         ? { ...initial, load: state.load, draft: draftFrom(state.load.saved) }
         : state
@@ -83,37 +121,46 @@ function reducer(state: State, action: Action): State {
   }
   if (!draft) return state
   switch (action.type) {
-    case 'price':
+    case 'item-field':
       return {
         ...state,
-        draft: {
-          ...draft,
-          text: {
-            ...draft.text,
-            [action.id]: { ...draft.text[action.id], [action.slot]: action.text },
-          },
-        },
+        edited: { ...state.edited, [`${action.key}:${action.field}`]: true },
+        draft: withItem(draft, action.key, (item) => ({ ...item, [action.field]: action.text })),
       }
-    case 'blur': {
-      const text = draft.text[action.id]?.[action.slot] ?? ''
-      const parsed = parsePriceText(text)
-      const formatted = parsed.ok ? formatPriceText(parsed.cents) : text
+    case 'variant-field':
       return {
         ...state,
-        touched: { ...state.touched, [`${action.id}:${action.slot}`]: true },
-        draft: {
-          ...draft,
-          text: {
-            ...draft.text,
-            [action.id]: { ...draft.text[action.id], [action.slot]: formatted },
-          },
+        edited: {
+          ...state.edited,
+          [`${action.key}:${VARIANT_PATH[action.field]}:${action.variant}`]: true,
         },
+        draft: withItem(draft, action.key, (item) =>
+          withVariant(item, action.variant, (variant) => ({
+            ...variant,
+            [action.field]: action.text,
+          })),
+        ),
+      }
+    case 'touch':
+      return { ...state, touched: { ...state.touched, [action.path]: true } }
+    case 'blur-price': {
+      const item = draft.items[action.key]
+      const variant = item?.variants.find((v) => v.key === action.variant)
+      if (!variant) return state
+      const parsed = parsePriceText(variant.priceText)
+      const formatted = parsed.ok ? formatPriceText(parsed.cents) : variant.priceText
+      return {
+        ...state,
+        touched: { ...state.touched, [`${action.key}:price:${action.variant}`]: true },
+        draft: withItem(draft, action.key, (it) =>
+          withVariant(it, action.variant, (v) => ({ ...v, priceText: formatted })),
+        ),
       }
     }
     case 'visible':
       return {
         ...state,
-        draft: { ...draft, visible: { ...draft.visible, [action.id]: action.visible } },
+        draft: withItem(draft, action.key, (item) => ({ ...item, visible: action.visible })),
       }
     case 'move':
       return {
@@ -122,9 +169,55 @@ function reducer(state: State, action: Action): State {
           ...draft,
           order: {
             ...draft.order,
-            [action.tab]: moveId(draft.order[action.tab], action.id, action.direction),
+            [action.category]: moveId(draft.order[action.category], action.key, action.direction),
           },
         },
+      }
+    case 'add-item':
+      return {
+        ...state,
+        draft: {
+          order: {
+            ...draft.order,
+            [action.item.categoryId]: [
+              ...(draft.order[action.item.categoryId] ?? []),
+              action.item.key,
+            ],
+          },
+          items: { ...draft.items, [action.item.key]: action.item },
+        },
+      }
+    case 'cancel-item': {
+      const item = draft.items[action.key]
+      if (!item || item.id !== null) return state // só linhas ainda temporárias saem do rascunho
+      const { [action.key]: _removed, ...items } = draft.items
+      return {
+        ...state,
+        draft: {
+          items,
+          order: {
+            ...draft.order,
+            [item.categoryId]: draft.order[item.categoryId].filter((k) => k !== action.key),
+          },
+        },
+      }
+    }
+    case 'add-variant':
+      return {
+        ...state,
+        draft: withItem(draft, action.key, (item) => ({
+          ...item,
+          variants: [...item.variants, action.variant],
+        })),
+      }
+    case 'remove-variant':
+      return {
+        ...state,
+        draft: withItem(draft, action.key, (item) => ({
+          ...item,
+          // Variantes persistidas nunca saem por omissão; só as temporárias podem ser removidas.
+          variants: item.variants.filter((v) => v.key !== action.variant || v.code !== null),
+        })),
       }
     default:
       return state
@@ -167,7 +260,7 @@ export function useCatalogEditor(
   const saved = state.load.status === 'ready' ? state.load.saved : null
   const errors = useMemo(() => (state.draft ? validate(state.draft) : {}), [state.draft])
   const changed = useMemo(
-    () => (saved && state.draft ? changedIds(saved, state.draft) : []),
+    () => (saved && state.draft ? changedKeys(saved, state.draft) : []),
     [saved, state.draft],
   )
 
@@ -187,8 +280,10 @@ export function useCatalogEditor(
     }
     dispatch({ type: 'saving' })
     try {
-      const next = await gateway.save(buildCatalog(load.saved, draft))
-      dispatch({ type: 'saved', catalog: next })
+      const result = await gateway.save(buildSaveInput(load.saved, draft))
+      // Reconciliação: o snapshot devolvido traz ids/codes definitivos e creationRef; o rascunho
+      // é reconstruído dele e as chaves estáveis (clientId) preservam as linhas na tela.
+      dispatch({ type: 'saved', catalog: result.catalog })
       notify('success', 'Salvo. As mudanças já estão no site.')
     } catch (error) {
       if (error instanceof AdminApiError && error.code === 'conflict') {
@@ -212,12 +307,29 @@ export function useCatalogEditor(
     /** Recarrega do servidor e descarta o rascunho (saída do conflito). */
     reload: retryLoad,
     dismissConflict: () => dispatch({ type: 'conflict-close' }),
-    setPrice: (id: string, slot: PriceSlot, text: string) =>
-      dispatch({ type: 'price', id, slot, text }),
-    blurPrice: (id: string, slot: PriceSlot) => dispatch({ type: 'blur', id, slot }),
-    setVisible: (id: string, visible: boolean) => dispatch({ type: 'visible', id, visible }),
-    move: (tab: TabId, id: string, direction: -1 | 1) =>
-      dispatch({ type: 'move', tab, id, direction }),
+    setItemField: (key: string, field: ItemField, text: string) =>
+      dispatch({ type: 'item-field', key, field, text }),
+    setVariantField: (key: string, variant: string, field: VariantField, text: string) =>
+      dispatch({ type: 'variant-field', key, variant, field, text }),
+    touch: (path: string) => dispatch({ type: 'touch', path }),
+    blurPrice: (key: string, variant: string) => dispatch({ type: 'blur-price', key, variant }),
+    setVisible: (key: string, visible: boolean) => dispatch({ type: 'visible', key, visible }),
+    move: (category: CategoryId, key: string, direction: -1 | 1) =>
+      dispatch({ type: 'move', category, key, direction }),
+    /** Cria o item temporário (clientId estável) no fim da categoria e devolve sua chave. */
+    addItem: (category: CategoryId) => {
+      const item = newItemDraft(category)
+      dispatch({ type: 'add-item', item })
+      return item.key
+    },
+    cancelItem: (key: string) => dispatch({ type: 'cancel-item', key }),
+    addVariant: (key: string) => {
+      const variant = newVariantDraft()
+      dispatch({ type: 'add-variant', key, variant })
+      return variant.key
+    },
+    removeVariant: (key: string, variant: string) =>
+      dispatch({ type: 'remove-variant', key, variant }),
     discard: () => dispatch({ type: 'discard' }),
     save,
   }

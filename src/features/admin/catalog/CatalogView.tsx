@@ -5,8 +5,11 @@ import { Tabs } from '../ui/Tabs'
 import { Toast, type ToastState } from '../ui/Toast'
 import { useFlip } from '../ui/useFlip'
 import styles from './CatalogView.module.css'
+import { type DraftItem, hasContent, isStandardRow } from './draft'
+import { ItemCard } from './ItemCard'
+import { NewProductDialog } from './NewProductDialog'
 import { ProductRow } from './ProductRow'
-import { type AdminItem, SLOTS, TAB_IDS, TAB_LABELS, type TabId } from './types'
+import { type CategoryId, EMPTY_TITLE, PRICE_REQUIRED, STANDARD_COLUMNS } from './types'
 import type { useCatalogEditor } from './useCatalogEditor'
 
 type Editor = ReturnType<typeof useCatalogEditor>
@@ -33,17 +36,23 @@ function SkeletonRows() {
 
 export function CatalogView({ editor, toast }: CatalogViewProps) {
   const { state, errors, changed, dirty } = editor
-  const [tab, setTab] = useState<TabId>('chopes')
+  const [selectedTab, setTab] = useState<CategoryId>('chopes')
   const [discardOpen, setDiscardOpen] = useState(false)
+  const [newOpen, setNewOpen] = useState(false)
+  const [cancelKey, setCancelKey] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const [focusTick, setFocusTick] = useState(0)
   const focusAfter = useRef<{ move?: string; field?: string } | null>(null)
+  const pendingFocus = useRef<string | null>(null)
   const idPrefix = useId()
   const draft = state.draft
   const saved = state.load.status === 'ready' ? state.load.saved : null
+  const categories = saved?.categories ?? []
+  const tab = categories.some((c) => c.id === selectedTab) ? selectedTab : (categories[0]?.id ?? '')
   const flip = useFlip(draft?.order[tab] ?? [])
 
-  // Foco depois de reordenar (o botão pode estar desabilitado na borda) ou de um erro ao salvar.
+  // Foco depois de reordenar (o botão pode estar desabilitado na borda), de um erro ao salvar
+  // ou de criar um produto (o foco vai ao campo Nome do cadastro novo).
   // biome-ignore lint/correctness/useExhaustiveDependencies: dispara a cada mudança do rascunho
   useEffect(() => {
     const target = focusAfter.current
@@ -51,22 +60,50 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
     if (!target) return
     if (target.field) document.querySelector<HTMLElement>(`[data-field="${target.field}"]`)?.focus()
     if (target.move) {
-      const [id, direction] = target.move.split(':')
+      const sep = target.move.lastIndexOf(':')
+      const key = target.move.slice(0, sep)
+      const direction = Number(target.move.slice(sep + 1))
       const same = document.querySelector<HTMLElement>(
-        `[data-move="${id}:${direction}"]:not(:disabled)`,
+        `[data-move="${key}:${direction}"]:not(:disabled)`,
       )
       const other = document.querySelector<HTMLElement>(
-        `[data-move="${id}:${Number(direction) * -1}"]:not(:disabled)`,
+        `[data-move="${key}:${direction * -1}"]:not(:disabled)`,
       )
       ;(same ?? other)?.focus()
     }
   }, [draft, tab, focusTick])
 
+  // Teclado virtual e foco: ao abrir/fechar o teclado a área visível muda, e um campo já "visível"
+  // pode estar sob a barra fixa. Aqui o campo focado (com a margem de rolagem dos controles)
+  // sempre fica acima da barra de salvamento.
+  useEffect(() => {
+    const reveal = () => {
+      const field = document.activeElement
+      if (
+        field instanceof HTMLElement &&
+        field.matches('input, textarea') &&
+        field.closest('main') &&
+        !field.closest('dialog')
+      )
+        field.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+    }
+    const viewport = window.visualViewport
+    const onFocus = () => requestAnimationFrame(reveal)
+    window.addEventListener('resize', reveal)
+    viewport?.addEventListener('resize', reveal)
+    document.addEventListener('focusin', onFocus)
+    return () => {
+      window.removeEventListener('resize', reveal)
+      viewport?.removeEventListener('resize', reveal)
+      document.removeEventListener('focusin', onFocus)
+    }
+  }, [])
+
   if (state.load.status === 'loading' || !draft || !saved) {
     return (
       <div className={styles.page}>
         <div className={styles.content}>
-          <Heading chopes={null} hidden={0} />
+          <Heading chopes={null} hidden={0} onNew={() => {}} />
           {state.load.status === 'error' ? (
             <section className={styles.failure} aria-labelledby={`${idPrefix}-failure`}>
               <p className={styles.eyebrow}>Sem conexão com o catálogo</p>
@@ -91,101 +128,151 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
     )
   }
 
-  const order = draft.order[tab]
-  const items = new Map<string, AdminItem>(
-    [...saved.chopes, ...saved.cachacas].map((item) => [item.id, item]),
-  )
-  const hidden = TAB_IDS.flatMap((id) => draft.order[id]).filter((id) => !draft.visible[id]).length
-  const showError = (id: string) => (slot: string) =>
-    state.attempted || state.touched[`${id}:${slot}`]
-  const rowErrors = (id: string) => {
-    const visible = showError(id)
-    const found = errors[id] ?? {}
-    return Object.fromEntries(
-      Object.entries(found).filter(([slot]) =>
-        slot === 'row'
-          ? state.attempted || SLOTS[tab].some(({ slot: s }) => state.touched[`${id}:${s}`])
-          : visible(slot),
+  const order = draft.order[tab] ?? []
+  const allKeys = categories.flatMap((c) => draft.order[c.id] ?? [])
+  const hidden = allKeys.filter((key) => !draft.items[key].visible).length
+  const productsCount = (draft.order.chopes ?? allKeys).length
+  const columns = STANDARD_COLUMNS[tab] ?? []
+  const tableRows = order.some((key) => isStandardRow(draft.items[key]))
+  const touchedAny = (key: string) =>
+    Object.keys(state.touched).some((path) => path.startsWith(`${key}:`))
+
+  /** Só o que deve aparecer agora: após visitar o campo ou depois da primeira tentativa de salvar. */
+  const shownErrors = (key: string) =>
+    Object.fromEntries(
+      Object.entries(errors[key] ?? {}).filter(([field]) =>
+        state.attempted || field === 'row' || field === 'variants'
+          ? state.attempted || touchedAny(key)
+          : state.touched[`${key}:${field}`] && state.edited[`${key}:${field}`],
       ),
     )
-  }
 
   const trySave = async () => {
     if (await editor.save()) return
-    for (const id of TAB_IDS) {
-      const bad = draft.order[id].find((itemId) => errors[itemId])
+    for (const category of categories) {
+      const bad = (draft.order[category.id] ?? []).find((key) => errors[key])
       if (!bad) continue
-      const slot = Object.keys(errors[bad]).find((key) => key !== 'row') ?? SLOTS[id][0].slot
-      focusAfter.current = { field: `${bad}:${slot}` }
-      setTab(id)
+      const item = draft.items[bad]
+      const field =
+        Object.keys(errors[bad]).find((name) => name !== 'row' && name !== 'variants') ??
+        (isStandardRow(item) ? `price:${item.variants[0].key}` : 'name')
+      focusAfter.current = { field: `${bad}:${field}` }
+      setTab(category.id)
       setFocusTick((tick) => tick + 1)
       return
     }
   }
 
-  const move = (id: string, direction: -1 | 1) => {
+  const move = (key: string, direction: -1 | 1) => {
     flip.snapshot()
-    const name = items.get(id)?.name ?? ''
-    const from = order.indexOf(id)
+    const name = draft.items[key].name.trim() || 'Novo produto'
+    const from = order.indexOf(key)
     setAnnouncement(`${name} movido para a posição ${from + 1 + direction} de ${order.length}.`)
-    focusAfter.current = { move: `${id}:${direction}` }
-    editor.move(tab, id, direction)
+    focusAfter.current = { move: `${key}:${direction}` }
+    editor.move(tab, key, direction)
   }
 
-  const labelCount = (id: TabId) => draft.order[id].length
+  const create = (category: CategoryId) => {
+    const key = editor.addItem(category)
+    setNewOpen(false)
+    setTab(category)
+    pendingFocus.current = key // o foco só vai ao Nome em onClosed, depois que o modal devolve o foco
+    const name = categories.find((c) => c.id === category)?.name ?? ''
+    setAnnouncement(`Novo produto adicionado em ${name}. Preencha o nome e as variantes.`)
+  }
+
+  const cancel = (item: DraftItem) => {
+    if (hasContent(item)) setCancelKey(item.key)
+    else {
+      editor.cancelItem(item.key)
+      setAnnouncement('Cadastro cancelado.')
+    }
+  }
+
   const unsaved = `${changed.length} ${plural(changed.length, 'produto tem', 'produtos têm')} alterações não salvas.`
+  const categoryName = (id: CategoryId) => categories.find((c) => c.id === id)?.name ?? ''
 
   return (
     <div className={styles.page}>
       <div className={styles.content}>
-        <Heading chopes={draft.order.chopes.length} hidden={hidden} />
+        <Heading chopes={productsCount} hidden={hidden} onNew={() => setNewOpen(true)} />
         <Tabs
           label="Tipo de produto"
           idPrefix={idPrefix}
           active={tab}
           onChange={setTab}
-          items={TAB_IDS.map((id) => ({ id, label: TAB_LABELS[id], count: labelCount(id) }))}
+          items={categories.map((c) => ({
+            id: c.id,
+            label: c.name,
+            count: (draft.order[c.id] ?? []).length,
+          }))}
         >
           {order.length === 0 ? (
             <section className={styles.empty}>
               <h2 className={styles.failureTitle}>
-                {tab === 'chopes' ? 'Nenhum chope ainda' : 'Nenhuma cachaça ainda'}
+                {EMPTY_TITLE[tab] ?? `Nenhum item em ${categoryName(tab)}`}
               </h2>
               <p className={styles.failureText}>
-                Quando houver itens cadastrados, eles aparecem aqui para você editar.
+                Use “Novo produto” para cadastrar o primeiro. Os itens cadastrados aparecem aqui
+                para você editar.
               </p>
             </section>
           ) : (
-            <div className={styles.table} style={{ '--slots': SLOTS[tab].length } as CSSProperties}>
-              <div className={styles.head} aria-hidden="true">
-                <span>Foto</span>
-                <span>Produto</span>
-                {SLOTS[tab].map(({ slot, label }) => (
-                  <span key={slot}>{label}</span>
-                ))}
-                <span>No site</span>
-                <span>Ordem</span>
-              </div>
+            <div
+              className={styles.table}
+              style={{ '--slots': Math.max(columns.length, 1) } as CSSProperties}
+            >
+              {tableRows ? (
+                <div className={styles.head} aria-hidden="true">
+                  <span>Foto</span>
+                  <span>Produto</span>
+                  {columns.map(({ code, label }) => (
+                    <span key={code}>{label}</span>
+                  ))}
+                  <span>No site</span>
+                  <span>Ordem</span>
+                </div>
+              ) : null}
               <ul className={styles.list}>
-                {order.map((id, index) => {
-                  const item = items.get(id)
-                  if (!item) return null
-                  return (
+                {order.map((key, index) => {
+                  const item = draft.items[key]
+                  const common = {
+                    item,
+                    priceRequired: PRICE_REQUIRED.has(tab),
+                    position: index + 1,
+                    total: order.length,
+                    errors: shownErrors(key),
+                    changed: changed.includes(key),
+                    rowRef: flip.register(key),
+                    onVisible: (visible: boolean) => editor.setVisible(key, visible),
+                    onMove: (direction: -1 | 1) => move(key, direction),
+                  }
+                  return isStandardRow(item) ? (
                     <ProductRow
-                      key={id}
-                      rowRef={flip.register(id)}
-                      tab={tab}
-                      item={item}
-                      position={index + 1}
-                      total={order.length}
-                      visible={draft.visible[id]}
-                      text={draft.text[id]}
-                      errors={rowErrors(id)}
-                      changed={changed.includes(id)}
-                      onPrice={(slot, text) => editor.setPrice(id, slot, text)}
-                      onBlur={(slot) => editor.blurPrice(id, slot)}
-                      onVisible={(visible) => editor.setVisible(id, visible)}
-                      onMove={(direction) => move(id, direction)}
+                      key={key}
+                      {...common}
+                      columns={columns}
+                      onPrice={(code, text) => editor.setVariantField(key, code, 'priceText', text)}
+                      onBlur={(code) => editor.blurPrice(key, code)}
+                    />
+                  ) : (
+                    <ItemCard
+                      key={key}
+                      {...common}
+                      categoryName={categoryName(tab)}
+                      onItemField={(field, text) => editor.setItemField(key, field, text)}
+                      onTouch={(field) => editor.touch(`${key}:${field}`)}
+                      onVariantField={(variant, field, text) =>
+                        editor.setVariantField(key, variant, field, text)
+                      }
+                      onBlurPrice={(variant) => editor.blurPrice(key, variant)}
+                      onAddVariant={() => {
+                        const variant = editor.addVariant(key)
+                        focusAfter.current = { field: `${key}:label:${variant}` }
+                        setFocusTick((tick) => tick + 1)
+                      }}
+                      onRemoveVariant={(variant) => editor.removeVariant(key, variant)}
+                      onCancel={() => cancel(item)}
                     />
                   )
                 })}
@@ -201,9 +288,9 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
                       Preço em branco: o tamanho não aparece no site.
                     </span>
                   </>
-                ) : (
-                  'O preço da garrafa é obrigatório.'
-                )}
+                ) : PRICE_REQUIRED.has(tab) ? (
+                  'O preço é obrigatório em cada variante.'
+                ) : null}
               </p>
             </div>
           )}
@@ -253,6 +340,35 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
         </div>
       </div>
 
+      <NewProductDialog
+        open={newOpen}
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        initial={tab}
+        onCancel={() => setNewOpen(false)}
+        onCreate={create}
+        onClosed={() => {
+          if (!pendingFocus.current) return
+          focusAfter.current = { field: `${pendingFocus.current}:name` }
+          pendingFocus.current = null
+          setFocusTick((tick) => tick + 1)
+        }}
+      />
+
+      <ConfirmDialog
+        open={cancelKey !== null}
+        title="Cancelar cadastro?"
+        confirmLabel="Cancelar cadastro"
+        cancelLabel="Continuar editando"
+        onCancel={() => setCancelKey(null)}
+        onConfirm={() => {
+          if (cancelKey) editor.cancelItem(cancelKey)
+          setCancelKey(null)
+          setAnnouncement('Cadastro cancelado.')
+        }}
+      >
+        O que você digitou neste produto ainda não foi salvo e será descartado.
+      </ConfirmDialog>
+
       <ConfirmDialog
         open={discardOpen}
         title="Descartar alterações?"
@@ -267,7 +383,7 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
           setAnnouncement('Alterações descartadas.')
         }}
       >
-        {`${changed.length} ${plural(changed.length, 'produto tem', 'produtos têm')} alterações que ainda não foram salvas. Se descartar, tudo volta ao que está no site agora.`}
+        {`${changed.length} ${plural(changed.length, 'produto tem', 'produtos têm')} alterações que ainda não foram salvas. Se descartar, tudo volta ao que está no site agora e os cadastros novos desaparecem.`}
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -286,7 +402,15 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
   )
 }
 
-function Heading({ chopes, hidden }: { chopes: number | null; hidden: number }) {
+function Heading({
+  chopes,
+  hidden,
+  onNew,
+}: {
+  chopes: number | null
+  hidden: number
+  onNew: () => void
+}) {
   return (
     <div className={styles.heading}>
       <div>
@@ -302,16 +426,21 @@ function Heading({ chopes, hidden }: { chopes: number | null; hidden: number }) 
         <h1 className={styles.title}>Produtos</h1>
       </div>
       {chopes === null ? null : (
-        <ul className={styles.chips} aria-label="Resumo do catálogo">
-          <li className={styles.chip}>
-            {chopes} {plural(chopes, 'produto', 'produtos')}
-          </li>
-          {hidden > 0 ? (
-            <li className={`${styles.chip} ${styles.chipGold}`}>
-              {hidden} {plural(hidden, 'indisponível', 'indisponíveis')}
+        <div className={styles.headingActions}>
+          <ul className={styles.chips} aria-label="Resumo do catálogo">
+            <li className={styles.chip}>
+              {chopes} {plural(chopes, 'produto', 'produtos')}
             </li>
-          ) : null}
-        </ul>
+            {hidden > 0 ? (
+              <li className={`${styles.chip} ${styles.chipGold}`}>
+                {hidden} {plural(hidden, 'indisponível', 'indisponíveis')}
+              </li>
+            ) : null}
+          </ul>
+          <AdminButton className={styles.newButton} onClick={onNew}>
+            Novo produto
+          </AdminButton>
+        </div>
       )}
     </div>
   )

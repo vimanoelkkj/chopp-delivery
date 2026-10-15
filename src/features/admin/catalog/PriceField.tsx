@@ -12,6 +12,8 @@ type PriceFieldProps = {
   error?: string
   /** Texto do campo vazio: "não vende" nos barris; a cachaça exige preço. */
   placeholder: string
+  /** Mantém o rótulo visível também no desktop (cartões de produto; a tabela usa o cabeçalho). */
+  alwaysLabel?: boolean
   /** Identifica o campo para levar o foco até ele depois de uma tentativa de salvar. */
   fieldKey: string
   onChange: (text: string) => void
@@ -30,6 +32,7 @@ export function PriceField({
   value,
   error,
   placeholder,
+  alwaysLabel,
   fieldKey,
   onChange,
   onBlur,
@@ -42,7 +45,8 @@ export function PriceField({
   const caretAtEnd = () =>
     requestAnimationFrame(() => {
       const input = ref.current
-      if (input && document.activeElement === input)
+      // Não desfaz uma seleção que o usuário acabou de fazer (Ctrl+A, arrastar).
+      if (input && document.activeElement === input && input.selectionStart === input.selectionEnd)
         input.setSelectionRange(input.value.length, input.value.length)
     })
 
@@ -66,7 +70,10 @@ export function PriceField({
 
   return (
     <div className={styles.field}>
-      <span className={styles.label} aria-hidden="true">
+      <span
+        className={`${styles.label} ${alwaysLabel ? styles.labelAlways : ''}`}
+        aria-hidden="true"
+      >
         {label}
       </span>
       <input

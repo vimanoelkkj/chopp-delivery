@@ -1,33 +1,33 @@
 import type { Ref } from 'react'
 import { Switch } from '../ui/Switch'
+import type { DraftItem } from './draft'
 import { PriceField } from './PriceField'
 import styles from './ProductRow.module.css'
-import { type AdminItem, type PriceSlot, SLOTS, type TabId } from './types'
 
 type ProductRowProps = {
-  tab: TabId
-  item: AdminItem
+  item: DraftItem
+  /** Colunas padrão da categoria (ex.: 30 L / 50 L). */
+  columns: readonly { code: string; label: string }[]
+  /** Preço obrigatório (cachaça): muda o placeholder do campo vazio. */
+  priceRequired: boolean
   position: number
   total: number
-  visible: boolean
-  text: Partial<Record<PriceSlot, string>>
-  /** Mensagens já filtradas: só o que deve aparecer agora. */
-  errors: Partial<Record<PriceSlot | 'row', string>>
+  /** Mensagens já filtradas: só o que deve aparecer agora (`price:<code>` e `row`). */
+  errors: Record<string, string>
   changed: boolean
   rowRef: Ref<HTMLLIElement>
-  onPrice: (slot: PriceSlot, text: string) => void
-  onBlur: (slot: PriceSlot) => void
+  onPrice: (code: string, text: string) => void
+  onBlur: (code: string) => void
   onVisible: (visible: boolean) => void
   onMove: (direction: -1 | 1) => void
 }
 
 export function ProductRow({
-  tab,
   item,
+  columns,
+  priceRequired,
   position,
   total,
-  visible,
-  text,
   errors,
   changed,
   rowRef,
@@ -36,7 +36,7 @@ export function ProductRow({
   onVisible,
   onMove,
 }: ProductRowProps) {
-  const slots = SLOTS[tab]
+  const visible = item.visible
   return (
     <li ref={rowRef} className={styles.row} data-visible={visible} data-changed={changed}>
       <div className={styles.photo} aria-hidden="true">
@@ -48,17 +48,17 @@ export function ProductRow({
         <p className={styles.description}>{item.description}</p>
       </div>
       <div className={styles.prices}>
-        {slots.map(({ slot, label, required }) => (
+        {columns.map(({ code, label }) => (
           <PriceField
-            key={slot}
+            key={code}
             label={label}
             ariaLabel={`${label.replace(' (R$)', '')}, preço em reais, ${item.name}`}
-            fieldKey={`${item.id}:${slot}`}
-            value={text[slot] ?? ''}
-            placeholder={required ? '0,00' : 'não vende'}
-            error={errors[slot]}
-            onChange={(value) => onPrice(slot, value)}
-            onBlur={() => onBlur(slot)}
+            fieldKey={`${item.key}:price:${code}`}
+            value={item.variants.find((v) => v.code === code)?.priceText ?? ''}
+            placeholder={priceRequired ? '0,00' : 'não vende'}
+            error={errors[`price:${code}`]}
+            onChange={(value) => onPrice(code, value)}
+            onBlur={() => onBlur(code)}
           />
         ))}
       </div>
@@ -79,7 +79,7 @@ export function ProductRow({
           <button
             type="button"
             className={styles.move}
-            data-move={`${item.id}:-1`}
+            data-move={`${item.key}:-1`}
             disabled={position === 1}
             aria-label={`Subir ${item.name}`}
             onClick={() => onMove(-1)}
@@ -91,7 +91,7 @@ export function ProductRow({
           <button
             type="button"
             className={styles.move}
-            data-move={`${item.id}:1`}
+            data-move={`${item.key}:1`}
             disabled={position === total}
             aria-label={`Descer ${item.name}`}
             onClick={() => onMove(1)}

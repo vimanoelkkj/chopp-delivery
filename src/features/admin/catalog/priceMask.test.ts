@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCatalog, changedIds, draftFrom, validate } from './draft'
+import { buildSaveInput, changedKeys, draftFrom, validate } from './draft'
 import { createMockCatalog } from './mockData'
 import {
   formatPriceText,
@@ -156,42 +156,41 @@ describe('regras de negócio sobre o texto mascarado', () => {
   it('vazio é null: barril não vendido; cachaça sem preço é erro', () => {
     expect(parsePriceText('')).toEqual({ ok: true, cents: null })
     const draft = draftFrom(createMockCatalog())
-    draft.text.brahma['30'] = typeKeys('0')
-    draft.text.cachaca.bottle = ''
+    draft.items.brahma.variants[0].priceText = typeKeys('0')
+    draft.items.cachaca.variants[0].priceText = ''
     const errors = validate(draft)
     expect(errors.brahma).toBeUndefined()
-    expect(errors.cachaca?.bottle).toBe('Informe o preço.')
+    expect(errors.cachaca['price:bottle']).toBe('Informe o preço.')
   })
 
   it('produto visível precisa de ao menos um tamanho com preço; oculto não precisa', () => {
-    const saved = createMockCatalog()
-    const draft = draftFrom(saved)
-    draft.text.brahma['50'] = ''
+    const draft = draftFrom(createMockCatalog())
+    draft.items.brahma.variants[1].priceText = ''
     expect(validate(draft).brahma?.row).toBeTruthy()
-    draft.text.brahma['30'] = typeKeys('1')
+    draft.items.brahma.variants[0].priceText = typeKeys('1')
     expect(validate(draft).brahma).toBeUndefined()
-    draft.text.brahma['30'] = ''
-    draft.visible.brahma = false
+    draft.items.brahma.variants[0].priceText = ''
+    draft.items.brahma.visible = false
     expect(validate(draft).brahma).toBeUndefined()
   })
 
-  it('o texto mascarado vira centavos inteiros ou null no catálogo salvo', () => {
+  it('o texto mascarado vira centavos inteiros ou null no pedido de salvamento', () => {
     const saved = createMockCatalog()
     const draft = draftFrom(saved)
-    draft.text.dronken['30'] = typeKeys('125050')
-    draft.text.dronken['50'] = typeKeys('0')
-    const next = buildCatalog(saved, draft)
-    expect(next.chopes[0].prices).toEqual({ '30': 125050, '50': null })
+    draft.items.dronken.variants[0].priceText = typeKeys('125050')
+    draft.items.dronken.variants[1].priceText = typeKeys('0')
+    const input = buildSaveInput(saved, draft)
+    expect(input.categories[0].items[0].variants.map((v) => v.priceCents)).toEqual([125050, null])
   })
 
   it('digitar de volta o valor salvo não conta como alteração pendente', () => {
     const saved = createMockCatalog()
     const draft = draftFrom(saved)
-    draft.text.dronken['30'] = typeKeys('51500')
-    expect(changedIds(saved, draft)).toEqual(['dronken'])
-    draft.text.dronken['30'] = typeKeys('51000')
-    expect(changedIds(saved, draft)).toEqual([])
-    draft.text.dronken['50'] = typeKeys('')
-    expect(changedIds(saved, draft)).toEqual(['dronken'])
+    draft.items.dronken.variants[0].priceText = typeKeys('51500')
+    expect(changedKeys(saved, draft)).toEqual(['dronken'])
+    draft.items.dronken.variants[0].priceText = typeKeys('51000')
+    expect(changedKeys(saved, draft)).toEqual([])
+    draft.items.dronken.variants[1].priceText = typeKeys('')
+    expect(changedKeys(saved, draft)).toEqual(['dronken'])
   })
 })

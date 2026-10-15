@@ -10,30 +10,99 @@ alterados**. Nenhuma dependência nova.
 | Parte | Estado |
 |---|---|
 | Login, sessão e logout | **Real**: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` (F2), com o cookie HttpOnly do navegador. |
-| Catálogo (listar, salvar preços, visibilidade, ordem) | **Mock isolado**: `catalog/mockGateway.ts` + `catalog/mockData.ts`. Nenhum endpoint foi inventado. |
+| Catálogo (listar, salvar, cadastrar produtos, variantes, visibilidade, ordem) | **Mock isolado**: `catalog/mockGateway.ts` + `catalog/mockData.ts`. Nenhum endpoint foi inventado. |
 
 Para ligar a F3A: implementar `AdminCatalogGateway` (`catalog/gateway.ts`: `load` e `save`,
 erros como `AdminApiError`) e trocar a linha do `createMockGateway` em `AdminApp.tsx`.
 Os componentes não mudam.
 
-### Pontos que dependem do contrato da F3A
+### Modelo de dados da UI (F3B.2) e pontos que dependem da F3A.2
 
-1. **Formato do payload.** A UI trabalha com `AdminCatalog` (`catalog/types.ts`): duas listas,
-   `chopes` e `cachacas`, já na ordem de exibição, e o token `revision` (ver "Edição concorrente"); preços em **centavos inteiros**, `null` =
-   "não vende". O adaptador da F3A mapeia produtos/cachaça (e `sort_order`) para isso.
-2. **Salvar.** O gateway recebe o catálogo inteiro. Se a API for por item/PATCH, o adaptador
-   calcula o diff (a UI já sabe quais ids mudaram: `changedIds` em `catalog/draft.ts`).
-3. **Cachaça.** Hoje é singleton no D1 (`cachaca`, um registro). A aba lista um item; se a API
-   mantiver singleton, a aba continua válida. Preço da garrafa é obrigatório (`NOT NULL`).
-4. **Ordem.** Reordenar troca vizinhos e envia a lista inteira. Se a API aceitar só
-   `sort_order` por item, o adaptador traduz.
-5. **Erros.** `unauthenticated` (401) volta ao login com aviso; `unavailable`/`rejected` mostram
-   o aviso de falha sem perder o rascunho. Falta definir a mensagem de validação do servidor
-   (ex.: preço inválido) para exibir por campo.
-6. **Origem/CSRF.** As escritas da F2/F3A exigem `Origin` igual a `ADMIN_ORIGIN`. O painel só
-   funciona servido pela origem do Pages (não pelo proxy do Vite). Ver "Como ver".
-7. **Fotos.** O modal "Trocar foto" do PDF **não foi implementado**: não há contrato de
-   upload. O tile de foto é apenas um espaço reservado.
+A UI trabalha com o modelo do contrato proposto em `tasks/plan.md` (branch
+`feat/catalog-expansion`, só como referência; o contrato definitivo pode mudar):
+`AdminCatalog { revision, categories[] }`, cada categoria com `items[]`, cada item com
+`variants[]` (`code`, `label`, `volumeMl`, `priceCents`) e `creationRef` somente leitura.
+Preços em **centavos inteiros**, `null` = não vendido. Tudo está em `catalog/types.ts`; o único
+ponto de troca é `AdminCatalogGateway` (`load` e `save(SaveInput) → SaveResult`).
+
+1. **Entrada de salvamento (`SaveInput`).** Categorias existentes com itens na ordem de
+   exibição. Persistidos levam `id`/`code`; novos levam `clientId` (`tmp:<UUID>`), nunca os
+   dois. Variantes são sempre referenciadas dentro do item pai. O PUT é o catálogo completo.
+2. **Resposta (`SaveResult`).** `{ catalog, created: { items:[{clientId,id}], variants:[{itemId,
+   clientId, code}] } }`. A UI reconstrói o rascunho do snapshot devolvido; as chaves de rascunho
+   são `creationRef ?? id`, então a linha do item recém-criado **não é remontada** (foco e
+   posição mantidos) e os ids definitivos passam a valer.
+3. **Identidades temporárias.** `newClientId()` gera `tmp:<crypto.randomUUID()>` uma única vez ao
+   criar a linha; fica estável até confirmação, descarte ou cancelamento. Retry após resposta
+   perdida usa os mesmos clientIds; clientId já persistido reaparecendo como novo é recusado.
+4. **Regras espelhadas (a F3A.2 deve validar de novo):** nome obrigatório (≤ 120), descrição
+   ≤ 2000, item com ≥ 1 variante, variante nova com rótulo (≤ 60) e volume inteiro positivo em
+   ml; preço 1 a 9.999.999 centavos; `null` só em categorias de preço opcional (chopes);
+   cachaça exige preço; item visível exige ao menos uma variante com preço; cadastro nasce oculto.
+   Quais categorias exigem preço está em `PRICE_REQUIRED` (`types.ts`).
+5. **Variantes persistidas.** `code`, `label` e volume são somente leitura; só o preço muda.
+   Variantes persistidas nunca saem por omissão; só as temporárias podem ser removidas. Itens
+   persistidos não são excluídos (ocultar é a operação disponível).
+6. **Sem criação de categorias.** Só se escolhe entre as existentes; nomes são somente leitura.
+7. **Journal de resultado incerto (não implementado).** O plano prevê guardar a revisão base e os
+   clientIds pendentes em `sessionStorage` para recuperar após reload com resposta perdida, e
+   bloquear novo salvamento até reconciliar. Hoje, após falha de rede, o rascunho (com os
+   mesmos clientIds) continua na tela e o retry reenvia o mesmo pedido; um reload perde os
+   clientIds. Depende de o contrato definitivo fixar o procedimento.
+8. **Erros.** `unauthenticated` (401) volta ao login; `conflict` abre o modal de conflito;
+   `rejected` e `unavailable` mostram o aviso sem perder o rascunho. Falta o contrato do
+   servidor para validação por campo (`fields`) — a UI valida localmente por campo.
+9. **Origem/CSRF.** As escritas exigem `Origin` igual a `ADMIN_ORIGIN`; o painel só funciona
+   servido pela origem do Pages (não pelo proxy do Vite). Ver "Como ver".
+10. **Fotos, exclusão persistente, editor de categorias e entrada de volume em litros** não
+    foram implementados (fora do contrato).
+11. **Storefront.** `/api/catalog` público e a migração do site não fazem parte desta fase.
+
+### Cadastro de produtos (F3B.2) — comportamento
+
+- **Novo produto**: botão no topo abre a escolha entre as categorias existentes (a da aba ativa
+  vem marcada; folha inferior no celular). O cadastro entra no fim da categoria, **oculto**,
+  com selo "Novo · não salvo", borda tracejada e foco no Nome (aplicado depois que o modal
+  devolve o foco, via `onClosed`).
+- **Itens padrão x cartão**: itens persistidos cujas variantes são as colunas padrão (chopes
+  30/50, garrafa) continuam na tabela aprovada, sem mudança visual. Cadastros novos e itens
+  com outra forma de variantes usam o **cartão de produto**: nome, descrição, variantes
+  (rótulo, volume em ml, preço com a máscara de `PriceField`), "Adicionar variante", visível e
+  ordem. Itens persistidos em cartão só editam preços.
+- **Cancelar cadastro** remove só linhas temporárias (confirmação apenas se há conteúdo).
+  **Descartar** reconstrói o rascunho do snapshot salvo: os cadastros novos desaparecem.
+- **Ordenação** vale para existentes e novos na mesma lista. **Várias cachaças** são aceitas.
+- Alterações pendentes contam cadastros novos; Salvar, Descartar, logout e o modal de conflito
+  se comportam como antes.
+- **Mock** (`?mock=`): atribui `item_<UUID>`/`v_<UUID>`, guarda `creationRef`, recusa clientId já
+  persistido, omissão de itens/variantes persistidos e item novo sem variantes, e aplica a
+  revisão otimista. Reflete o contrato do plano como referência executável.
+
+### Refinamentos de UX do cadastro
+
+- **Texto do modal**: "O produto começa oculto. Para aparecer no site, ele precisa estar salvo e
+  marcado como visível." O botão de confirmação agora é **Adicionar ao rascunho** (antes "Criar
+  produto"), porque só adiciona ao rascunho e ainda exige **Salvar** para persistir. O fluxo
+  não mudou.
+- **Volume amigável** (`catalog/volume.ts`): chopes em **litros** (`VOLUME (L)`, placeholder `20`,
+  aceita `7,5` ou `7.5`, até 3 casas) e cachaças em **ml** (`VOLUME (ML)`, placeholder `700`).
+  O estado canônico e o contrato continuam em `volumeMl` inteiro: 20 L = 20000 ml, 7,5 L =
+  7500 ml, por aritmética inteira (sem `parseFloat`). Limites: 1 ml a 100.000 L (`VOLUME_MAX_ML`);
+  a unidade por categoria está em `UNIT` (`volume.ts`; categorias futuras caem em ml). Variantes já
+  persistidas mostram o volume formatado (`30 L`, `700 ml`) e continuam somente leitura.
+- **Sem erro agressivo**: um campo obrigatório vazio só mostra erro depois de ser **editado e
+  abandonado** (`edited` + `touched` no reducer) ou quando o usuário aperta Salvar. Abrir o
+  cadastro, o foco automático no Nome e passar por campos com Tab sem digitar não mostram erro.
+- **Teclado no celular**: preço usa `inputmode="numeric"`, volume em litros `decimal` e em ml
+  `numeric`. Um ouvinte (`CatalogView`) em `focusin` e no `resize` da janela/`visualViewport`
+  leva o campo focado para acima da barra fixa (usa o `scroll-margin-bottom` dos controles, que
+  agora inclui `textarea`). Sem isso o Chrome deixava, após abrir o teclado, campos "visíveis"
+  porém sob a barra.
+  **Limitação**: não há aparelho Android real neste ambiente. Os testes (`e2e/admin-ux-refinements`)
+  emulam o celular (390 px, toque) e o teclado aberto reduzindo a viewport para 470 px, e simulam
+  digitação de IME (`insertText`), Backspace, seleção e colagem. O comportamento exato de cada
+  teclado/versão de Android (Gboard, redimensionamento do layout x do visual viewport) precisa de
+  uma passada manual em aparelho real.
 
 ### Edição concorrente: Salvar nunca sobrescreve em silêncio
 
@@ -47,7 +116,7 @@ da F3A):
    repassa. O mínimo aceitável é uma revisão do catálogo inteiro; uma versão por linha permitiria
    mesclar no futuro (hoje a UI recarrega em vez de mesclar).
 2. **Escrita condicional.** O pedido de salvar carrega a `revision` em que a edição se baseou
-   (`AdminCatalog.revision`; em HTTP, `If-Match` ou campo no corpo — decisão da F3A).
+   (`SaveInput.revision`; em HTTP, `If-Match` ou campo no corpo — decisão da F3A).
 3. **Comparação e gravação atômicas, no D1.** A revisão é comparada na própria escrita
    (`UPDATE … WHERE revision = ?`, `changes === 1`, dentro do mesmo `batch`/transação das
    linhas alteradas, junto da `adminWriteProof` descrita em `docs/admin-auth.md`).

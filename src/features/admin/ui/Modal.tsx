@@ -15,6 +15,8 @@ type ModalProps = {
   /** Falso em ação destrutiva: Esc e clique fora não fecham. */
   dismissible?: boolean
   titleId: string
+  /** Depois que o modal fechou de vez (foco já devolvido): lugar certo para mover o foco adiante. */
+  onClosed?: () => void
   children: ReactNode
 }
 
@@ -23,10 +25,19 @@ type ModalProps = {
  * e da devolução do foco. Aqui entram a animação (opacity/transform), a folha inferior no
  * celular e a regra de Esc. Foco inicial: o elemento com `data-autofocus`, senão o primeiro.
  */
-export function Modal({ open, onClose, dismissible = true, titleId, children }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  dismissible = true,
+  titleId,
+  onClosed,
+  children,
+}: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const [mounted, setMounted] = useState(open)
   const [closing, setClosing] = useState(false)
+  const onClosedRef = useRef(onClosed)
+  onClosedRef.current = onClosed
 
   useEffect(() => {
     if (open) {
@@ -41,6 +52,7 @@ export function Modal({ open, onClose, dismissible = true, titleId, children }: 
         ref.current?.close() // devolve o foco ao elemento que abriu o modal
         setMounted(false)
         setClosing(false)
+        onClosedRef.current?.()
       },
       prefersReducedMotion() ? 0 : MODAL_MS,
     )
