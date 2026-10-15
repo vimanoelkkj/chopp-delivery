@@ -79,3 +79,44 @@ describe('reducer do editor: cadastro no rascunho', () => {
     expect(state.draft?.order.chopes.slice(-2)).toEqual([item.key, 'chopp-de-vinho'])
   })
 })
+
+describe('reducer do editor: resultado incerto e restauração', () => {
+  const input = { revision: '1', categories: [] }
+
+  it('uncertain encerra o saving e guarda o pedido; clear-uncertain libera', () => {
+    const state = run(loaded(), { type: 'saving' }, { type: 'uncertain', input })
+    expect(state.saving).toBe(false)
+    expect(state.uncertain).toBe(input)
+    expect(run(state, { type: 'clear-uncertain' }).uncertain).toBeNull()
+  })
+
+  it('recovering liga e desliga saving junto', () => {
+    const on = run(loaded(), { type: 'recovering', value: true })
+    expect([on.recovering, on.saving]).toEqual([true, true])
+    const off = run(on, { type: 'recovering', value: false })
+    expect([off.recovering, off.saving]).toEqual([false, false])
+  })
+
+  it('saved depois de incerto zera o estado incerto e reconstrói o rascunho', () => {
+    const item = newItemDraft('chopes')
+    const state = run(
+      loaded(),
+      { type: 'add-item', item },
+      { type: 'uncertain', input },
+      { type: 'saved', catalog: createMockCatalog() },
+    )
+    expect(state.uncertain).toBeNull()
+    expect(state.draft?.items[item.key]).toBeUndefined()
+  })
+
+  it('restore recoloca o rascunho guardado sobre o catálogo recarregado', () => {
+    const item = newItemDraft('chopes')
+    const kept = run(loaded(), { type: 'add-item', item }).draft
+    if (!kept) throw new Error('sem rascunho')
+    const state = run(initial, { type: 'restore', catalog: createMockCatalog(), draft: kept })
+    expect(state.load.status).toBe('ready')
+    expect(state.draft?.order.chopes).toHaveLength(9)
+    expect(state.draft?.items[item.key]).toBe(kept.items[item.key])
+    expect(state.saving).toBe(false)
+  })
+})

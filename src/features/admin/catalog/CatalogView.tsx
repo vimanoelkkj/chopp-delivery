@@ -306,13 +306,17 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
         </div>
         <div className={styles.barInner}>
           <p className={styles.message} data-dirty={dirty}>
-            {state.saving
-              ? 'Salvando…'
-              : state.conflict
-                ? 'O catálogo mudou em outra sessão. Recarregue para poder salvar.'
-                : dirty
-                  ? unsaved
-                  : 'Tudo salvo.'}
+            {state.recovering
+              ? 'Confirmando o último salvamento…'
+              : state.saving
+                ? 'Salvando…'
+                : state.uncertain
+                  ? 'Não confirmamos o último salvamento. Salvar verifica antes de reenviar.'
+                  : state.conflict
+                    ? 'O catálogo mudou em outra sessão. Recarregue para poder salvar.'
+                    : dirty
+                      ? unsaved
+                      : 'Tudo salvo.'}
           </p>
           <div className={styles.actions}>
             <AdminButton

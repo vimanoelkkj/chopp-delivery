@@ -3,6 +3,7 @@ import { AdminHeader } from './AdminHeader'
 import styles from './AdminShell.module.css'
 import { CatalogView } from './catalog/CatalogView'
 import type { AdminCatalogGateway } from './catalog/gateway'
+import type { Rescue } from './catalog/saveFlow'
 import type { AdminUser } from './catalog/types'
 import { useCatalogEditor } from './catalog/useCatalogEditor'
 import { ConfirmDialog } from './ui/ConfirmDialog'
@@ -27,12 +28,27 @@ type AdminShellProps = {
   user: AdminUser
   gateway: AdminCatalogGateway
   onSignOut: () => Promise<boolean>
-  onExpired: () => void
+  onExpired: (rescue?: Rescue) => void
+  rescue?: Rescue | null
+  onRescueHandled?: () => void
 }
 
-export function AdminShell({ user, gateway, onSignOut, onExpired }: AdminShellProps) {
+export function AdminShell({
+  user,
+  gateway,
+  onSignOut,
+  onExpired,
+  rescue,
+  onRescueHandled,
+}: AdminShellProps) {
   const { toast, notify } = useToast()
-  const editor = useCatalogEditor(gateway, { onUnauthenticated: onExpired, notify })
+  const editor = useCatalogEditor(gateway, {
+    onUnauthenticated: onExpired,
+    notify,
+    rescue,
+    onRescueHandled,
+    userId: user.id,
+  })
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [target, setTarget] = useState<Target>('site')
   const [signingOut, setSigningOut] = useState(false)
