@@ -6,7 +6,7 @@ export const DEFAULT_TICKER_PHRASES = [
   'Barril 30 L',
   'Barril 50 L',
   'Delivery',
-  'Retirada',
+  'Delegas',
 ] as const
 
 export type TickerMarqueeProps = {

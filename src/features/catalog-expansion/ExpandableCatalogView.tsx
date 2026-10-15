@@ -123,10 +123,10 @@ function CatalogPresentation({
             )}
             <div className={styles.deliveryNotice} data-testid="delivery-notice">
               <div>
-                <span className={styles.deliveryTitle}>Delivery e Retirada</span>
+                <span className={styles.deliveryTitle}>Delivery</span>
                 <p className={styles.deliveryText}>
-                  Escolha o chope ou cachaça, o tamanho e o horário. A gente entrega ou você retira.
-                  Consulte condições para seu endereço.
+                  Escolha o chope ou cachaça, o tamanho e o horário. A gente entrega. Consulte
+                  condições para seu endereço.
                 </p>
               </div>
             </div>

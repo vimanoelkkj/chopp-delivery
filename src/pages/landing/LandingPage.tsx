@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useCatalog } from '@/features/catalog/useCatalog'
 import { ExpandableCatalogView } from '@/features/catalog-expansion/ExpandableCatalogView'
+import { WhatsAppNoticeProvider } from '@/features/contact/WhatsAppNotice'
 import { useInView } from '@/shared/lib/useInView'
 import styles from './LandingPage.module.css'
 import { AboutSection } from './sections/AboutSection'
@@ -22,26 +23,28 @@ export function LandingPage() {
   const finalCtaInView = useInView(finalCtaRef)
 
   return (
-    <div id="topo" className={styles.page}>
-      <SiteHeader />
-      <main id="conteudo">
-        <Hero ctaRef={heroCtaRef} />
-        <Ticker />
-        <ExpandableCatalogView
-          state={catalogState}
-          onRetry={retry}
-          id="chopes"
-          titleId="chopes-title"
-          showCompliance={false}
-        />
-        <BarrelsSection state={catalogState} />
-        <HowItWorks />
-        <PromoSection />
-        <AboutSection />
-        <FaqSection />
-        <ContactSection ctaRef={finalCtaRef} />
-      </main>
-      <StickyCta visible={!heroCtaInView && !finalCtaInView} />
-    </div>
+    <WhatsAppNoticeProvider>
+      <div id="topo" className={styles.page}>
+        <SiteHeader />
+        <main id="conteudo">
+          <Hero ctaRef={heroCtaRef} />
+          <Ticker />
+          <ExpandableCatalogView
+            state={catalogState}
+            onRetry={retry}
+            id="chopes"
+            titleId="chopes-title"
+            showCompliance={false}
+          />
+          <BarrelsSection state={catalogState} />
+          <HowItWorks />
+          <PromoSection />
+          <AboutSection />
+          <FaqSection />
+          <ContactSection ctaRef={finalCtaRef} />
+        </main>
+        <StickyCta visible={!heroCtaInView && !finalCtaInView} />
+      </div>
+    </WhatsAppNoticeProvider>
   )
 }

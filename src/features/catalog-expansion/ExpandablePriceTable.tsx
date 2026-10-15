@@ -3,6 +3,7 @@ import { sharedVariantColumns } from './columns'
 import styles from './ExpandablePriceTable.module.css'
 import { buildCatalogWhatsAppMessage, formatVariantLabel, type VolumeUnit } from './messages'
 import { type CatalogItemV2, type CatalogVariantV2, formatPriceFromCents } from './types'
+import { volumeLabelIssue } from './volume'
 
 type Props = { items: CatalogItemV2[]; caption?: string; volumeUnit?: VolumeUnit }
 
@@ -19,12 +20,14 @@ function VariantOffer({
 }) {
   const label = formatVariantLabel(variant, volumeUnit)
   const message = buildCatalogWhatsAppMessage(item.name, variant, volumeUnit)
+  // Só marcação (não aparece ao cliente): rótulo com volume negativo ou que contradiz o volumeMl.
+  const issue = volumeLabelIssue(variant) ?? undefined
   if (message === null)
     return (
       <span
         className={[compact ? '' : styles.variantChip, styles.variantChipDisabled].join(' ')}
-        aria-disabled="true"
         data-variant-code={variant.code}
+        data-volume-issue={issue}
       >
         {!compact && <span className={styles.chipSize}>{label}</span>}
         <span aria-hidden="true">—</span>
@@ -40,7 +43,7 @@ function VariantOffer({
         compact ? styles.priceAction : [styles.variantChip, styles.variantChipAvailable].join(' ')
       }
     >
-      <span data-variant-code={variant.code}>
+      <span data-variant-code={variant.code} data-volume-issue={issue}>
         {!compact && <span className={styles.chipSize}>{label}</span>}
         <span className={styles.chipPrice}>{formatPriceFromCents(variant.priceCents)}</span>
         <span className="visually-hidden">

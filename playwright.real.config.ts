@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+import { integrationPort } from './scripts/integration-port.mts'
 
 export default defineConfig({
   testDir: 'tests/e2e-real',
@@ -7,7 +8,8 @@ export default defineConfig({
   timeout: 45_000,
   reporter: 'list',
   use: {
-    baseURL: `http://127.0.0.1:${process.env.DELEGAS_INTEGRATION_PORT || '4185'}`,
+    // A mesma porta (validada) que o runner repassa ao servidor descartável.
+    baseURL: `http://127.0.0.1:${integrationPort()}`,
     channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
     launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined },
   },

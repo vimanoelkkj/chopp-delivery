@@ -10,7 +10,7 @@ describe('TickerMarquee - Fundamentos e Comportamento Efetivo', () => {
       'Barril 30 L',
       'Barril 50 L',
       'Delivery',
-      'Retirada',
+      'Delegas',
     ])
   })
 

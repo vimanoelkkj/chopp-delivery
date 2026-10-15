@@ -3,20 +3,13 @@ import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import styles from './CachacasShowcase.module.css'
 import { type CatalogItemV2, centsToReaisSafe, formatPriceFromCents } from './types'
+import { bottlePresentation, formatBottleLabel, volumeLabelIssue } from './volume'
 
 /** Only the original legacy heading is an alias; operator-entered names remain intact. */
 export function normalizeCachacaName(name: string): string {
   return /^(temos cachaça|temos cachaca)$/i.test(name) ? 'Cachaça' : name
 }
-export function formatBottleLabel(variant: { label: string; volumeMl?: number | null }): string {
-  if (variant.volumeMl == null) return variant.label
-  const volume = `${variant.volumeMl.toLocaleString('pt-BR')} ml`
-  return ` ${variant.label.toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ')} `.includes(
-    ` ${volume} `,
-  )
-    ? variant.label
-    : `${variant.label} ${volume}`
-}
+export { formatBottleLabel }
 export function buildCachacaWhatsAppMessage(
   itemName: string,
   variant: { label: string; volumeMl?: number | null; priceCents: number | null },
@@ -24,18 +17,7 @@ export function buildCachacaWhatsAppMessage(
   if (variant.priceCents === null) return null
   const price = centsToReaisSafe(variant.priceCents)
   if (price === null) return null
-  const volume =
-    variant.volumeMl != null
-      ? `${variant.volumeMl.toLocaleString('pt-BR')} ml`
-      : variant.label.replace(/garrafa\s+/i, '')
-  const presentation = ['garrafa', `garrafa ${volume}`].includes(
-    variant.label.toLocaleLowerCase('pt-BR'),
-  )
-    ? volume
-    : variant.volumeMl != null
-      ? `${variant.label} · ${volume}`
-      : variant.label
-  return `Olá! Gostaria de pedir uma garrafa de ${normalizeCachacaName(itemName)} ${presentation} por ${formatBRL(price)}.`
+  return `Olá! Gostaria de pedir uma garrafa de ${normalizeCachacaName(itemName)} ${bottlePresentation(variant)} por ${formatBRL(price)}.`
 }
 export function CachacasShowcase({ items }: { items: CatalogItemV2[] }) {
   if (items.length === 0) return null
@@ -92,6 +74,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
               key={variant.code}
               className={[styles.variantRow, styles.variantRowStatic].join(' ')}
               data-variant-code={variant.code}
+              data-volume-issue={volumeLabelIssue(variant) ?? undefined}
             >
               {content}
             </div>
@@ -104,6 +87,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
               aria-pressed={selected}
               onClick={() => setSelectedCode(variant.code)}
               data-variant-code={variant.code}
+              data-volume-issue={volumeLabelIssue(variant) ?? undefined}
             >
               {content}
             </button>

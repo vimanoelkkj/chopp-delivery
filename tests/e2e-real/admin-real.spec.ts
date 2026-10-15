@@ -4,12 +4,15 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { test as base, expect, type Locator, type Page } from '@playwright/test'
+import { childEnv, SENSITIVE_NAME } from '../../scripts/clean-env.mts'
+import { integrationPort } from '../../scripts/integration-port.mts'
 
 type Ready = {
   origin: string
   username: string
   password: string
   directory: string
+  envKeys?: string[]
   error?: string
 }
 type Integration = Ready & { database: DatabaseSync }
@@ -25,11 +28,14 @@ const test = base.extend<{
       if (browserName !== 'chromium') throw new Error('This suite targets local Chrome/Chromium')
       const child = fork('tests/e2e-real/server.mts', [], {
         execArgv: [],
-        env: {
-          ...process.env,
+        // Allowlist: o servidor descartável não recebe as credenciais do operador.
+        env: childEnv({
+          // Explícita e validada: a allowlist não a repassa sozinha, e o servidor precisa ouvir na
+          // MESMA porta do baseURL do navegador (playwright.real.config.ts).
+          DELEGAS_INTEGRATION_PORT: String(integrationPort()),
           DELEGAS_INTEGRATION_MODE: runtimeMode,
           VITE_WHATSAPP_NUMBER: whatsappNumber,
-        },
+        }),
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         windowsHide: true,
       })
@@ -45,6 +51,9 @@ const test = base.extend<{
           }),
         ])
         if (ready.error) throw new Error(ready.error)
+        // Falha rápida e clara se runner e servidor divergirem de porta.
+        if (new URL(ready.origin).port !== String(integrationPort()))
+          throw new Error(`Porta divergente: servidor ${ready.origin}, runner ${integrationPort()}`)
         await readFile(join(ready.directory, '.owner'), 'utf8')
         const files = await readdir(join(ready.directory, 'state', 'v3', 'd1'), { recursive: true })
         const sqlite = files.filter((name) => /(?:^|[\\/])[a-f0-9]{64}\.sqlite$/.test(name))
@@ -546,25 +555,29 @@ test.describe('F3C.4: painel, D1, API, landing e WhatsApp', () => {
         await expect(offer).toContainText('123,45')
         await expect(offer).toContainText('Barril pequeno · 7,5 L')
         await expect(offer.getByRole('link', { name: /7,5 L/ })).toHaveCount(0)
-        const message = await whatsappMessage(offer.getByRole('link', { name: /20 L/ }))
-        expect(message).toContain(name)
-        expect(message).toContain('Barril especial · 20 L')
-        expect(message).toContain('123,45')
+        // Igualdade exata (NBSP do Intl pt-BR incluído): mensagem completa que o cliente envia.
+        expect(await whatsappMessage(offer.getByRole('link', { name: /20 L/ }))).toBe(
+          `Olá! Gostaria de pedir ${name}, Barril especial · 20 L, por R$\u00a0123,45.`,
+        )
         await expect(shop.locator('[data-item-id="brahma"]')).toHaveCount(0)
         const dronken =
           width >= 768
             ? shop.getByRole('row', { name: /Dronken/ })
             : shop.getByRole('article', { name: 'Dronken', exact: true })
         await expect(dronken).toContainText('510,29')
+        expect(await whatsappMessage(dronken.getByRole('link', { name: /30 L/ }))).toBe(
+          'Olá! Gostaria de pedir Dronken, Barril de 30 L, por R$\u00a0510,29.',
+        )
         const card = shop.getByRole('article', { name: bottleName, exact: true })
         await expect(card.getByRole('link')).toHaveCount(0)
         await card.getByRole('button', { name: /Garrafa especial 700 ml/ }).click()
-        const bottleMessage = await whatsappMessage(card.getByRole('link'))
-        expect(bottleMessage).toContain(bottleName)
-        expect(bottleMessage).toContain('Garrafa especial · 700 ml')
-        expect(bottleMessage).toContain('25,01')
+        expect(await whatsappMessage(card.getByRole('link'))).toBe(
+          `Olá! Gostaria de pedir uma garrafa de ${bottleName} Garrafa especial · 700 ml por R$\u00a025,01.`,
+        )
         await card.getByRole('button', { name: /Garrafa pequena 500 ml/ }).click()
-        expect(await whatsappMessage(card.getByRole('link'))).toContain('19,99')
+        expect(await whatsappMessage(card.getByRole('link'))).toBe(
+          `Olá! Gostaria de pedir uma garrafa de ${bottleName} Garrafa pequena · 500 ml por R$\u00a019,99.`,
+        )
         await expect(shop.getByTestId('age-notice-hero')).toHaveCount(1)
         await expect(shop.getByTestId('age-notice-footer')).toHaveCount(1)
         for (const id of ['chopes', 'barris', 'como', 'faq', 'contato'])
@@ -574,9 +587,24 @@ test.describe('F3C.4: painel, D1, API, landing e WhatsApp', () => {
             () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
           ),
         ).toBe(0)
+        // POLÍTICA ATUAL (caracterização, não decisão comercial): a vitrine não revalida. Se o preço
+        // muda no painel com a página aberta, tela e mensagem seguem na mesma captura (510,29).
+        await page.getByRole('tab', { name: /Chopes/ }).click()
+        await price(page).fill('51099')
+        await saved(page)
+        await expect(dronken).toContainText('510,29')
+        await expect(dronken).not.toContainText('510,99')
+        expect(await whatsappMessage(dronken.getByRole('link', { name: /30 L/ }))).toBe(
+          'Olá! Gostaria de pedir Dronken, Barril de 30 L, por R$\u00a0510,29.',
+        )
+        expect(reads).toBe(1)
         await shop.reload()
         await expect(shop.getByTestId('catalog-count-note')).toBeVisible()
         expect(reads).toBe(2)
+        await expect(dronken).toContainText('510,99')
+        expect(await whatsappMessage(dronken.getByRole('link', { name: /30 L/ }))).toBe(
+          'Olá! Gostaria de pedir Dronken, Barril de 30 L, por R$\u00a0510,99.',
+        )
         await expect(shop.getByTestId('cachaca-card-cachaca')).toBeVisible()
       } finally {
         await anon.close()
@@ -605,4 +633,185 @@ test.describe('F3C.4: build normal', () => {
       (await (await page.request.get('/api/catalog')).json()).categories[0].items,
     ).toHaveLength(8)
   })
+})
+
+const CANARIES = {
+  CLOUDFLARE_API_TOKEN: 'canary-cloudflare-token',
+  CLOUDFLARE_ACCOUNT_ID: 'canary-cloudflare-account',
+  CF_API_TOKEN: 'canary-cf-token',
+  WRANGLER_API_TOKEN: 'canary-wrangler-token',
+  AWS_ACCESS_KEY_ID: 'canary-aws-key',
+  AWS_SECRET_ACCESS_KEY: 'canary-aws-secret',
+  GITHUB_TOKEN: 'canary-github-token',
+  NPM_TOKEN: 'canary-npm-token',
+  ADMIN_PASSWORD_PEPPER: 'canary-pepper',
+}
+test.describe('F3C.5: higiene do ambiente do runtime local', () => {
+  test.beforeAll(() => {
+    Object.assign(process.env, CANARIES)
+  })
+  test.afterAll(() => {
+    for (const name of Object.keys(CANARIES)) delete process.env[name]
+  })
+  test('credenciais do operador (Cloudflare, AWS, tokens) não chegam ao servidor descartável', async ({
+    integration,
+  }) => {
+    const keys = integration.envKeys ?? []
+    expect(keys.length).toBeGreaterThan(5) // o diagnóstico foi mesmo enviado
+    expect(keys).toContain('DELEGAS_INTEGRATION_MODE') // o que foi pedido de forma explícita passou
+    for (const name of Object.keys(CANARIES)) expect(keys).not.toContain(name)
+    expect(keys.filter((name) => SENSITIVE_NAME.test(name))).toEqual([])
+    // O processo do próprio teste continua tendo as variáveis: foi o filho que não as recebeu.
+    expect(process.env.CLOUDFLARE_API_TOKEN).toBe('canary-cloudflare-token')
+  })
+})
+
+test.describe('F3C.5: rótulo com volume negativo, do painel ao WhatsApp', () => {
+  test.use({ whatsappNumber: '5500000000000' })
+  test('o rótulo fica como foi gravado e o volume canônico vem ao lado, sem tratar -20 L como 20 L', async ({
+    page,
+    browser,
+    integration,
+  }) => {
+    await login(page, integration)
+    const name = 'Chope Rótulo Negativo'
+    const item = await add(page, 'Chopes', name, '20', '12345')
+    await item.getByLabel('Rótulo', { exact: true }).first().fill('Barril -20 L')
+    await item.getByRole('switch').check()
+    await saved(page)
+
+    // D1 guarda o rótulo literal e o volume canônico; nada foi "corrigido" em silêncio.
+    const stored = integration.database
+      .prepare(
+        'SELECT v.label, v.volume_ml, v.price_cents FROM catalog_variants v JOIN catalog_items i ON i.id=v.item_id WHERE i.name=?',
+      )
+      .all(name)
+    expect(stored).toMatchObject([{ label: 'Barril -20 L', volume_ml: 20000, price_cents: 12345 }])
+
+    const anon = await browser.newContext({ baseURL: integration.origin })
+    try {
+      const shop = await anon.newPage()
+      await shop.setViewportSize({ width: 1440, height: 900 })
+      await shop.goto('/')
+      const offer = shop.locator('tbody tr').filter({ hasText: name })
+      await expect(offer).toBeVisible()
+      await expect(offer).toContainText('Barril -20 L · 20 L')
+      await expect(offer.locator('[data-volume-issue="negative"]')).toHaveCount(1)
+      expect(await whatsappMessage(offer.getByRole('link', { name: /20 L/ }))).toBe(
+        `Olá! Gostaria de pedir ${name}, Barril -20 L · 20 L, por R$ 123,45.`,
+      )
+      await shop.setViewportSize({ width: 390, height: 900 })
+      const card = shop.getByRole('article', { name, exact: true })
+      await expect(card).toContainText('Barril -20 L · 20 L')
+      expect(await whatsappMessage(card.getByRole('link', { name: /20 L/ }))).toBe(
+        `Olá! Gostaria de pedir ${name}, Barril -20 L · 20 L, por R$ 123,45.`,
+      )
+    } finally {
+      await anon.close()
+    }
+  })
+})
+
+test.describe('F3C.5: porta do runner', () => {
+  test('o servidor, o navegador e o runner usam a mesma porta NORMALIZADA (padrão 4185 ou DELEGAS_INTEGRATION_PORT)', async ({
+    page,
+    integration,
+  }) => {
+    // A porta esperada vem do helper compartilhado, a partir do valor bruto do runner. Comparar
+    // com o texto cru reprovaria entradas válidas e normalizadas como "04265".
+    const raw = process.env.DELEGAS_INTEGRATION_PORT
+    const expected = integrationPort(raw)
+    expect(Number(new URL(integration.origin).port)).toBe(expected)
+    // O navegador do Playwright navega pelo baseURL da config e cai no servidor descartável.
+    await page.goto('/')
+    expect(Number(new URL(page.url()).port)).toBe(expected)
+    await expect(page.locator('#topo')).toBeVisible()
+    const api = await page.request.get('/api/catalog')
+    expect(api.status()).toBe(200)
+    expect(new URL(api.url()).origin).toBe(integration.origin)
+    // Sem a variável (ou vazia) vale 4185; com ela, o valor numérico dela, sem zeros à esquerda.
+    expect(expected).toBe(raw ? Number(raw) : 4185)
+    // O origin publicado é canônico: nunca "04265".
+    expect(integration.origin).toBe(`http://127.0.0.1:${expected}`)
+  })
+})
+
+test.describe('F3C.5 (2ª rodada): rótulos adversariais, do painel ao WhatsApp', () => {
+  test.use({ whatsappNumber: '5500000000000' })
+
+  // U+2063 (separador invisível) passa pela validação de escrita; por isso chega ao D1.
+  test('U+2063 escondendo o sinal: D1 guarda o literal, a vitrine mostra o canônico, o link também', async ({
+    page,
+    browser,
+    integration,
+  }) => {
+    await login(page, integration)
+    const name = 'Chope Separador Invisível'
+    const label = 'Barril -⁣ 20 L'
+    const item = await add(page, 'Chopes', name, '20', '12345')
+    await item.getByLabel('Rótulo', { exact: true }).first().fill(label)
+    await item.getByRole('switch').check()
+    await saved(page)
+
+    const stored = integration.database
+      .prepare(
+        'SELECT v.label, v.volume_ml FROM catalog_variants v JOIN catalog_items i ON i.id=v.item_id WHERE i.name=?',
+      )
+      .all(name) as { label: string; volume_ml: number }[]
+    expect(stored).toHaveLength(1)
+    expect(stored[0].label).toBe(label) // nenhum caractere foi removido ou "consertado"
+    expect(stored[0].volume_ml).toBe(20000)
+
+    const anon = await browser.newContext({ baseURL: integration.origin })
+    try {
+      const api = await (await anon.request.get('/api/catalog')).json()
+      const served = api.categories
+        .find((c: { id: string }) => c.id === 'chopes')
+        .items.find((i: { name: string }) => i.name === name)
+      expect(served.variants[0].label).toBe(label) // a API devolve o literal
+      expect(served.variants[0].volumeMl).toBe(20000)
+
+      const shop = await anon.newPage()
+      await shop.setViewportSize({ width: 1440, height: 900 })
+      await shop.goto('/')
+      const offer = shop.locator('tbody tr').filter({ hasText: name })
+      await expect(offer).toBeVisible()
+      await expect(offer).toContainText(`${label} · 20 L`)
+      await expect(offer.locator('[data-volume-issue="negative"]')).toHaveCount(1)
+      expect(await whatsappMessage(offer.getByRole('link', { name: /20 L/ }))).toBe(
+        `Olá! Gostaria de pedir ${name}, ${label} · 20 L, por R$ 123,45.`,
+      )
+      await shop.setViewportSize({ width: 390, height: 900 })
+      const card = shop.getByRole('article', { name, exact: true })
+      expect(await whatsappMessage(card.getByRole('link', { name: /20 L/ }))).toBe(
+        `Olá! Gostaria de pedir ${name}, ${label} · 20 L, por R$ 123,45.`,
+      )
+    } finally {
+      await anon.close()
+    }
+  })
+
+  // U+200E/U+200F são controles bidirecionais: o contrato de escrita os recusa, então não chegam ao D1.
+  for (const [code, mark] of [
+    ['U+200E', '‎'],
+    ['U+200F', '‏'],
+  ] as const) {
+    test(`${code} no rótulo é recusado na escrita: nada é gravado e o rascunho continua`, async ({
+      page,
+      integration,
+    }) => {
+      await login(page, integration)
+      const name = `Chope Marca ${code}`
+      const item = await add(page, 'Chopes', name, '20', '12345')
+      await item.getByLabel('Rótulo', { exact: true }).first().fill(`Barril -${mark}20 L`)
+      await save(page).click()
+      await expect(page.getByRole('alert')).toContainText('O servidor recusou o salvamento')
+      const rows = integration.database
+        .prepare('SELECT COUNT(*) AS n FROM catalog_items WHERE name=?')
+        .get(name) as { n: number }
+      expect(rows.n).toBe(0)
+      await expect(item.getByLabel('Nome', { exact: true })).toHaveValue(name) // rascunho intacto
+      await expect(save(page)).toBeEnabled()
+    })
+  }
 })

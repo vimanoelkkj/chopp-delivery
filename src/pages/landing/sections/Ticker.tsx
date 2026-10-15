@@ -1,6 +1,6 @@
 import styles from './Ticker.module.css'
 
-const phrases = ['Chope gelado', 'Barril 30 L', 'Barril 50 L', 'Delivery', 'Retirada']
+const phrases = ['Chope gelado', 'Barril 30 L', 'Barril 50 L', 'Delivery', 'Delegas']
 
 function Row({ hidden }: { hidden?: boolean }) {
   return (

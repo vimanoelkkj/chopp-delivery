@@ -7,6 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Miniflare } from 'miniflare'
 import { build } from 'vite'
 import { bootstrapOwner } from '../server/auth/bootstrap.ts'
+import { childEnv, sanitizeProcessEnv } from './clean-env.mts'
+import { integrationPort } from './integration-port.mts'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const wrangler = join(root, 'node_modules/wrangler/bin/wrangler.js')
@@ -17,7 +19,8 @@ function command(args: string[]): Promise<void> {
       cwd: root,
       stdio: 'inherit',
       windowsHide: true,
-      env: { ...process.env, WRANGLER_SEND_METRICS: 'false', CI: 'true' },
+      // Allowlist mínima: o Wrangler local não precisa de tokens da Cloudflare, AWS etc.
+      env: childEnv({ WRANGLER_SEND_METRICS: 'false', CI: 'true' }),
     })
     child.once('error', reject)
     child.once('exit', (code) =>
@@ -155,6 +158,8 @@ export async function startIntegration({
 }
 
 async function main() {
+  // Tudo que este processo criar (Wrangler, Miniflare/workerd, build) nasce sem credenciais herdadas.
+  sanitizeProcessEnv(['DELEGAS_INTEGRATION_PORT', 'VITE_WHATSAPP_NUMBER'])
   // Signals wait for finite build/migration commands, then dispose the one owned runtime.
   let stopping = false
   let instance: Awaited<ReturnType<typeof startIntegration>> | undefined
@@ -166,7 +171,7 @@ async function main() {
   process.on('SIGTERM', stop)
   try {
     instance = await startIntegration({
-      port: Number(process.env.DELEGAS_INTEGRATION_PORT || 4185),
+      port: integrationPort(),
     })
     if (stopping) {
       await instance.close()

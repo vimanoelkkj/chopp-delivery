@@ -1,19 +1,14 @@
 import { formatBRL } from '@/shared/lib/format'
 import { type CatalogVariantV2, centsToReaisSafe } from './types'
+import { formatPresentation, type VolumeUnit } from './volume'
 
-export type VolumeUnit = 'L' | 'ml'
+export type { VolumeUnit }
+/** Rótulo + volume sem repetição. A regra vive em volume.ts e é a mesma da cachaça. */
 export function formatVariantLabel(
   variant: Pick<CatalogVariantV2, 'label' | 'volumeMl'>,
   unit: VolumeUnit,
 ): string {
-  if (variant.volumeMl == null) return variant.label
-  const volume = unit === 'L' ? variant.volumeMl / 1000 : variant.volumeMl
-  const text = `${volume.toLocaleString('pt-BR')} ${unit}`
-  return ` ${variant.label.toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ')} `.includes(
-    ` ${text.toLocaleLowerCase('pt-BR')} `,
-  )
-    ? variant.label
-    : `${variant.label} · ${text}`
+  return formatPresentation(variant, unit)
 }
 export function buildCatalogWhatsAppMessage(
   name: string,

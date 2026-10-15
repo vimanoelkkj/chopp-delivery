@@ -186,7 +186,7 @@
 }
 
 .variantChipDisabled {
-  opacity: 0.5;
+  opacity: 0.8; /* 0.5 reprovava contraste (axe color-contrast, WCAG 1.4.3) */
   cursor: not-allowed;
   background: #11100e;
   border-color: #201e1a;

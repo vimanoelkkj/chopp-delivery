@@ -163,3 +163,91 @@ src/pages/preview/MotionPreviewPage.tsx
 tests/e2e-real/admin-real.spec.ts
 tests/e2e-real/server.mts
 ```
+
+## F3C.5: estabilização pré-deploy
+
+Sem alterar contratos, autenticação, migrations nem D1. Textos comerciais da landing não foram
+alterados, exceto a remoção de retirada (ver [commercial-rules.md](commercial-rules.md));
+comparação antigo × novo em [landing-copy-comparison.md](landing-copy-comparison.md).
+
+- **Volumes em rótulos e mensagens:** `catalog-expansion/volume.ts` é a única implementação. O
+  `volumeMl` manda; um número com unidade no rótulo só conta como "já informa o volume" se equivaler
+  a ele em ml (aritmética inteira, `1000 ml` = `1.000 ml`, `7.5 L` = `7,5 L`).
+- **Acessibilidade:** sem `aria-disabled` em elemento não interativo; uma única região viva
+  (`WhatsAppNoticeProvider`) para o aviso de número ausente; `e2e/catalog-a11y.spec.ts` roda
+  `@axe-core/playwright` (devDependency, só para testes) no catálogo.
+- **Isolamento do bundle:** `npm run verify:dist` agora também faz um build temporário (como
+  produção, com `NODE_ENV=production`) e confere o grafo de módulos e o manifest, além do texto do
+  `dist`, com literais de fixture/laboratório derivados dos fontes. `tests/frontend/bundle-guard.test.ts`
+  prova que ele detecta vazamentos reais (painel ligado e laboratório forçado).
+- **Ambiente do runtime local:** `scripts/clean-env.mts` (allowlist). O servidor descartável e o
+  Wrangler não recebem tokens da Cloudflare, chaves AWS etc.
+- **Novos testes:** `npm run test:e2e:dev` (StrictMode em DEV, config isolada),
+  `e2e/catalog-resilience.spec.ts` (timeout de 10 s, retry, resposta tardia),
+  `e2e/catalog-breakpoints.spec.ts` (767/768/1024 px), `e2e/catalog-labels.spec.ts`, mensagens
+  com igualdade exata e a política atual de preço (sem revalidação) em `tests/e2e-real`.
+
+### Retomada controlada da F3C.5 (2026-10-15)
+
+Base recuperada: HEAD `061c7783bb56017ed464ff8e9eb41307260cff5e`, 21 arquivos modificados,
+23 novos e index vazio. As seis alterações deixadas pelo Claude foram inspecionadas e preservadas.
+Não foram encerrados os servidores de outros worktrees encontrados nas portas 8788, 4181 e 8790.
+Não havia Playwright ou Vitest ativo identificado na recuperação.
+
+- A interpretação de volumes usa uma gramática conservadora, sem normalizar o texto persistido.
+  Quantidades negativas ou ambíguas não suprimem o volume canônico. U+2063, U+200E e U+200F têm
+  regressões de apresentação e WhatsApp. O E2E real comprova a preservação de U+2063 no D1 e na API;
+  U+200E/U+200F são recusados pelo contrato de escrita já existente, sem gravar o cadastro.
+- A revisão da retomada encontrou letras Hangul invisíveis que ainda ancoravam uma quantidade
+  positiva depois do sinal. A propriedade Unicode `Default_Ignorable_Code_Point` fecha essa
+  classe, incluindo caracteres classificados como letras. Não se ampliou uma lista de exceções.
+- Números malformados como `1.2.3,4 L` também não podem ser reinterpretados apagando separadores.
+  Agrupamentos mistos precisam ter grupos válidos de milhares e uma fração decimal. Casos inválidos
+  recebem `data-volume-issue="ambiguous"` e exibem o volume canônico, mantendo o rótulo literal.
+- O valor esperado da porta no E2E vem de `integrationPort`, com normalização de `04265` para
+  `4265`. A allowlist de ambiente continua fechada para credenciais herdadas.
+- O teste DEV verifica StrictMode em execução e inclui um controle negativo sem o wrapper.
+  Seu uso de fibers privados e do identificador gerado pelo Vite exige revisão em upgrades dessas
+  ferramentas; não afeta o bundle normal.
+
+As oito regressões adicionais (quatro formatos numéricos e quatro caracteres Hangul invisíveis)
+falharam antes das respectivas correções e passaram depois. Testes direcionados: 246/246.
+Vitest final: 1004/1004 em 60 arquivos, incluindo integração D1 local. Typecheck frontend/backend,
+Biome, build normal e `verify:dist` aprovados; auditoria de dependências sem vulnerabilidades.
+Os resultados E2E e a investigação administrativa desta retomada estão registrados abaixo.
+
+Os testes usam cópia descartável fora dos worktrees, com portas e saídas Playwright exclusivas.
+Logs de regressão vermelha/verde e gates ficam em `TEMP/delegas-f3c5-recovery-zggs2pj7` e não entram
+no Git. Sem staging, commit ou operações remotas no D1.
+
+#### Gates finais da retomada
+
+| Verificação | Resultado |
+| --- | --- |
+| Vitest completo, incluindo handlers e D1 descartável | 1004/1004, 60 arquivos |
+| E2E Chrome tradicional, dois workers | 154/154 |
+| E2E Chrome real, `DELEGAS_INTEGRATION_PORT=04265` | 19/19; origem normalizada em 4265 |
+| Porta padrão sem variável e alternativa literal 4265 | 1/1 em cada execução |
+| StrictMode DEV e controle negativo do wrapper | 3/3 |
+| Typecheck frontend/backend e Biome | PASS |
+| Build normal e `verify:dist` | PASS; 116 literais e 89 módulos |
+| `npm audit` | Zero vulnerabilidades |
+| `git diff --check` | PASS |
+
+O teste `admin-new-product.spec.ts` de rótulos, erros e foco passou na suíte completa e em mais
+20/20 repetições com um servidor Wrangler persistente. Outras três invocações independentes,
+cada uma iniciando seu próprio servidor, passaram 3/3. Sem aborto ou timeout de `page.goto` nesta
+retomada. O teste, seus timeouts e suas asserções não foram alterados. A origem da intermitência
+anterior continua não demonstrada; estes resultados locais não provam sua impossibilidade.
+As saídas e traces em caso de falha foram configurados em diretórios exclusivos em TEMP.
+
+O primeiro Biome desta retomada detectou finais CRLF nos dois arquivos editados via Python.
+Somente esses dois arquivos foram formatados; a reexecução passou. Não houve formatação ampla.
+Nenhum gate foi omitido para obter aprovação.
+
+Além das alterações já recuperadas do Claude, esta retomada alterou apenas `volume.ts`,
+`volume-adversarial.test.ts` e este relatório. Backend, autenticação, contratos compartilhados,
+migrations e os worktrees de outras frentes foram preservados. O painel continua desativado no
+build normal. HEAD mantido em `061c7783bb56017ed464ff8e9eb41307260cff5e`, com index vazio.
+
+**GO técnico para nova revisão independente da F3C.5**, sem autorização de staging ou commit.

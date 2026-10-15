@@ -31,7 +31,7 @@ export function HeroRefined({ ctaRef, forceReducedMotion = false }: HeroRefinedP
       data-reduced-motion={forceReducedMotion ? 'true' : undefined}
     >
       <Container className={styles.grid}>
-        <p className={styles.eyebrow}>Delivery e retirada · Barris 30 e 50 L</p>
+        <p className={styles.eyebrow}>Delivery · Barris 30 e 50 L</p>
         <h1 id="hero-title" className={styles.title}>
           Chope
           <br />
@@ -50,7 +50,7 @@ export function HeroRefined({ ctaRef, forceReducedMotion = false }: HeroRefinedP
         />
         <div className={styles.lead}>
           <p className={styles.text}>
-            Escolha o chope, o tamanho do barril e o horário. A gente entrega ou você retira.
+            Escolha o chope, o tamanho do barril e o horário. A gente entrega.
           </p>
           <div className={styles.actions} ref={ctaRef}>
             <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>
