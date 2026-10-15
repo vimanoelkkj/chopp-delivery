@@ -36,7 +36,7 @@ interface AdminCatalogGateway {
   load(signal?: AbortSignal): Promise<AdminCatalog>   // snapshot completo
   save(input: SaveInput): Promise<SaveResult>          // snapshot completo + ids criados
 }
-// Erros: AdminApiError.code = 'unauthenticated' | 'conflict' | 'rejected' | 'unavailable'
+// Erros: AdminApiError.code = 'unauthenticated' | 'conflict' | 'rejected' | 'forbidden' | 'unavailable'
 ```
 
 Um teste (`tests/frontend/admin-gateway-boundary.test.ts`) impede que qualquer arquivo além de
@@ -46,8 +46,10 @@ Um teste (`tests/frontend/admin-gateway-boundary.test.ts`) impede que qualquer a
 
 - `AdminCatalog { revision, categories[{ id, name, items[{ id, creationRef, name, description, visible, variants[{ code, creationRef, label, volumeMl, priceCents }] }] }] }`
   na ordem de exibição. `revision` é opaca (a UI só compara e devolve).
-- `SaveInput { revision, categories[{ id, items[ItemInput] }] }`: **snapshot completo** da
-  ordem e do conteúdo, com a revisão base. Itens existentes vão com `id`, novos com `clientId`
+- `SaveInput { revision, categories[{ id, name, items[ItemInput] }] }`: **snapshot completo** da
+  ordem e do conteúdo, com a revisão base. **`name` da categoria é obrigatório** (o servidor valida
+  `{ id, name, items }` com chaves exatas e recusa tudo com 400 se faltar): é o `name` recebido do
+  GET, devolvido sem edição; o painel não edita nem inventa nomes de categoria. Itens existentes vão com `id`, novos com `clientId`
   (`tmp:<uuid>`); variantes existentes com `code`, novas com `clientId`.
 - `SaveResult { catalog, created: { items[{ clientId, id }], variants[{ itemId, clientId, code }] } }`.
 - Preço: **centavos inteiros** (1 a 9.999.999) ou `null` ("não vende"; obrigatório nas cachaças).
@@ -63,7 +65,7 @@ Tudo que muda de nome ou formato se resolve em **dois arquivos**:
 1. `wire.ts`: o que o servidor devolve → tipos da UI (`parseSnapshot`, `parseSaveResult`).
 2. `httpGateway.ts`: rota (`CATALOG_V2_PATH = '/api/admin/catalog/v2'`), método, cabeçalhos
    (`If-Match: "<revision>"`), corpo e mapa de status (401 → `unauthenticated`, 409 → `conflict`,
-   400/403/410/428 → `rejected`, resto → `unavailable`).
+   403 → `forbidden`, 400/410/428 → `rejected`, resto, inclusive 500/502/503/504 → `unavailable`).
 
 Se o servidor mandar a revisão no corpo em vez do `If-Match`, ou mudar o nome de um campo, o
 ajuste é feito aqui. A UI, o reducer e o `saveFlow` não conhecem nomes do wire.
@@ -111,6 +113,14 @@ Limite conhecido da equivalência: se o servidor **normalizar** texto (espaços,
 equivale ao enviado e o resultado cai em `conflict` (lado seguro, falso conflito). Se isso ocorrer na
 F3A.2, normalize igual no `draft.ts` ao montar o pedido, ou ajuste `satisfies`.
 
+### Limites do PUT conferidos no painel
+
+`saveFlow.limitViolation` (constantes em `SAVE_LIMITS`) repete a contagem do servidor (F3A.2) antes
+de enviar: **128 itens** no total, **8 variantes por item**, **512 variantes** no total e
+**128 KiB** (131.072 bytes) do corpo JSON **em UTF-8** (bytes, não caracteres). Excedeu: o
+resultado de `performSave` é `limit` com a mensagem; nada é enviado e o rascunho fica intacto.
+Se o servidor mudar algum teto, ajustar só `SAVE_LIMITS`.
+
 ## 5. Estados de erro e como a UI reage
 
 | Situação | Reação |
@@ -118,8 +128,10 @@ F3A.2, normalize igual no `draft.ts` ao montar o pedido, ou ajuste `satisfies`.
 | Falha ao carregar | Tela de erro com "Tentar de novo" |
 | Campo inválido | Erro no campo (após editar/sair ou ao tentar salvar); foco no primeiro inválido; nada é enviado |
 | 409 | Modal "O catálogo mudou"; salvar bloqueado; rascunho preservado; "Recarregar" descarta por escolha |
-| 400/403/410/428 (`rejected`) | "O servidor recusou o salvamento…"; rascunho preservado |
-| `unavailable` no PUT | Fluxo de resultado incerto (seção 4) |
+| 400/410/428 (`rejected`) | "O servidor recusou o salvamento…"; rascunho preservado |
+| 403 (`forbidden`, origem/CSRF) | Mensagem própria ("O servidor não aceitou a origem do pedido… Nada foi salvo. Recarregue a página, entre de novo e tente outra vez."); vem do guard, antes de qualquer escrita; nunca entra no fluxo incerto; rascunho preservado |
+| Limite excedido (`limit`) | Bloqueia **antes de enviar**, sem chamar o servidor, com a mensagem do limite; rascunho preservado |
+| `unavailable` no PUT (500/502/503/504, rede, JSON inválido) | **Resultado incerto**: pode ter sido gravado (o `decode` do servidor roda depois do commit). Recupera por GET (seção 4) e **nunca reenvia sozinho** |
 | 401 | Ver abaixo |
 
 ### Sessão expirada sem perder o rascunho
@@ -154,11 +166,16 @@ Cobertura relevante:
   indisponível/inválido, edição posterior preservada. Os 10 fluxos complexos também estão aí (vários produtos, várias cachaças com variantes, criar +
   reordenar, descartar temporário, reconciliar clientIds, resposta perdida, recuperação por
   `creationRef` sem duplicar, 409, 401, máscara/volume).
-- `wire.test.ts`, `httpGateway.test.ts`: validação do wire e do transporte com `fetch` falso.
+- `wire.test.ts`, `httpGateway.test.ts`: validação do wire e do transporte com `fetch` falso
+  (403 → `forbidden`, 5xx → `unavailable`).
+- `putContract.test.ts`: **contrato do corpo do PUT**, `limit`, `forbidden` e 5xx incerto sem reenvio.
+  Ele **reproduz as regras do backend** (`validateExpanded` da F3A.2, chaves exatas por nível), não o
+  executa. **Falta executá-lo contra os handlers reais** depois da unificação dos branches (passo 2
+  da seção 9): numa sonda independente, o fluxo completo contra os handlers reais passou com o `name`.
 - `e2e/admin-integration-flows.spec.ts`: resposta perdida, sessão expirada com rascunho, 409 com produto
-  novo. Demais specs `e2e/admin-*.spec.ts`: painel, máscara, rolagem, cadastro, refinamentos.
+  novo, 403 (`?mock=forbidden`). Demais specs `e2e/admin-*.spec.ts`: painel, máscara, rolagem, cadastro, refinamentos.
 
-Cenários do mock por URL: `?mock=slow|error|empty|save-error|expired|conflict|lost-response`.
+Cenários do mock por URL: `?mock=slow|error|empty|save-error|expired|conflict|lost-response|forbidden`.
 **Só existem no `vite dev` e no build de E2E** (`vite build --mode e2e`, usado pelo
 `playwright.config.ts`). No build publicável (`npm run build`) o leitor do `?mock=` nem entra no
 bundle: a URL não liga nenhum comportamento de teste (`mockGateway.test.ts` + verificação do `dist`).
@@ -181,7 +198,8 @@ teste, `/api/admin/catalog/v2` ou `If-Match`. Não rode `verify:dist` sobre um b
 - A recuperação por `creationRef` depende de o backend devolver `creationRef` no GET; sem isso, tudo
   que é incerto cai em `conflict`.
 - A recuperação por equivalência tem falso conflito se o servidor normalizar texto (ver seção 4).
-- O mock não tem concorrência real, expiração por tempo, limite de payload nem latência variável.
+- O mock não tem concorrência real, expiração por tempo nem latência variável; ele recusa nome de
+  categoria diferente do cadastrado, mas não aplica os limites de payload (quem os aplica é o painel).
 - Sem comparação de nomes duplicados; sem paginação (catálogo pequeno).
 - `httpGateway` não envia `AbortSignal` no PUT (salvamento não é cancelável de propósito).
 
@@ -193,7 +211,7 @@ teste, `/api/admin/catalog/v2` ou `If-Match`. Não rode `verify:dist` sobre um b
 | `revision` | Inteiro em texto, +1 por gravação que muda algo | Opaca (`"r0"`...), via `If-Match`/`ETag` |
 | Gravação sem mudança | Não avança a revisão | A confirmar |
 | Replay do mesmo pedido | 409 | 409 |
-| Erros | Só pelos `?mock=` | 400/401/403/409/410/428/5xx reais |
+| Erros | Só pelos `?mock=` (inclui `forbidden`) | 400/401/403/409/428/5xx reais (410 só nos escritores legados) |
 | Auth | `/api/auth/*` simulado nos E2E (rotas reais cobertas por `auth-routes.spec.ts`) | Cookie HttpOnly + CSRF por `Origin` (F2) |
 | Latência | 700 ms fixos | Variável |
 
@@ -242,3 +260,10 @@ migrations, auth ou o catálogo público.
   `dist`). Ao reativar (passo 4), conferir `verify:dist` e que nenhum fixture voltou ao bundle.
 - Restante: ligar o gateway, e2e contra Functions locais, decidir edição de rótulo/volume de variante
   persistida e remoção de itens (fora do escopo atual).
+
+## 11. Estado desta etapa (compatibilidade F3B x F3A.2)
+
+- O gateway HTTP real **continua desligado**: nenhum código de produção importa `httpGateway.ts` e
+  `/admin` permanece **indisponível no build normal** (`AdminDisabled`) até a integração aprovada.
+- O corpo do PUT já segue o formato exigido pelo backend (`name` na categoria). O que falta é rodar o
+  teste de contrato contra os handlers reais e fazer a troca de gate descrita na seção 9, passo 4.

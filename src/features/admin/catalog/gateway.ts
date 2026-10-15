@@ -5,6 +5,8 @@ export type AdminApiErrorCode =
   /** O catálogo mudou depois do `revision` em que a edição se baseou (HTTP 409 na F3A). */
   | 'conflict'
   | 'rejected'
+  /** Origem/CSRF recusada (HTTP 403): a requisição não chegou a gravar nada. */
+  | 'forbidden'
   | 'unavailable'
 
 export class AdminApiError extends Error {
