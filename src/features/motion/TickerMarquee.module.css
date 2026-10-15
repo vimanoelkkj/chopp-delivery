@@ -1,0 +1,148 @@
+.ticker {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  background: var(--color-gold);
+  color: var(--color-black);
+  user-select: none;
+  contain: paint layout;
+}
+
+/* O trilho engloba duas sequências idênticas (A e B).
+   Quando o trilho translada -50%, a sequência A saiu inteira pela esquerda
+   e a sequência B assumiu exatamente o ponto inicial da sequência A.
+   Ao reiniciar para 0%, o salto é 0px (perfeitamente contínuo). */
+.track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  animation-name: marqueeSlide;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--marquee-duration, 50s);
+}
+
+/* Pausa por interação para conveniência e conformidade WCAG 2.2.2 */
+.ticker:hover .track,
+.ticker:focus-within .track,
+.ticker[data-paused='true'] .track {
+  animation-play-state: paused;
+}
+
+.sequence {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.sequencePrimary {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.sequenceSecondary {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.phraseSet {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0;
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.item::after {
+  content: '·';
+  padding-inline: 1.25rem;
+}
+
+@keyframes marqueeSlide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (min-width: 48rem) {
+  .track {
+    animation-duration: var(--marquee-duration, 85s);
+  }
+
+  .item {
+    padding-block: 0.875rem;
+    font-size: 2.75rem;
+  }
+
+  .item::after {
+    padding-inline: 1.75rem;
+  }
+}
+
+/* Respeito estrito a prefers-reduced-motion:
+   Apresentação estática, sem rolagem horizontal, sem overflow na página,
+   e sem repetições decorativas desnecessárias. */
+@media (prefers-reduced-motion: reduce) {
+  .ticker {
+    overflow: hidden;
+  }
+
+  .track {
+    animation: none;
+    transform: none;
+  }
+
+  .sequenceSecondary {
+    display: none;
+  }
+
+  .phraseSet:nth-child(n + 2) {
+    display: none;
+  }
+}
+
+/* Modo forçado de movimento reduzido (para testes e diagnósticos) */
+.ticker[data-reduced-motion='true'] .track {
+  animation: none;
+  transform: none;
+}
+
+.ticker[data-reduced-motion='true'] .sequenceSecondary {
+  display: none;
+}
+
+.ticker[data-reduced-motion='true'] .phraseSet:nth-child(n + 2) {
+  display: none;
+}
+
+/* Texto acessível para leitores de tela */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
