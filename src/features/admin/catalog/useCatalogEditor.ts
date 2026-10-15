@@ -405,6 +405,18 @@ export function useCatalogEditor(
         dispatch({ type: 'save-failed' })
         expire()
         break
+      case 'forbidden':
+        // 403 vem do guard, antes de qualquer escrita: nada foi gravado e reenviar não adianta.
+        dispatch({ type: 'save-failed' })
+        notify(
+          'error',
+          'O servidor não aceitou a origem do pedido (proteção contra requisições de outro site). Nada foi salvo. Recarregue a página, entre de novo e tente outra vez.',
+        )
+        break
+      case 'limit':
+        dispatch({ type: 'save-failed' })
+        notify('error', outcome.message)
+        break
       case 'rejected':
         dispatch({ type: 'save-failed' })
         notify('error', 'O servidor recusou o salvamento. Revise os dados e tente de novo.')

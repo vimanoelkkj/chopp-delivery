@@ -11,9 +11,19 @@ export type MockMode =
   | 'expired'
   | 'conflict'
   | 'lost-response'
+  | 'forbidden'
   | undefined
 
-const MODES = ['slow', 'error', 'empty', 'save-error', 'expired', 'conflict', 'lost-response']
+const MODES = [
+  'slow',
+  'error',
+  'empty',
+  'save-error',
+  'expired',
+  'conflict',
+  'lost-response',
+  'forbidden',
+]
 
 /** Segunda barreira (o gate principal é o de src/app/App.tsx): cenários só em dev e no build de E2E. */
 const SCENARIOS = import.meta.env.DEV || import.meta.env.MODE === 'e2e'
@@ -127,6 +137,7 @@ export function createMockGateway(mode: MockMode = undefined, latency = 700): Ad
       await wait(latency + 300)
       if (mode === 'save-error') throw new AdminApiError('unavailable')
       if (mode === 'expired') throw new AdminApiError('unauthenticated')
+      if (mode === 'forbidden') throw new AdminApiError('forbidden')
       if (mode === 'conflict' && !otherSessionSaved) {
         // Simula outra sessão salvando antes: o Dronken 30 L muda e a revisão avança.
         otherSessionSaved = true
@@ -142,7 +153,8 @@ export function createMockGateway(mode: MockMode = undefined, latency = 700): Ad
         stored,
         stored.categories.map((category) => {
           const match = input.categories.find((c) => c.id === category.id)
-          if (!match) throw new AdminApiError('rejected')
+          // O servidor real exige `name` e recusa qualquer nome diferente do cadastrado.
+          if (!match || match.name !== category.name) throw new AdminApiError('rejected')
           return match.items
         }),
         created,

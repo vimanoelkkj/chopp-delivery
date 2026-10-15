@@ -215,6 +215,7 @@ export function buildSaveInput(saved: AdminCatalog, draft: Draft): SaveInput {
     revision: saved.revision,
     categories: saved.categories.map((category) => ({
       id: category.id,
+      name: category.name,
       items: (draft.order[category.id] ?? []).map((key) => itemInput(draft.items[key])),
     })),
   }

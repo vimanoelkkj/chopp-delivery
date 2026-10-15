@@ -106,6 +106,19 @@ test.describe('sessão expirada: identidade do rascunho', () => {
   })
 })
 
+test.describe('origem recusada (403)', () => {
+  test('mensagem própria, nada é tratado como incerto e o rascunho continua', async ({ page }) => {
+    await openPanel(page, '?mock=forbidden')
+    await addChope(page, 'Lagunitas', '20', '42000')
+    await save(page).click()
+    await expect(page.getByRole('alert')).toContainText('não aceitou a origem')
+    await expect(page.getByRole('alert')).not.toContainText('Revise os dados')
+    await expect(page.getByText('Verificando…')).toHaveCount(0)
+    await expect(draftCards(page)).toHaveCount(1)
+    await expect(save(page)).toBeEnabled()
+  })
+})
+
 test.describe('conflito com cadastro novo', () => {
   test('o 409 bloqueia o salvamento e o produto novo continua no rascunho', async ({ page }) => {
     await openPanel(page, '?mock=conflict')

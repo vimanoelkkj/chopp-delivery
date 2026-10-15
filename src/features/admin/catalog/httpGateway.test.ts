@@ -57,7 +57,7 @@ describe('httpGateway (contrato provisório da API v2)', () => {
     [401, 'unauthenticated'],
     [409, 'conflict'],
     [400, 'rejected'],
-    [403, 'rejected'],
+    [403, 'forbidden'],
     [410, 'rejected'],
     [428, 'rejected'],
     [500, 'unavailable'],

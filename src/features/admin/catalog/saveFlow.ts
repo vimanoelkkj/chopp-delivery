@@ -13,8 +13,29 @@ export type SaveOutcome =
   | { kind: 'conflict' }
   | { kind: 'unauthenticated' }
   | { kind: 'rejected' }
+  /** Origem/CSRF recusada (403): nada foi gravado. */
+  | { kind: 'forbidden' }
+  /** Passaria dos limites do servidor: nem é enviado. */
+  | { kind: 'limit'; message: string }
   /** Resposta perdida / 5xx / rede: a escrita pode ter sido confirmada. Guardar `input`. */
   | { kind: 'uncertain'; input: SaveInput }
+
+/** Limites do PUT v2 no servidor (F3A.2): conferidos antes de enviar para não gastar uma viagem. */
+export const SAVE_LIMITS = { bytes: 131072, items: 128, perItem: 8, variants: 512 } as const
+
+/** `null` se o pedido cabe nos limites; senão a mensagem para o usuário. Mesma contagem do servidor. */
+export function limitViolation(input: SaveInput): string | null {
+  const items = input.categories.flatMap((category) => category.items)
+  if (items.some((item) => item.variants.length > SAVE_LIMITS.perItem))
+    return `Cada produto aceita no máximo ${SAVE_LIMITS.perItem} variantes.`
+  if (items.length > SAVE_LIMITS.items)
+    return `O catálogo aceita no máximo ${SAVE_LIMITS.items} produtos.`
+  if (items.reduce((sum, item) => sum + item.variants.length, 0) > SAVE_LIMITS.variants)
+    return `O catálogo aceita no máximo ${SAVE_LIMITS.variants} variantes no total.`
+  if (new TextEncoder().encode(JSON.stringify(input)).length > SAVE_LIMITS.bytes)
+    return 'O catálogo ficou grande demais para salvar (limite de 128 KiB). Encurte descrições ou remova variantes novas.'
+  return null
+}
 
 /** Valida, monta o pedido (mesma revisão base e mesmos clientIds a cada tentativa) e envia. */
 export async function performSave(
@@ -24,6 +45,8 @@ export async function performSave(
 ): Promise<SaveOutcome> {
   if (Object.keys(validate(draft)).length) return { kind: 'invalid' }
   const input = buildSaveInput(saved, draft)
+  const message = limitViolation(input)
+  if (message) return { kind: 'limit', message }
   try {
     return { kind: 'saved', result: await gateway.save(input) }
   } catch (error) {
@@ -31,6 +54,7 @@ export async function performSave(
       if (error.code === 'conflict') return { kind: 'conflict' }
       if (error.code === 'unauthenticated') return { kind: 'unauthenticated' }
       if (error.code === 'rejected') return { kind: 'rejected' }
+      if (error.code === 'forbidden') return { kind: 'forbidden' }
     }
     return { kind: 'uncertain', input }
   }
@@ -59,7 +83,12 @@ export function satisfies(input: SaveInput, snapshot: AdminCatalog): boolean {
   if (input.categories.length !== snapshot.categories.length) return false
   return input.categories.every((category, index) => {
     const actual = snapshot.categories[index]
-    if (actual.id !== category.id || actual.items.length !== category.items.length) return false
+    if (
+      actual.id !== category.id ||
+      actual.name !== category.name ||
+      actual.items.length !== category.items.length
+    )
+      return false
     return category.items.every((item, position) => {
       const real = actual.items[position]
       const sameItem = 'id' in item ? real.id === item.id : real.creationRef === item.clientId

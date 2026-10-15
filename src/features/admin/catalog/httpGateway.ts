@@ -10,7 +10,7 @@ import { parseSaveResult, parseSnapshot } from './wire'
  * `docs/admin-panel-handoff.md`. Nenhuma chamada é feita na construção do gateway.
  *
  * Mapeamento de erros → `AdminApiError`:
- *   401 → unauthenticated | 409 → conflict | 400/403/410/428 → rejected
+ *   401 → unauthenticated | 409 → conflict | 403 → forbidden | 400/410/428 → rejected
  *   503, demais 5xx, falha de rede, JSON/forma inválidos → unavailable
  * `unavailable` num PUT significa **resultado incerto**: a escrita pode ter sido confirmada.
  */
@@ -25,7 +25,8 @@ type Options = {
 function fail(status: number): AdminApiError {
   if (status === 401) return new AdminApiError('unauthenticated')
   if (status === 409) return new AdminApiError('conflict')
-  if ([400, 403, 410, 428].includes(status)) return new AdminApiError('rejected')
+  if (status === 403) return new AdminApiError('forbidden')
+  if ([400, 410, 428].includes(status)) return new AdminApiError('rejected')
   return new AdminApiError('unavailable')
 }
 

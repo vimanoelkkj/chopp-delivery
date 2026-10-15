@@ -43,7 +43,8 @@ export type ItemInput = ({ id: string } | { clientId: string }) & {
 }
 export type SaveInput = {
   revision: string
-  categories: { id: CategoryId; items: ItemInput[] }[]
+  /** `name` é o do snapshot GET, devolvido sem edição: o servidor exige `{ id, name, items }`. */
+  categories: { id: CategoryId; name: string; items: ItemInput[] }[]
 }
 export type SaveResult = {
   catalog: AdminCatalog
