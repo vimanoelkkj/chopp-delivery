@@ -1,4 +1,5 @@
 import { AgeNotice } from '@/features/compliance/AgeNotice'
+import { Button } from '@/shared/ui/Button'
 import { Container } from '@/shared/ui/Container'
 import { DesktopBreak } from '@/shared/ui/DesktopBreak'
 import { SectionHeading } from '@/shared/ui/SectionHeading'
@@ -7,19 +8,85 @@ import styles from './ExpandableCatalogView.module.css'
 import { ExpandablePriceTable } from './ExpandablePriceTable'
 import type { PublicCatalogV2 } from './types'
 import { getVisibleCatalog } from './types'
+import { usePublicCatalog } from './usePublicCatalog'
 
 type ExpandableCatalogViewProps = {
-  catalog: PublicCatalogV2
+  /** Catálogo explícito opcional (usado em testes ou simulação DEV). Se omitido, consome GET /api/catalog real. */
+  catalog?: PublicCatalogV2 | null
   filterHidden?: boolean
   omitEmptyCategories?: boolean
+  onRetry?: () => void
 }
 
 export function ExpandableCatalogView({
-  catalog,
+  catalog: explicitCatalog,
   filterHidden = true,
   omitEmptyCategories = true,
+  onRetry,
 }: ExpandableCatalogViewProps) {
-  const visibleCategories = getVisibleCatalog(catalog, {
+  const { state: apiState, retry: apiRetry } = usePublicCatalog()
+
+  // Se catalog foi passado explicitamente (ex: fixture ou mock em teste), usa direto
+  const isExplicit = explicitCatalog !== undefined && explicitCatalog !== null
+  const currentCatalog = isExplicit
+    ? explicitCatalog
+    : apiState.status === 'ready'
+      ? apiState.catalog
+      : null
+  const isLoading = !isExplicit && apiState.status === 'loading'
+  const isError = !isExplicit && apiState.status === 'error'
+  const handleRetry = onRetry ?? apiRetry
+
+  if (isLoading) {
+    return (
+      <section
+        id="catalogo-expansivel"
+        className={styles.section}
+        aria-labelledby="catalogo-expansivel-title"
+        data-testid="expandable-catalog-view"
+      >
+        <Container className={styles.inner}>
+          <div className={styles.top}>
+            <SectionHeading eyebrow="01 · Conheça nossos chopes" id="catalogo-expansivel-title">
+              Escolha
+              <DesktopBreak />o seu chopp
+            </SectionHeading>
+          </div>
+          <div className={styles.statusBox} role="status">
+            <p className={styles.statusText}>Carregando catálogo…</p>
+          </div>
+        </Container>
+      </section>
+    )
+  }
+
+  if (isError || !currentCatalog) {
+    return (
+      <section
+        id="catalogo-expansivel"
+        className={styles.section}
+        aria-labelledby="catalogo-expansivel-title"
+        data-testid="expandable-catalog-view"
+      >
+        <Container className={styles.inner}>
+          <div className={styles.top}>
+            <SectionHeading eyebrow="01 · Conheça nossos chopes" id="catalogo-expansivel-title">
+              Escolha
+              <DesktopBreak />o seu chopp
+            </SectionHeading>
+          </div>
+          <div className={styles.errorBox} role="alert">
+            <p className={styles.errorText}>Catálogo indisponível no momento. Tente novamente.</p>
+            <Button onClick={handleRetry} variant="gold">
+              Tentar novamente
+            </Button>
+          </div>
+        </Container>
+      </section>
+    )
+  }
+
+  const visibleCategories = getVisibleCatalog(currentCatalog, {
     includeHidden: !filterHidden,
     omitEmptyCategories,
   })
@@ -39,21 +106,25 @@ export function ExpandableCatalogView({
     >
       <Container className={styles.inner}>
         <div className={styles.top}>
-          <SectionHeading eyebrow="01 · Catálogo Expandido v2" id="catalogo-expansivel-title">
+          <SectionHeading eyebrow="01 · Conheça nossos chopes" id="catalogo-expansivel-title">
             Escolha
             <DesktopBreak />o seu chopp
           </SectionHeading>
           <p className={styles.note} data-testid="catalog-count-note">
             {beerCount > 0
-              ? `${beerCount} opções artesanais e tradicionais disponíveis com múltiplos tamanhos de barril.`
+              ? `${beerCount} ${beerCount === 1 ? 'opção' : 'opções'} de chopp com valores e apresentações disponíveis.`
               : 'Consulte nossa carta de chopes e bebidas especiais.'}
           </p>
         </div>
 
-        {chopesCategory && chopesCategory.items.length > 0 && (
+        {chopesCategory && chopesCategory.items.length > 0 ? (
           <div data-testid="category-chopes-section">
             <ExpandablePriceTable items={chopesCategory.items} />
           </div>
+        ) : (
+          <p role="status" className={styles.emptyNotice} data-testid="chopes-empty-notice">
+            Nenhum chope disponível no catálogo no momento.
+          </p>
         )}
 
         {cachacasCategory && cachacasCategory.items.length > 0 && (
