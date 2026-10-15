@@ -220,6 +220,34 @@ export function buildSaveInput(saved: AdminCatalog, draft: Draft): SaveInput {
   }
 }
 
+/**
+ * Aponta os itens/variantes ainda "novos" do rascunho para os ids definitivos que o servidor já
+ * gravou (casando por creationRef = clientId). Edições e ordem do rascunho ficam como estão.
+ */
+export function rebaseDraft(draft: Draft, snapshot: AdminCatalog): Draft {
+  const byRef = new Map<string, AdminItem>()
+  for (const category of snapshot.categories)
+    for (const item of category.items) if (item.creationRef) byRef.set(item.creationRef, item)
+  const items: Draft['items'] = {}
+  for (const [key, item] of Object.entries(draft.items)) {
+    const match = item.id === null ? byRef.get(key) : undefined
+    items[key] = match
+      ? {
+          ...item,
+          id: match.id,
+          variants: item.variants.map((variant) => {
+            const found =
+              variant.code === null
+                ? match.variants.find((v) => v.creationRef === variant.key)
+                : undefined
+            return found ? { ...variant, code: found.code } : variant
+          }),
+        }
+      : item
+  }
+  return { ...draft, items }
+}
+
 export function moveId(order: string[], id: string, direction: -1 | 1): string[] {
   const from = order.indexOf(id)
   const to = from + direction

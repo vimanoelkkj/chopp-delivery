@@ -350,7 +350,7 @@ test.describe('estados', () => {
     await openPanel(page, '?mock=save-error')
     await price(page, '30 L', 'Dronken').fill('515,00')
     await save(page).click()
-    await expect(page.getByRole('alert')).toContainText('Não foi possível salvar')
+    await expect(page.getByRole('alert')).toContainText('Nada foi gravado')
     await expect(price(page, '30 L', 'Dronken')).toHaveValue('515,00')
     await expect(save(page)).toBeEnabled()
     await expect(page.getByText('1 produto tem alterações não salvas.')).toBeVisible()

@@ -10,9 +10,10 @@ export type MockMode =
   | 'save-error'
   | 'expired'
   | 'conflict'
+  | 'lost-response'
   | undefined
 
-const MODES = ['slow', 'error', 'empty', 'save-error', 'expired', 'conflict']
+const MODES = ['slow', 'error', 'empty', 'save-error', 'expired', 'conflict', 'lost-response']
 
 export function readMockMode(search: string): MockMode {
   const value = new URLSearchParams(search).get('mock')
@@ -110,6 +111,7 @@ export function createMockGateway(mode: MockMode = undefined, latency = 700): Ad
       : createMockCatalog()
   let loads = 0
   let otherSessionSaved = false
+  let responseLost = false
   return {
     async load(signal) {
       await wait(mode === 'slow' ? 3500 : latency, signal)
@@ -143,6 +145,11 @@ export function createMockGateway(mode: MockMode = undefined, latency = 700): Ad
       )
       const changed = JSON.stringify(next.categories) !== JSON.stringify(stored.categories)
       stored = changed ? { ...next, revision: String(Number(stored.revision) + 1) } : stored
+      if (mode === 'lost-response' && !responseLost) {
+        // Gravou, mas a resposta se perde: o cliente vê falha e não sabe se foi persistido.
+        responseLost = true
+        throw new AdminApiError('unavailable')
+      }
       return { catalog: structuredClone(stored), created }
     },
   }

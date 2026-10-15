@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import {
-  buildSaveInput,
   changedKeys,
   type Draft,
   type DraftItem,
@@ -13,7 +12,14 @@ import {
 } from './draft'
 import { AdminApiError, type AdminCatalogGateway } from './gateway'
 import { formatPriceText, parsePriceText } from './price'
-import type { AdminCatalog, CategoryId } from './types'
+import {
+  canRestore,
+  performSave,
+  type Rescue,
+  rebaseAfterApplied,
+  recoverUncertain,
+} from './saveFlow'
+import type { AdminCatalog, CategoryId, SaveInput } from './types'
 
 type State = {
   load: { status: 'loading' } | { status: 'error' } | { status: 'ready'; saved: AdminCatalog }
@@ -27,6 +33,9 @@ type State = {
   /** Outra sessão salvou antes: salvar fica bloqueado até recarregar. */
   conflict: boolean
   conflictOpen: boolean
+  /** PUT de resultado incerto (resposta perdida): salvar de novo só depois de reconciliar. */
+  uncertain: SaveInput | null
+  recovering: boolean
 }
 
 export type ItemField = 'name' | 'description'
@@ -54,6 +63,10 @@ type Action =
   | { type: 'conflict' }
   | { type: 'conflict-open' }
   | { type: 'conflict-close' }
+  | { type: 'uncertain'; input: SaveInput }
+  | { type: 'recovering'; value: boolean }
+  | { type: 'clear-uncertain' }
+  | { type: 'restore'; catalog: AdminCatalog; draft: Draft }
 
 const VARIANT_PATH: Record<VariantField, string> = {
   label: 'label',
@@ -73,6 +86,8 @@ export const initial: State = {
   saving: false,
   conflict: false,
   conflictOpen: false,
+  uncertain: null,
+  recovering: false,
 }
 
 const withItem = (draft: Draft, key: string, change: (item: DraftItem) => DraftItem): Draft =>
@@ -99,6 +114,18 @@ export function reducer(state: State, action: Action): State {
         load: { status: 'ready', saved: action.catalog },
         draft: draftFrom(action.catalog),
       }
+    case 'restore':
+      return {
+        ...initial,
+        load: { status: 'ready', saved: action.catalog },
+        draft: action.draft,
+      }
+    case 'uncertain':
+      return { ...state, saving: false, uncertain: action.input }
+    case 'recovering':
+      return { ...state, recovering: action.value, saving: action.value }
+    case 'clear-uncertain':
+      return { ...state, uncertain: null }
     case 'saving':
       return { ...state, saving: true }
     case 'save-failed':
@@ -225,19 +252,26 @@ export function reducer(state: State, action: Action): State {
 }
 
 type Options = {
-  onUnauthenticated: () => void
+  /** `rescue` só vem se havia alterações pendentes: o shell o guarda em memória e o devolve após novo login. */
+  onUnauthenticated: (rescue?: Rescue) => void
   notify: (kind: 'success' | 'error', message: string) => void
+  /** Rascunho guardado na expiração da sessão anterior (memória da aba; some ao recarregar). */
+  rescue?: Rescue | null
+  onRescueHandled?: () => void
+  /** Identidade administrativa desta sessão: só ela pode receber um rascunho guardado. */
+  userId: string
 }
 
 /** Estado do editor: carrega pelo gateway, mantém o rascunho e salva o catálogo inteiro. */
 export function useCatalogEditor(
   gateway: AdminCatalogGateway,
-  { onUnauthenticated, notify }: Options,
+  { onUnauthenticated, notify, rescue, onRescueHandled, userId }: Options,
 ) {
   const [state, dispatch] = useReducer(reducer, initial)
   const [attempt, retryLoad] = useReducer((value: number) => value + 1, 0)
   const latest = useRef(state)
   latest.current = state
+  const rescueRef = useRef(rescue)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -245,7 +279,26 @@ export function useCatalogEditor(
     if (attempt > 0) dispatch({ type: 'loading' })
     gateway
       .load(controller.signal)
-      .then((catalog) => active && dispatch({ type: 'loaded', catalog }))
+      .then((catalog) => {
+        if (!active) return
+        const pending = rescueRef.current
+        rescueRef.current = null // consumido uma única vez, restaurado ou descartado com aviso
+        if (pending) {
+          onRescueHandled?.()
+          if (canRestore(pending, catalog, userId)) {
+            dispatch({ type: 'restore', catalog, draft: pending.draft })
+            notify('success', 'Suas alterações não salvas foram restauradas.')
+            return
+          }
+          notify(
+            'error',
+            pending.userId === userId
+              ? 'O catálogo mudou enquanto você estava fora; as alterações não salvas da sessão anterior foram descartadas.'
+              : 'As alterações não salvas pertenciam a outro usuário e foram descartadas.',
+          )
+        }
+        dispatch({ type: 'loaded', catalog })
+      })
       .catch((error) => {
         if (!active) return
         if (error instanceof AdminApiError && error.code === 'unauthenticated') onUnauthenticated()
@@ -255,7 +308,7 @@ export function useCatalogEditor(
       active = false
       controller.abort()
     }
-  }, [gateway, attempt, onUnauthenticated])
+  }, [gateway, attempt, onUnauthenticated, notify, onRescueHandled, userId])
 
   const saved = state.load.status === 'ready' ? state.load.saved : null
   const errors = useMemo(() => (state.draft ? validate(state.draft) : {}), [state.draft])
@@ -264,9 +317,66 @@ export function useCatalogEditor(
     [saved, state.draft],
   )
 
+  /** Sessão encerrada no meio da edição: entrega o rascunho para ser restaurado após o login. */
+  const expire = useCallback(() => {
+    const { load, draft } = latest.current
+    const dirty = load.status === 'ready' && draft && changedKeys(load.saved, draft).length > 0
+    onUnauthenticated(
+      dirty && draft && load.status === 'ready'
+        ? { draft, revision: load.saved.revision, userId }
+        : undefined,
+    )
+  }, [onUnauthenticated, userId])
+
+  /**
+   * Reconcilia um PUT incerto lendo o servidor (GET). Devolve `true` se já se pode tentar salvar
+   * de novo (nada foi gravado), `false` se terminou aqui (gravado, conflito ou sem resposta).
+   */
+  const reconcile = useCallback(
+    async (input: SaveInput): Promise<boolean> => {
+      dispatch({ type: 'recovering', value: true })
+      const outcome = await recoverUncertain(gateway, input)
+      dispatch({ type: 'recovering', value: false })
+      if (outcome.kind === 'unauthenticated') {
+        expire()
+        return false
+      }
+      if (outcome.kind === 'unreachable') {
+        notify(
+          'error',
+          'Ainda não conseguimos confirmar o último salvamento. Verifique a conexão e tente de novo.',
+        )
+        return false
+      }
+      if (outcome.kind === 'applied') {
+        const { load, draft } = latest.current
+        // Se o usuário editou depois da tentativa, essas edições seguem sobre o novo catálogo.
+        const rebased =
+          load.status === 'ready' && draft
+            ? rebaseAfterApplied(input, load.saved, draft, outcome.snapshot)
+            : null
+        dispatch(
+          rebased
+            ? { type: 'restore', catalog: outcome.snapshot, draft: rebased }
+            : { type: 'saved', catalog: outcome.snapshot },
+        )
+        notify('success', 'Confirmado: o salvamento anterior foi gravado.')
+        return false
+      }
+      if (outcome.kind === 'conflict') {
+        dispatch({ type: 'clear-uncertain' })
+        dispatch({ type: 'conflict' })
+        return false
+      }
+      dispatch({ type: 'clear-uncertain' }) // nada gravado: mesmo pedido (mesmos clientIds) é seguro
+      return true
+    },
+    [gateway, notify, expire],
+  )
+
   /** `false` quando há campos inválidos: a interface mostra os erros e leva o foco até o primeiro. */
   const save = useCallback(async (): Promise<boolean> => {
-    const { load, draft, saving, conflict } = latest.current
+    const { load, draft, saving, conflict, uncertain } = latest.current
     if (load.status !== 'ready' || !draft || saving) return true
     if (conflict) {
       // Sem chamar o servidor: salvar agora sobrescreveria o trabalho da outra sessão.
@@ -278,25 +388,38 @@ export function useCatalogEditor(
       notify('error', 'Corrija os campos destacados para salvar.')
       return false
     }
+    if (uncertain && !(await reconcile(uncertain))) return true
     dispatch({ type: 'saving' })
-    try {
-      const result = await gateway.save(buildSaveInput(load.saved, draft))
-      // Reconciliação: o snapshot devolvido traz ids/codes definitivos e creationRef; o rascunho
-      // é reconstruído dele e as chaves estáveis (clientId) preservam as linhas na tela.
-      dispatch({ type: 'saved', catalog: result.catalog })
-      notify('success', 'Salvo. As mudanças já estão no site.')
-    } catch (error) {
-      if (error instanceof AdminApiError && error.code === 'conflict') {
+    const outcome = await performSave(gateway, load.saved, draft)
+    switch (outcome.kind) {
+      case 'saved':
+        // Reconciliação: o snapshot devolvido traz ids/codes definitivos e creationRef; o rascunho
+        // é reconstruído dele e as chaves estáveis (clientId) preservam as linhas na tela.
+        dispatch({ type: 'saved', catalog: outcome.result.catalog })
+        notify('success', 'Salvo. As mudanças já estão no site.')
+        break
+      case 'conflict':
         dispatch({ type: 'conflict' })
-        return true
-      }
-      dispatch({ type: 'save-failed' })
-      if (error instanceof AdminApiError && error.code === 'unauthenticated') onUnauthenticated()
-      else
-        notify('error', 'Não foi possível salvar. Suas alterações continuam aqui; tente de novo.')
+        break
+      case 'unauthenticated':
+        dispatch({ type: 'save-failed' })
+        expire()
+        break
+      case 'rejected':
+        dispatch({ type: 'save-failed' })
+        notify('error', 'O servidor recusou o salvamento. Revise os dados e tente de novo.')
+        break
+      case 'uncertain':
+        dispatch({ type: 'uncertain', input: outcome.input })
+        notify('error', 'Não conseguimos confirmar se o salvamento foi gravado. Verificando…')
+        if (await reconcile(outcome.input))
+          notify('error', 'Nada foi gravado. Suas alterações continuam aqui; tente de novo.')
+        break
+      default:
+        break
     }
     return true
-  }, [gateway, notify, onUnauthenticated])
+  }, [gateway, notify, reconcile, expire])
 
   return {
     state,

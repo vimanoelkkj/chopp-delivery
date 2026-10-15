@@ -246,7 +246,7 @@ test.describe('cadastro de produto: salvar, reordenar e conflito', () => {
     await card(page).getByLabel('Nome').fill('Lagunitas')
     await fillFirstVariant(page, 'Barril de 20 L', '20', '42000')
     await save(page).click()
-    await expect(page.getByRole('alert')).toContainText('Não foi possível salvar')
+    await expect(page.getByRole('alert')).toContainText('Nada foi gravado')
     await expect(card(page)).toHaveCount(1)
     await expect(card(page).getByLabel('Nome')).toHaveValue('Lagunitas')
     await expect(save(page)).toBeEnabled()
