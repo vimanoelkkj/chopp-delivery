@@ -1,0 +1,226 @@
+.wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 2.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  text-align: left;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.head {
+  padding: 0.875rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  border-bottom: 1px solid var(--color-line-strong);
+  white-space: nowrap;
+}
+
+.nameCol {
+  width: 45%;
+  min-width: 14rem;
+}
+
+.headPrice {
+  text-align: right;
+  min-width: 6.5rem;
+}
+
+.row {
+  border-bottom: 1px solid var(--color-line);
+  transition: background-color 0.15s ease;
+}
+
+.row:hover {
+  background-color: rgba(244, 177, 11, 0.03);
+}
+
+.nameCell {
+  padding: 1.125rem 1rem;
+  vertical-align: top;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--color-bone);
+}
+
+.badgeNew {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-gold);
+  color: var(--color-black);
+  border-radius: 3px;
+}
+
+.badgeMulti {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #232018;
+  color: var(--color-gold);
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+}
+
+.description {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+  max-width: 28rem;
+}
+
+.priceCell {
+  padding: 1.125rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-align: right;
+  vertical-align: middle;
+  color: var(--color-bone);
+  white-space: nowrap;
+}
+
+.unavailable {
+  composes: priceCell;
+  color: var(--color-line-strong);
+  font-weight: 400;
+}
+
+/* Modo lista/cards responsivo para celular */
+.mobileCards {
+  display: none;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+
+.card {
+  background: #0f0e0c;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-bone);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cardDesc {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.variantGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.variantChip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 0.5rem;
+  background: #181510;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.variantChipAvailable:hover,
+.variantChipAvailable:focus-visible {
+  background: #231e14;
+  border-color: var(--color-gold);
+  transform: translateY(-1px);
+}
+
+.variantChipDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #11100e;
+  border-color: #201e1a;
+}
+
+.chipSize {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-gold);
+  text-transform: uppercase;
+}
+
+.chipPrice {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-bone);
+  margin-top: 0.15rem;
+}
+
+.chipUnavail {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 47.9375rem) {
+  .wrapper {
+    display: none;
+  }
+
+  .mobileCards {
+    display: flex;
+  }
+}
