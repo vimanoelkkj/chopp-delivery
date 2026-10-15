@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildSaveInput, draftFrom, newItemDraft, newVariantDraft } from './draft'
 import { AdminApiError } from './gateway'
 import { createMockGateway, readMockMode } from './mockGateway'
@@ -176,5 +176,28 @@ describe('mock gateway: mesmo contrato que a F3A.2 precisa cumprir', () => {
     expect(readMockMode('?mock=conflict')).toBe('conflict')
     expect(readMockMode('?mock=nada')).toBeUndefined()
     expect(readMockMode('')).toBeUndefined()
+  })
+
+  // O gate é uma constante de módulo (some do bundle publicável): reimporta com o ambiente trocado.
+  const readerWith = async (env: { DEV: boolean; MODE: string }) => {
+    vi.stubEnv('DEV', env.DEV)
+    vi.stubEnv('MODE', env.MODE)
+    vi.resetModules()
+    try {
+      return (await import('./mockGateway')).readMockMode
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  }
+
+  it('no build publicável (nem dev nem E2E) a URL não liga nenhum cenário', async () => {
+    const read = await readerWith({ DEV: false, MODE: 'production' })
+    for (const mode of ['conflict', 'expired', 'lost-response', 'save-error', 'slow'])
+      expect(read(`?mock=${mode}`)).toBeUndefined()
+  })
+
+  it('no build de E2E os cenários funcionam', async () => {
+    const read = await readerWith({ DEV: false, MODE: 'e2e' })
+    expect(read('?mock=lost-response')).toBe('lost-response')
   })
 })
