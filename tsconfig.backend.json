@@ -12,6 +12,8 @@
     "tests",
     "e2e",
     "worker-configuration.d.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.real.config.ts",
+    "scripts/dev-admin-integration.mts"
   ]
 }

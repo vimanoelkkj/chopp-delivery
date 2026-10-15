@@ -1,22 +1,18 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { LandingPage } from '@/pages/landing/LandingPage'
 
-/**
- * O painel só abre sobre o catálogo MOCKADO (F3B) no `vite dev` e no build de E2E
- * (`vite build --mode e2e`). No build publicável (`npm run build`) o gate é falso em tempo de build:
- * /admin mostra só AdminDisabled e nenhum código do painel, do mock ou de cenários entra em `dist`
- * (confira com `npm run verify:dist`). A expressão fica AQUI, literal, de propósito: um `const`
- * importado de outro módulo não é dobrado pelo bundler e o painel voltaria ao bundle.
- *
- * Reativar com o backend real exige mudança explícita de código (ver "Reativar /admin" em
- * docs/admin-panel-handoff.md), com testes contra a API real. Esconder a rota NÃO é autenticação:
- * a segurança das APIs é do backend.
+/** Keep this literal gate here so the normal build eliminates the entire admin module.
+ * The integration build is local-only. Mock data requires explicit dev/test opt-in.
+ * API authentication is enforced by the backend regardless of this UI gate.
  */
-const ADMIN_MOCK_ENABLED = import.meta.env.DEV || import.meta.env.MODE === 'e2e'
+const ADMIN_ENABLED =
+  import.meta.env.MODE === 'admin-integration' ||
+  (import.meta.env.DEV && import.meta.env.MODE === 'admin-mock') ||
+  import.meta.env.MODE === 'e2e'
 
 // O painel é carregado sob demanda: o código e o CSS dele não entram no pacote do site público.
 const AdminApp = lazy(
-  ADMIN_MOCK_ENABLED
+  ADMIN_ENABLED
     ? () => import('@/features/admin/AdminApp')
     : () => import('@/features/admin/AdminDisabled'),
 )

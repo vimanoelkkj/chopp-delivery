@@ -227,11 +227,15 @@ export function buildSaveInput(saved: AdminCatalog, draft: Draft): SaveInput {
  */
 export function rebaseDraft(draft: Draft, snapshot: AdminCatalog): Draft {
   const byRef = new Map<string, AdminItem>()
+  const byId = new Map<string, AdminItem>()
   for (const category of snapshot.categories)
-    for (const item of category.items) if (item.creationRef) byRef.set(item.creationRef, item)
+    for (const item of category.items) {
+      byId.set(item.id, item)
+      if (item.creationRef) byRef.set(item.creationRef, item)
+    }
   const items: Draft['items'] = {}
   for (const [key, item] of Object.entries(draft.items)) {
-    const match = item.id === null ? byRef.get(key) : undefined
+    const match = item.id === null ? byRef.get(key) : byId.get(item.id)
     items[key] = match
       ? {
           ...item,
@@ -241,7 +245,15 @@ export function rebaseDraft(draft: Draft, snapshot: AdminCatalog): Draft {
               variant.code === null
                 ? match.variants.find((v) => v.creationRef === variant.key)
                 : undefined
-            return found ? { ...variant, code: found.code } : variant
+            if (!found) return variant
+            // A promoted variant now uses the persisted representation (ml), not UI litres.
+            const volume = parseVolume(variant.volumeText, volumeUnit(item.categoryId))
+            if (!volume.ok) return variant
+            return {
+              ...variant,
+              code: found.code,
+              volumeText: volume.ml === null ? '' : String(volume.ml),
+            }
           }),
         }
       : item

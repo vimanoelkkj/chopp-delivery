@@ -3,6 +3,7 @@ import styles from './TextField.module.css'
 
 type TextFieldProps = {
   /** Rótulo visível, ligado ao campo por `for`. */
+  disabled?: boolean
   label: string
   value: string
   onChange: (text: string) => void
@@ -20,6 +21,7 @@ type TextFieldProps = {
 
 /** Campo de texto do painel (mesmo desenho dos campos de preço): rótulo, erro e ajuda acessíveis. */
 export function TextField({
+  disabled,
   label,
   value,
   onChange,
@@ -35,6 +37,7 @@ export function TextField({
   const id = useId()
   const messageId = `${id}-message`
   const common = {
+    disabled,
     id,
     className: `${styles.input} ${multiline ? styles.area : ''}`,
     value,

@@ -195,106 +195,116 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
   return (
     <div className={styles.page}>
       <div className={styles.content}>
-        <Heading chopes={productsCount} hidden={hidden} onNew={() => setNewOpen(true)} />
-        <Tabs
-          label="Tipo de produto"
-          idPrefix={idPrefix}
-          active={tab}
-          onChange={setTab}
-          items={categories.map((c) => ({
-            id: c.id,
-            label: c.name,
-            count: (draft.order[c.id] ?? []).length,
-          }))}
-        >
-          {order.length === 0 ? (
-            <section className={styles.empty}>
-              <h2 className={styles.failureTitle}>
-                {EMPTY_TITLE[tab] ?? `Nenhum item em ${categoryName(tab)}`}
-              </h2>
-              <p className={styles.failureText}>
-                Use “Novo produto” para cadastrar o primeiro. Os itens cadastrados aparecem aqui
-                para você editar.
-              </p>
-            </section>
-          ) : (
-            <div
-              className={styles.table}
-              style={{ '--slots': Math.max(columns.length, 1) } as CSSProperties}
-            >
-              {tableRows ? (
-                <div className={styles.head} aria-hidden="true">
-                  <span>Foto</span>
-                  <span>Produto</span>
-                  {columns.map(({ code, label }) => (
-                    <span key={code}>{label}</span>
-                  ))}
-                  <span>No site</span>
-                  <span>Ordem</span>
-                </div>
-              ) : null}
-              <ul className={styles.list}>
-                {order.map((key, index) => {
-                  const item = draft.items[key]
-                  const common = {
-                    item,
-                    priceRequired: PRICE_REQUIRED.has(tab),
-                    position: index + 1,
-                    total: order.length,
-                    errors: shownErrors(key),
-                    changed: changed.includes(key),
-                    rowRef: flip.register(key),
-                    onVisible: (visible: boolean) => editor.setVisible(key, visible),
-                    onMove: (direction: -1 | 1) => move(key, direction),
-                  }
-                  return isStandardRow(item) ? (
-                    <ProductRow
-                      key={key}
-                      {...common}
-                      columns={columns}
-                      onPrice={(code, text) => editor.setVariantField(key, code, 'priceText', text)}
-                      onBlur={(code) => editor.blurPrice(key, code)}
-                    />
-                  ) : (
-                    <ItemCard
-                      key={key}
-                      {...common}
-                      categoryName={categoryName(tab)}
-                      onItemField={(field, text) => editor.setItemField(key, field, text)}
-                      onTouch={(field) => editor.touch(`${key}:${field}`)}
-                      onVariantField={(variant, field, text) =>
-                        editor.setVariantField(key, variant, field, text)
-                      }
-                      onBlurPrice={(variant) => editor.blurPrice(key, variant)}
-                      onAddVariant={() => {
-                        const variant = editor.addVariant(key)
-                        focusAfter.current = { field: `${key}:label:${variant}` }
-                        setFocusTick((tick) => tick + 1)
-                      }}
-                      onRemoveVariant={(variant) => editor.removeVariant(key, variant)}
-                      onCancel={() => cancel(item)}
-                    />
-                  )
-                })}
-              </ul>
-              <p className={styles.note}>
-                {tab === 'chopes' ? (
-                  <>
-                    <span className={styles.noteLong}>
-                      Deixe um preço em branco quando o produto não é vendido naquele tamanho. O
-                      botão do tamanho some do site automaticamente.
-                    </span>
-                    <span className={styles.noteShort}>
-                      Preço em branco: o tamanho não aparece no site.
-                    </span>
-                  </>
-                ) : PRICE_REQUIRED.has(tab) ? (
-                  'O preço é obrigatório em cada variante.'
+        <fieldset disabled={state.saving} className={styles.editing}>
+          <Heading
+            chopes={productsCount}
+            hidden={hidden}
+            onNew={() => setNewOpen(true)}
+            newDisabled={!!state.uncertain}
+          />
+          <Tabs
+            label="Tipo de produto"
+            idPrefix={idPrefix}
+            active={tab}
+            onChange={setTab}
+            items={categories.map((c) => ({
+              id: c.id,
+              label: c.name,
+              count: (draft.order[c.id] ?? []).length,
+            }))}
+          >
+            {order.length === 0 ? (
+              <section className={styles.empty}>
+                <h2 className={styles.failureTitle}>
+                  {EMPTY_TITLE[tab] ?? `Nenhum item em ${categoryName(tab)}`}
+                </h2>
+                <p className={styles.failureText}>
+                  Use “Novo produto” para cadastrar o primeiro. Os itens cadastrados aparecem aqui
+                  para você editar.
+                </p>
+              </section>
+            ) : (
+              <div
+                className={styles.table}
+                style={{ '--slots': Math.max(columns.length, 1) } as CSSProperties}
+              >
+                {tableRows ? (
+                  <div className={styles.head} aria-hidden="true">
+                    <span>Foto</span>
+                    <span>Produto</span>
+                    {columns.map(({ code, label }) => (
+                      <span key={code}>{label}</span>
+                    ))}
+                    <span>No site</span>
+                    <span>Ordem</span>
+                  </div>
                 ) : null}
-              </p>
-            </div>
-          )}
-        </Tabs>
+                <ul className={styles.list}>
+                  {order.map((key, index) => {
+                    const item = draft.items[key]
+                    const common = {
+                      item,
+                      priceRequired: PRICE_REQUIRED.has(tab),
+                      position: index + 1,
+                      total: order.length,
+                      errors: shownErrors(key),
+                      changed: changed.includes(key),
+                      rowRef: flip.register(key),
+                      onVisible: (visible: boolean) => editor.setVisible(key, visible),
+                      onMove: (direction: -1 | 1) => move(key, direction),
+                    }
+                    return isStandardRow(item) ? (
+                      <ProductRow
+                        key={key}
+                        {...common}
+                        columns={columns}
+                        onPrice={(code, text) =>
+                          editor.setVariantField(key, code, 'priceText', text)
+                        }
+                        onBlur={(code) => editor.blurPrice(key, code)}
+                      />
+                    ) : (
+                      <ItemCard
+                        key={key}
+                        {...common}
+                        categoryName={categoryName(tab)}
+                        onItemField={(field, text) => editor.setItemField(key, field, text)}
+                        onTouch={(field) => editor.touch(`${key}:${field}`)}
+                        onVariantField={(variant, field, text) =>
+                          editor.setVariantField(key, variant, field, text)
+                        }
+                        onBlurPrice={(variant) => editor.blurPrice(key, variant)}
+                        onAddVariant={() => {
+                          const variant = editor.addVariant(key)
+                          focusAfter.current = { field: `${key}:label:${variant}` }
+                          setFocusTick((tick) => tick + 1)
+                        }}
+                        identityLocked={state.saving || !!state.uncertain}
+                        onRemoveVariant={(variant) => editor.removeVariant(key, variant)}
+                        onCancel={() => cancel(item)}
+                      />
+                    )
+                  })}
+                </ul>
+                <p className={styles.note}>
+                  {tab === 'chopes' ? (
+                    <>
+                      <span className={styles.noteLong}>
+                        Deixe um preço em branco quando o produto não é vendido naquele tamanho. O
+                        botão do tamanho some do site automaticamente.
+                      </span>
+                      <span className={styles.noteShort}>
+                        Preço em branco: o tamanho não aparece no site.
+                      </span>
+                    </>
+                  ) : PRICE_REQUIRED.has(tab) ? (
+                    'O preço é obrigatório em cada variante.'
+                  ) : null}
+                </p>
+              </div>
+            )}
+          </Tabs>
+        </fieldset>
         <p className="visually-hidden" role="status" aria-live="polite">
           {announcement}
         </p>
@@ -311,7 +321,7 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
               : state.saving
                 ? 'Salvando…'
                 : state.uncertain
-                  ? 'Não confirmamos o último salvamento. Salvar verifica antes de reenviar.'
+                  ? 'Não confirmamos o último salvamento. Salvar verifica antes de reenviar. Cadastros e tamanhos ficam bloqueados até a confirmação.'
                   : state.conflict
                     ? 'O catálogo mudou em outra sessão. Recarregue para poder salvar.'
                     : dirty
@@ -321,14 +331,14 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
           <div className={styles.actions}>
             <AdminButton
               variant="outline"
-              disabled={!dirty || state.saving}
+              disabled={!dirty || state.saving || !!state.uncertain}
               onClick={() => setDiscardOpen(true)}
             >
               Descartar
             </AdminButton>
             <AdminButton
               pending={state.saving}
-              disabled={!dirty && !state.saving}
+              disabled={!dirty && !state.saving && !state.uncertain}
               onClick={trySave}
             >
               {state.saving ? (
@@ -410,9 +420,11 @@ function Heading({
   chopes,
   hidden,
   onNew,
+  newDisabled,
 }: {
   chopes: number | null
   hidden: number
+  newDisabled?: boolean
   onNew: () => void
 }) {
   return (
@@ -441,7 +453,7 @@ function Heading({
               </li>
             ) : null}
           </ul>
-          <AdminButton className={styles.newButton} onClick={onNew}>
+          <AdminButton className={styles.newButton} disabled={newDisabled} onClick={onNew}>
             Novo produto
           </AdminButton>
         </div>

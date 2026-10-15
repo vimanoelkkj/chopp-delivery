@@ -1,8 +1,15 @@
 # Painel administrativo (F3B): guia de passagem e integração com a F3A.2
 
-Documento para quem for continuar o painel e ligá-lo ao backend de catálogo expandido.
-Estado: o painel funciona inteiro contra um **mock**. Nenhuma chamada real ao catálogo é feita.
-O adaptador HTTP existe, está testado com `fetch` falso e **não está ligado**.
+**Atualização F3C.2:** o gateway real está ligado exclusivamente no modo local
+`admin-integration`. O build publicável permanece com `AdminDisabled`.
+Consulte [Execução e testes atuais](admin-integration-local.md).
+
+Os detalhes abaixo registram o handoff original F3B/F3C.1; suas etapas de conexão
+são históricas e não autorizam habilitar o painel em produção.
+
+Documento original para quem fosse continuar o painel e ligá-lo ao backend expandido.
+Na entrega original F3B, o painel funcionava inteiro contra um **mock**. Nenhuma chamada real ao catálogo era feita.
+O adaptador HTTP existia, estava testado com `fetch` falso e **não estava ligado**.
 
 > **Contrato provisório.** Tudo que fala da API v2 abaixo vem de `tasks/plan.md` (branch
 > `feat/catalog-expansion`, ainda em implementação). Rota, campos e status podem mudar.

@@ -20,7 +20,10 @@
     "types:backend": "wrangler types --include-runtime false",
     "test:auth": "vitest run tests/backend/auth",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs --local",
-    "catalog:preflight": "node scripts/catalog-preflight.mjs"
+    "catalog:preflight": "node scripts/catalog-preflight.mjs",
+    "dev:admin:real": "node scripts/dev-admin-integration.mts",
+    "dev:admin:mock": "vite --mode admin-mock",
+    "test:e2e:real": "playwright test --config playwright.real.config.ts"
   },
   "dependencies": {
     "@fontsource/big-shoulders-display": "^5.3.0",

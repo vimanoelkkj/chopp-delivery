@@ -4,10 +4,8 @@ import { parseSaveResult, parseSnapshot } from './wire'
 /**
  * Adaptador HTTP do `AdminCatalogGateway` para a API v2 do catálogo (F3A.2).
  *
- * **CONTRATO PROVISÓRIO** (de `tasks/plan.md`, branch `feat/catalog-expansion`): a rota, os
- * nomes de campos e os status abaixo podem mudar. NADA aqui é usado pelo painel hoje: o
- * `AdminApp` continua com o mock até a integração. Para ligar, ver "Passos para conectar" em
- * `docs/admin-panel-handoff.md`. Nenhuma chamada é feita na construção do gateway.
+ * Ativo somente no modo local explícito admin-integration (F3C.2).
+ * Sem fallback para mock. Nenhuma chamada ocorre na construção do gateway.
  *
  * Mapeamento de erros → `AdminApiError`:
  *   401 → unauthenticated | 409 → conflict | 403 → forbidden | 400/410/428 → rejected

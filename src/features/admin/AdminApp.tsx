@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import './admin.css'
 import styles from './AdminApp.module.css'
 import { AdminShell } from './AdminShell'
+import { createHttpGateway } from './catalog/httpGateway'
 import { createMockGateway, readMockMode } from './catalog/mockGateway'
 import type { Rescue } from './catalog/saveFlow'
 import { LoginScreen } from './login/LoginScreen'
@@ -24,9 +25,14 @@ export default function AdminApp() {
   const onRescueHandled = useCallback(() => {
     rescue.current = null
   }, [])
-  // F3B: catálogo mockado. A integração com a F3A.2 troca só esta linha
-  // (ver "Passos para conectar" em docs/admin-panel-handoff.md).
-  const gateway = useMemo(() => createMockGateway(readMockMode(window.location.search)), [])
+  // No fallback: a real API failure remains an error in the real integration mode.
+  const gateway = useMemo(
+    () =>
+      import.meta.env.MODE === 'admin-integration'
+        ? createHttpGateway()
+        : createMockGateway(readMockMode(window.location.search)),
+    [],
+  )
 
   useEffect(() => {
     const previous = document.title
@@ -43,6 +49,9 @@ export default function AdminApp() {
 
   return (
     <div data-admin className={styles.root}>
+      {import.meta.env.MODE !== 'admin-integration' ? (
+        <p role="note">Modo isolado: o catálogo é fictício e não grava no D1.</p>
+      ) : null}
       {state.status === 'checking' ? <BootSplash /> : null}
       {state.status === 'unavailable' ? (
         <main className={styles.unavailable}>
