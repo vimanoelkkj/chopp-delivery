@@ -1,0 +1,175 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-line);
+  background:
+    /* Glow âmbar discreto 1 (foco no título e centro) */
+    radial-gradient(
+      ellipse 55% 45% at 25% 35%,
+      rgba(244, 177, 11, 0.08) 0%,
+      rgba(244, 177, 11, 0.015) 55%,
+      transparent 75%
+    ),
+    /* Glow âmbar discreto 2 (foco na tulipa/foto) */
+    radial-gradient(ellipse 50% 40% at 80% 50%, rgba(244, 177, 11, 0.065) 0%, transparent 70%),
+    /* Textura sutil pontilhada (estilo cervejaria artesanal / carvão) */
+    radial-gradient(rgba(244, 177, 11, 0.05) 1px, transparent 1px),
+    /* Gradiente escuro com profundidade */
+    linear-gradient(180deg, #050403 0%, #0d0b08 40%, #070605 100%);
+  background-size:
+    auto,
+    auto,
+    24px 24px,
+    auto;
+}
+
+.grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1.75rem;
+  padding-block: 2rem 2.5rem;
+}
+
+/* Tipografia: Entrada suave com GPU transform e opacity */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  will-change: transform, opacity;
+  animation: heroFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 900;
+  line-height: 0.84;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  will-change: transform, opacity;
+  animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+}
+
+.accent {
+  color: var(--color-gold);
+  text-shadow: 0 0 24px rgba(244, 177, 11, 0.18);
+}
+
+.photo {
+  min-height: 18.75rem;
+  will-change: transform, opacity;
+  animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  max-width: 32.5rem;
+}
+
+.text {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--color-soft);
+  will-change: transform, opacity;
+  animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  will-change: transform, opacity;
+  animation: heroFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+}
+
+.compliance {
+  will-change: opacity;
+  animation: heroFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+/* Keyframes de entrada suave */
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 48rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    column-gap: 3rem;
+    row-gap: 3rem;
+    padding-block: 4.5rem 5.5rem;
+    min-height: 50rem;
+  }
+
+  .eyebrow {
+    font-size: 0.8125rem;
+  }
+
+  .title {
+    align-self: center;
+  }
+
+  .photo {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    min-height: 0;
+  }
+
+  .text {
+    font-size: 1.25rem;
+  }
+
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}
+
+/* Acessibilidade: prefers-reduced-motion desativa transições e animações */
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow,
+  .title,
+  .photo,
+  .text,
+  .actions,
+  .compliance {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Forçado para modo teste / preview */
+.hero[data-reduced-motion='true'] .eyebrow,
+.hero[data-reduced-motion='true'] .title,
+.hero[data-reduced-motion='true'] .photo,
+.hero[data-reduced-motion='true'] .text,
+.hero[data-reduced-motion='true'] .actions,
+.hero[data-reduced-motion='true'] .compliance {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
