@@ -15,10 +15,7 @@ export type MockMode =
 
 const MODES = ['slow', 'error', 'empty', 'save-error', 'expired', 'conflict', 'lost-response']
 
-/**
- * Os cenários `?mock=` só existem no `vite dev` e no build de E2E (`vite build --mode e2e`).
- * O build publicável (`vite build`) os ignora: a URL não liga nenhum comportamento de teste.
- */
+/** Segunda barreira (o gate principal é o de src/app/App.tsx): cenários só em dev e no build de E2E. */
 const SCENARIOS = import.meta.env.DEV || import.meta.env.MODE === 'e2e'
 
 export function readMockMode(search: string): MockMode {

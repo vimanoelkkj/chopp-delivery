@@ -163,6 +163,14 @@ Cenários do mock por URL: `?mock=slow|error|empty|save-error|expired|conflict|l
 `playwright.config.ts`). No build publicável (`npm run build`) o leitor do `?mock=` nem entra no
 bundle: a URL não liga nenhum comportamento de teste (`mockGateway.test.ts` + verificação do `dist`).
 
+**`/admin` no build publicável.** O gate `ADMIN_MOCK_ENABLED` (literal em `src/app/App.tsx`) é falso
+fora de `vite dev`/`--mode e2e`. Nesse caso `App` carrega `AdminDisabled` ("Painel indisponível",
+`noindex`, sem formulário nem dados) e **nem o painel, nem o mock, nem o login, nem os cenários**
+entram em `dist`. `npm run build && npm run verify:dist` (`scripts/check-public-bundle.mjs`) falha se
+`dist` contiver `lost-response`, `save-error`, `createMockGateway`, fixtures (`Dronken`), credenciais de
+teste, `/api/admin/catalog/v2` ou `If-Match`. Não rode `verify:dist` sobre um build `--mode e2e`.
+`npm run dev:full` usa o build publicável: o painel aparece indisponível; use `npm run dev` para o mock.
+
 ## 7. Limitações conhecidas
 
 - O rascunho de sessão expirada vive **só em memória**: recarregar ou fechar a aba o perde. Também os
@@ -206,10 +214,15 @@ migrations, auth ou o catálogo público.
    ```
    Remover o import de `mockGateway`/`readMockMode`. O teste de fronteira continua válido
    (ninguém mais importa o mock).
-4. **Mock fora do caminho de produção.** O `?mock=` já é ignorado no build publicável, mas
-   `mockGateway.ts`/`mockData.ts` ainda são o gateway padrão do `AdminApp`. Ao trocar (passo 3) eles
-   deixam de ser importados pela aplicação; mantenha-os só para testes (mova para `tests/` se
-   preferir) e o `--mode e2e` do Playwright só se ainda houver cenários mockados.
+4. **Reativar `/admin` (mudança explícita de código).** Hoje o build publicável mostra `AdminDisabled`.
+   Para reativar com o backend real:
+   - em `src/app/App.tsx`, trocar o gate por um que abra `AdminApp` também em produção (ex.: remover o
+     ternário e importar `AdminApp` direto) e atualizar `tests/frontend/admin-production-gate.test.ts`;
+   - em `AdminApp.tsx`, `createHttpGateway()` no lugar do mock (passo 3); `mockGateway.ts`/`mockData.ts`
+     deixam de ser importados pela aplicação (ficam só para testes e `--mode e2e`);
+   - ajustar `scripts/check-public-bundle.mjs` (a proibição de `/api/admin/catalog/v2` e `If-Match`
+     passa a ser esperada; as de mock/fixtures continuam);
+   - E2E contra as Functions locais reais (passo 6) passando antes de publicar.
 5. **Revalidar a premissa de recuperação**: GET devolve `creationRef` para item e variante; retry de
    escrita já gravada responde 409. Se o backend oferecer outra forma (ex. idempotency key), troque
    só `saveFlow.classifyUncertain`.
@@ -225,8 +238,7 @@ migrations, auth ou o catálogo público.
   `wire.ts` + `httpGateway.ts` com validação estrita (forma inesperada vira "indisponível", nunca um catálogo parcial).
 - **Duplicação por reenvio**: o desenho depende de `clientId` estável e de 409 no replay; validar no backend real.
 - **Perda de rascunho** em recarga/fechamento (seção 7). Decidir se vale persistir.
-- **Painel ainda sobre o mock**: enquanto o passo 3 não for feito, `/admin` num deploy mostra o
-  catálogo fictício (sem `?mock=`) e "salvar" não grava nada real. **Não publicar a F3B sozinha em
-  produção** sem a integração (ou sem esconder a rota).
+- **Painel sobre o mock**: resolvido no build publicável (`/admin` mostra `AdminDisabled`, sem mock no
+  `dist`). Ao reativar (passo 4), conferir `verify:dist` e que nenhum fixture voltou ao bundle.
 - Restante: ligar o gateway, e2e contra Functions locais, decidir edição de rótulo/volume de variante
   persistida e remoção de itens (fora do escopo atual).

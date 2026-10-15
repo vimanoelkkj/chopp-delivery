@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
+    "verify:dist": "node scripts/check-public-bundle.mjs",
     "typecheck": "tsc -b && tsc -p tsconfig.backend.json",
     "lint": "biome check .",
     "format": "biome format --write .",
