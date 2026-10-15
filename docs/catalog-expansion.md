@@ -141,6 +141,11 @@ PATCHs antigos de produtos/cachaças e PUT `/api/admin/catalog` retornam
 
 ## Procedimento local e recuperação
 
+Antes de aplicar 0005, execute o [preflight somente leitura](catalog-preflight.md)
+sobre uma cópia local consistente da origem 0004. Ele reutiliza as regras v2 e
+diagnostica dados invisíveis/incompatíveis sem corrigi-los. Um resultado positivo
+não substitui a janela sem escritores, o backup nem as asserções SQL da migration.
+
 1. Parar Pages/Vite proxies e todos os escritores/bootstraps que usem o estado alvo.
 2. Com o runtime parado, fazer cópia consistente do diretório de estado D1 local,
    incluindo arquivos auxiliares. Conferir catálogo, conta, revisão e histórico da cópia.

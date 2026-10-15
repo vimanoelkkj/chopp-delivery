@@ -3,7 +3,9 @@
 Implementação LOCAL autorizada explicitamente em 14/10/2026, por texto anexado pelo
 usuário. Branch/base conferidas. PoCs históricos 33/33; regressões definitivas abaixo.
 Arquitetura: [plan.md](plan.md). Contrato vigente: [catalog-expansion.md](../docs/catalog-expansion.md).
-Não há autorização de commit, deploy ou integração F3B.
+F3A.2 consolidada com autorização posterior em `e306ea82562ea8ac0d4bbff71073eb324d820ebe`.
+O commit local do preflight adicional está autorizado após revisão direcionada;
+deploy e integração F3B não estão autorizados.
 
 ## T0 — Consolidar decisão e obter autorização para implementar
 
@@ -106,7 +108,7 @@ simples expectativas 410 nem eliminar testes de autorização, dinheiro ou rollb
 
 ## Checkpoint B — Backend apto para revisão
 
-- [ ] Migração e escritores revisados independentemente, sem P0/P1 pendentes.
+- [x] Migração e escritores revisados independentemente: usuário informou GO WITH NOTES.
 - [x] Gates backend completos e testes de orçamento; não liberar formatos novos no site antigo.
 - [x] Gate bloqueante: nenhum writer v1 pode funcionar, inclusive com sessão/origem válidas.
 - [x] Preservar legado congelado; não executar remoção física por conveniência.
@@ -156,7 +158,7 @@ Verificação: Vitest e Chrome; escopo visual/formulário depende de aprovação
 - [x] Atualizar documentação de execução, transição, limites e recuperação.
 - [x] Medir orçamento de corpo/itens/variantes; propostas 128 KiB/128/8/512 não
       constituem capacidades aprovadas, e limites de escrita nunca truncam GET.
-- [ ] Revisão independente e autorização antes de qualquer commit/integração/liberação.
+- [x] Revisão independente e autorização do commit F3A.2; integração/liberação continuam fora do escopo.
 
 Fora deste plano: estoque, pedidos, pagamentos, R2, upload, editor de categorias,
 exclusão persistente, recursos remotos ou publicação. Nenhum deploy é autorizado pelo plano.
@@ -233,9 +235,38 @@ nos bancos descartáveis. O estado persistente normal do projeto permanece separ
 
 ### Pendências intencionais
 
-- Revisão independente externa da F3A.2 e aprovação antes de commit.
+- Preflight: executar somente sobre snapshot consistente/autônomo, antes do corte autorizado.
 - Corte de um banco mantido: backup, preflight, parada de escritores e verificação
   do schema/histórico, conforme runbook. Nenhuma execução remota está autorizada.
 - Integração F3B e journal de clientIds/rascunhos aguardam autorização própria.
 - P2: quotas/runtime/latência Cloudflare e ataques distribuídos não comprovados
   pelos testes locais. Sem rollback comercial sem perda após expansão de dados.
+
+## Consolidação e preflight adicional — 15/10/2026
+
+- Commit autorizado: `e306ea82562ea8ac0d4bbff71073eb324d820ebe`, mensagem
+  `chopp-delivery: implement expandable catalog v2`, sem Co-authored-by.
+  Pacote de 36 arquivos idêntico ao diff revisado; staging explícito, cached check,
+  inspeção de segredos/artefatos e árvore limpa após o commit. Nenhum código foi
+  alterado durante a consolidação.
+- Preflight novo: CLI `npm run catalog:preflight -- --sqlite <copia-local.sqlite>`;
+  [execução segura e diagnóstico](../docs/catalog-preflight.md).
+- Reusa validação v2 e valida o DTO completo. Verifica origem/histórico 0004,
+  objetos parciais, revisão, integridade/FK, IDs, Unicode/invisíveis/UTF-8, preços,
+  visibilidade, volumes, ordem e orçamento. Não executa migration/correção.
+- Validação anterior à revisão: 26 testes direcionados D1/SQLite descartáveis
+  aprovados, incluindo hash e listagem de arquivos preservados, UTF-8 inválido e
+  FK inválida. Fechamento anterior:
+  Vitest **443/443** (31 arquivos), Chrome E2E **42/42**, typecheck frontend/backend,
+  Biome completo (147 arquivos), build e diff check aprovados; npm audit zero
+  vulnerabilidades. Nenhuma dependência nova ou alteração na 0005.
+- Revisão direcionada posterior autorizada pelo usuário: corrigidos os riscos de
+  auxiliares WAL (URI `mode=ro&immutable=1`, recusa de WAL/journal antes da abertura)
+  e falso sucesso de `quick_check` em índice UNIQUE inconsistente (agora
+  `integrity_check` na CLI nativa; núcleo mantém a consulta compatível com D1).
+  Backup consistente e preparação separada documentados.
+- Revisão: **39/39** testes direcionados (26 D1 e 13 CLI), typecheck frontend/backend,
+  Biome (147 arquivos) e diff check aprovados. Suítes completas não repetidas:
+  alterações restritas ao preflight, seus testes e documentação.
+- Commit local do preflight autorizado após os testes direcionados e revisão dos
+  nove arquivos; não há autorização de push, PR, merge, deploy ou D1 remoto.

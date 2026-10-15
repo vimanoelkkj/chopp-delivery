@@ -24,6 +24,10 @@ Consulte [docs/catalog-expansion.md](docs/catalog-expansion.md) para contratos, 
 recuperação por creationRef e corte com **backup e janela sem escritores** antes de
 atualizar um banco local existente. A F3B continua fora do escopo.
 
+Antes do corte, valide uma cópia SQLite consistente com
+`npm.cmd run catalog:preflight -- --sqlite '<copia-local.sqlite>'`.
+O [preflight](docs/catalog-preflight.md) é somente leitura e não corrige dados.
+
 ### Desenvolvimento local no Windows
 
 Requer Node.js e dependências instaladas com `npm ci`. Não execute `playwright install`

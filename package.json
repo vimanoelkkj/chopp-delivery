@@ -18,7 +18,8 @@
     "dev:full": "npm run db:init && npm run build && npm run dev:backend",
     "types:backend": "wrangler types --include-runtime false",
     "test:auth": "vitest run tests/backend/auth",
-    "admin:bootstrap": "node scripts/bootstrap-admin.mjs --local"
+    "admin:bootstrap": "node scripts/bootstrap-admin.mjs --local",
+    "catalog:preflight": "node scripts/catalog-preflight.mjs"
   },
   "dependencies": {
     "@fontsource/big-shoulders-display": "^5.3.0",
