@@ -180,6 +180,16 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
       expect(msg).toBe('Olá! Gostaria de pedir uma garrafa de Cachaça 700 ml por R$ 30,00.')
     })
 
+    it('formata adequadamente rótulo e mensagem quando a API real retorna label: Garrafa e volumeMl: 700', () => {
+      // No banco D1, o item é "Temos cachaça" e a variante tem label "Garrafa" e volumeMl 700
+      const msgFromApi = buildCachacaWhatsAppMessage('Temos cachaça', {
+        label: 'Garrafa',
+        volumeMl: 700,
+        priceCents: 3000,
+      })
+      expect(msgFromApi).toBe('Olá! Gostaria de pedir uma garrafa de Cachaça 700 ml por R$ 30,00.')
+    })
+
     it('múltiplas variantes: troca de seleção altera volume e preço da mensagem com fidelidade', () => {
       const msg500 = buildCachacaWhatsAppMessage('Cachaça Prata (Demonstração)', {
         label: 'Garrafa 500 ml',

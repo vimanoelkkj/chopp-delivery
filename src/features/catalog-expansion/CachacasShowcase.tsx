@@ -41,12 +41,33 @@ export function CachacasShowcase({ items }: CachacasShowcaseProps) {
   )
 }
 
+export function normalizeCachacaName(name: string): string {
+  const clean = name.replace(' (Demonstração)', '').replace(' (Referência)', '').trim()
+  if (clean.toLowerCase() === 'temos cachaça' || clean.toLowerCase() === 'temos cachaca') {
+    return 'Cachaça'
+  }
+  return clean
+}
+
+export function formatBottleLabel(variant: { label: string; volumeMl?: number | null }): string {
+  if (variant.label.toLowerCase().includes('ml')) {
+    return variant.label
+  }
+  if (variant.volumeMl) {
+    const formattedVol = `${variant.volumeMl.toLocaleString('pt-BR')} ml`
+    return `${variant.label} ${formattedVol}`
+  }
+  return variant.label
+}
+
 export function buildCachacaWhatsAppMessage(
   itemName: string,
-  variant: { label: string; priceCents: number | null },
+  variant: { label: string; volumeMl?: number | null; priceCents: number | null },
 ): string {
-  const cleanName = itemName.replace(' (Demonstração)', '').replace(' (Referência)', '')
-  const volumeNumber = variant.label.replace(/garrafa\s+/i, '')
+  const cleanName = normalizeCachacaName(itemName)
+  const volumeNumber = variant.volumeMl
+    ? `${variant.volumeMl.toLocaleString('pt-BR')} ml`
+    : variant.label.replace(/garrafa\s+/i, '')
   const priceValue = variant.priceCents !== null ? centsToReaisSafe(variant.priceCents) : null
   const priceFormatted = priceValue !== null ? formatBRL(priceValue, { cents: true }) : '—'
 
@@ -66,6 +87,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
     isSingleVariant ? availableVariants[0].code : null,
   )
 
+  const displayName = normalizeCachacaName(item.name)
   const isDemo = item.name.includes('(Demonstração)') || item.name.includes('(Teste)')
   const isOfficial = !isDemo
 
@@ -84,9 +106,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
         <span className={isOfficial ? styles.cardBadgeOfficial : styles.cardBadgeDemo}>
           {isOfficial ? 'Disponível no cardápio' : 'Demonstração v2'}
         </span>
-        <h4 className={styles.cardTitle}>
-          {item.name.replace(' (Demonstração)', '').replace(' (Referência)', '')}
-        </h4>
+        <h4 className={styles.cardTitle}>{displayName}</h4>
         <p className={styles.cardDesc}>{item.description}</p>
       </div>
 
@@ -100,6 +120,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
         {availableVariants.map((variant) => {
           const isSelected = selectedVariantCode === variant.code
           const priceText = formatPriceFromCents(variant.priceCents)
+          const displayLabel = formatBottleLabel(variant)
 
           if (isSingleVariant) {
             return (
@@ -107,7 +128,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
                 key={`cachaca-var-${item.id}-${variant.code}`}
                 className={[styles.variantRow, styles.variantRowStatic].join(' ')}
               >
-                <span className={styles.variantVolume}>{variant.label}</span>
+                <span className={styles.variantVolume}>{displayLabel}</span>
                 <span className={styles.variantPrice}>{priceText}</span>
               </div>
             )
@@ -125,7 +146,7 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
             >
               <span className={styles.variantVolume}>
                 {isSelected ? '✓ ' : ''}
-                {variant.label}
+                {displayLabel}
               </span>
               <span className={styles.variantPrice}>{priceText}</span>
             </button>
@@ -137,9 +158,9 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
             <a
               href={orderUrl}
               className={styles.orderBtn}
-              aria-label={`Pedir ${item.name} ${availableVariants[0].label} no WhatsApp`}
+              aria-label={`Pedir ${displayName} ${formatBottleLabel(availableVariants[0])} no WhatsApp`}
             >
-              Pedir {availableVariants[0].label} no WhatsApp
+              Pedir {formatBottleLabel(availableVariants[0])} no WhatsApp
             </a>
           )}
 
@@ -147,9 +168,9 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
             <a
               href={orderUrl}
               className={styles.orderBtn}
-              aria-label={`Pedir ${item.name} ${activeVariant.label} no WhatsApp`}
+              aria-label={`Pedir ${displayName} ${formatBottleLabel(activeVariant)} no WhatsApp`}
             >
-              Pedir {activeVariant.label} no WhatsApp
+              Pedir {formatBottleLabel(activeVariant)} no WhatsApp
             </a>
           )}
 

@@ -42,6 +42,7 @@ export function MotionPreviewPage() {
   // Estado do Catálogo Expansível (v2)
   const [filterHidden, setFilterHidden] = useState(true)
   const [omitEmptyCategories, setOmitEmptyCategories] = useState(true)
+  const [catalogDataSource, setCatalogDataSource] = useState<'api' | 'fixture'>('api')
 
   const hasZeroGaps =
     marqueeMetrics.containerWidth > 0 &&
@@ -448,15 +449,51 @@ export function MotionPreviewPage() {
                 <div className={styles.diagValue}>Brahma 30 L = "—" (Não Comprável)</div>
               </div>
               <div className={styles.diagCard}>
+                <div className={styles.diagLabel}>Fonte de Dados</div>
+                <div className={[styles.diagValue, styles.diagOk].join(' ')}>
+                  {catalogDataSource === 'api'
+                    ? 'API Real (/api/catalog)'
+                    : 'Fixture de Teste (v2)'}
+                </div>
+              </div>
+              <div className={styles.diagCard}>
                 <div className={styles.diagLabel}>Proteção Itens Ocultos</div>
                 <div className={[styles.diagValue, styles.diagOk].join(' ')}>
-                  {filterHidden ? '✓ 2 Itens Ocultos Filtrados' : 'Exibindo Tudo (Debug)'}
+                  {filterHidden ? '✓ Ocultos Filtrados' : 'Exibindo Tudo (Debug)'}
                 </div>
               </div>
             </div>
 
             {/* Controles do simulador */}
             <div className={styles.controlsBar}>
+              <div className={styles.controlGroup}>
+                <span className={styles.controlLabel}>Origem dos Dados:</span>
+                <button
+                  type="button"
+                  className={[
+                    styles.btnAction,
+                    catalogDataSource === 'api' ? styles.btnActionActive : '',
+                  ].join(' ')}
+                  onClick={() => setCatalogDataSource('api')}
+                >
+                  {catalogDataSource === 'api'
+                    ? '✓ API Pública Real (GET /api/catalog)'
+                    : 'API Pública Real'}
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    styles.btnAction,
+                    catalogDataSource === 'fixture' ? styles.btnActionActive : '',
+                  ].join(' ')}
+                  onClick={() => setCatalogDataSource('fixture')}
+                >
+                  {catalogDataSource === 'fixture'
+                    ? '✓ Fixture Demonstração (v2)'
+                    : 'Fixture Demonstração'}
+                </button>
+              </div>
+
               <div className={styles.controlGroup}>
                 <span className={styles.controlLabel}>Filtros do Contrato:</span>
                 <button
@@ -489,11 +526,16 @@ export function MotionPreviewPage() {
             {/* Frame da visualização pública do catálogo */}
             <div className={styles.previewFrameWrapper}>
               <div className={styles.previewFrameHeader}>
-                <span>Prévia de Produção — Componente ExpandableCatalogView</span>
+                <span>
+                  Vitrine do Catálogo Público —{' '}
+                  {catalogDataSource === 'api'
+                    ? 'Conectado a /api/catalog'
+                    : 'Fixture Demonstrativa'}
+                </span>
                 <span className={styles.diagOk}>Contrato v2 F3A.2</span>
               </div>
               <ExpandableCatalogView
-                catalog={FIXTURE_PUBLIC_CATALOG_V2}
+                catalog={catalogDataSource === 'fixture' ? FIXTURE_PUBLIC_CATALOG_V2 : undefined}
                 filterHidden={filterHidden}
                 omitEmptyCategories={omitEmptyCategories}
               />
