@@ -80,7 +80,7 @@ test.describe('login', () => {
     await openPanel(page, '?mock=expired')
     await price(page, '30 L', 'Dronken').fill('515,00')
     await save(page).click()
-    await expect(page.getByText('Sua sessão expirou. Entre novamente.')).toBeVisible()
+    await expect(page.getByText(/^Sua sessão expirou\. Entre novamente/)).toBeVisible()
     await expect(page.getByLabel('Usuário')).toBeVisible()
   })
 
