@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
+    "build:release": "npm run typecheck && vite build --mode release && npm run verify:release",
+    "verify:release": "node scripts/check-release-bundle.mjs",
     "preview": "vite preview",
     "verify:dist": "node scripts/check-public-bundle.mjs",
     "typecheck": "tsc -b && tsc -p tsconfig.backend.json",
@@ -24,6 +26,7 @@
     "dev:admin:real": "node scripts/dev-admin-integration.mts",
     "dev:admin:mock": "vite --mode admin-mock",
     "test:e2e:real": "playwright test --config playwright.real.config.ts",
+    "test:e2e:release": "playwright test --config playwright.release.config.ts",
     "test:e2e:dev": "playwright test --config playwright.dev.config.ts"
   },
   "dependencies": {

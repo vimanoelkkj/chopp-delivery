@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-release/
+dist-release.audit.json
 .env
 .env.*
 !.env.example

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import styles from './AdminDisabled.module.css'
 
-/** /admin no build publicável enquanto o gateway real não está conectado. Não importa nada do painel. */
+/** Gate seguro do build normal. O painel HTTP exige o modo release explícito. */
 export default function AdminDisabled() {
   useEffect(() => {
     const previous = document.title

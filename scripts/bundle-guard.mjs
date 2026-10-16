@@ -3,9 +3,10 @@
 //   2. manifest desse build (entradas e imports dinâmicos);
 //   3. texto do dist real, com literais derivados de fixtures/laboratório (sobrevivem à minificação).
 // Nomes de identificadores NÃO servem de prova: o minificador os troca.
-import { mkdtemp, readdir, readFile, realpath, rm, stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, relative, sep } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 
 /** Módulos que nunca podem estar no bundle público (caminhos normalizados com `/`). */
 export const FORBIDDEN_MODULES = [
@@ -28,6 +29,21 @@ export const FORBIDDEN_TEXT = [
   '/api/admin/catalog/v2', // gateway HTTP continua desligado
   'If-Match',
 ]
+
+// Release admite o painel HTTP, mas nunca suas implementações simuladas ou o gate desligado.
+export const RELEASE_FORBIDDEN_MODULES = [
+  ...FORBIDDEN_MODULES.filter((pattern) => !pattern.source.includes('AdminDisabled')),
+  /\/src\/features\/admin\/catalog\/mock(Gateway|Data)/,
+  /\/src\/features\/admin\/AdminDisabled/,
+  /\.(test|spec)\.[cm]?[jt]sx?$/,
+  /\/server\//,
+  /\/node_modules\/(?:@playwright|playwright|vitest|wrangler|miniflare)\//,
+]
+export const RELEASE_FORBIDDEN_TEXT = FORBIDDEN_TEXT.filter(
+  (text) => text !== '/api/admin/catalog/v2' && text !== 'If-Match',
+)
+const RELEASE_FORBIDDEN_FILE =
+  /(^|\/)(\.(env|dev\.vars)([./]|$)|(fixtures?|mocks?|tests?|scripts|scratchpads?)([./-]|$))|\.(sqlite(-(wal|shm))?|db|log|tmp|bak|map)$|\.audit\.json$/i
 
 /** Arquivos que existem só para laboratório/demonstração: seus literais não podem ir ao dist. */
 export const LAB_SOURCES = [
@@ -56,14 +72,16 @@ const walk = async (dir) => {
 }
 
 const STRING_LITERAL = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g
-const JSX_TEXT = />\s*([^<>{}\n]{20,}?)\s*</g
+const JSX_TEXT = />\s*([^<>{}\n]+?)\s*</g
 
 /** Literais de texto de um fonte: aspas e texto JSX, só os longos o bastante para serem únicos. */
-export function literalsOf(source, minimum = 8) {
+export function literalsOf(source, minimum = 8, jsx = true) {
   const found = new Set()
   for (const [, , text] of source.matchAll(STRING_LITERAL))
     if (text.length >= minimum && !text.includes('${')) found.add(text)
-  for (const [, text] of source.matchAll(JSX_TEXT)) found.add(text.trim())
+  if (jsx)
+    for (const [, text] of source.matchAll(JSX_TEXT))
+      if (text.trim().length >= minimum) found.add(text.trim())
   return found
 }
 
@@ -71,26 +89,46 @@ export function literalsOf(source, minimum = 8) {
  * Literais exclusivos do laboratório: os dos fontes de laboratório MENOS os que também existem em
  * código público (para não acusar uma frase legítima só porque a fixture a reutiliza).
  */
-export async function labLiterals(root) {
+export async function labLiterals(root, { release = false } = {}) {
+  const sources = release
+    ? [
+        ...LAB_SOURCES,
+        'src/features/admin/catalog/mockData.ts',
+        'src/features/admin/catalog/mockGateway.ts',
+      ]
+    : LAB_SOURCES
   const lab = new Set()
-  for (const file of LAB_SOURCES)
-    for (const text of literalsOf(await readFile(join(root, file), 'utf8'))) lab.add(text)
+  for (const file of sources)
+    for (const text of literalsOf(
+      await readFile(join(root, file), 'utf8'),
+      8,
+      file.endsWith('.tsx'),
+    ))
+      lab.add(text)
   const isLab = (path) => {
     const rel = normalize(relative(root, path))
-    return LAB_SOURCES.includes(rel) || /\.(test|spec)\.tsx?$/.test(rel)
+    return sources.includes(rel) || /\.(test|spec)\.tsx?$/.test(rel)
   }
   for (const path of await walk(join(root, 'src'))) {
     if (!/\.(ts|tsx)$/.test(path) || isLab(path)) continue
-    if (/\/src\/(pages\/preview|features\/(admin|motion))\//.test(normalize(path))) continue
-    for (const text of literalsOf(await readFile(path, 'utf8'))) lab.delete(text)
+    if (
+      release
+        ? scanModules([path], RELEASE_FORBIDDEN_MODULES).length > 0
+        : /\/src\/(pages\/preview|features\/(admin|motion))\//.test(normalize(path))
+    )
+      continue
+    for (const text of literalsOf(await readFile(path, 'utf8'), 8, path.endsWith('.tsx')))
+      lab.delete(text)
   }
   return [...lab]
 }
 
 /** Procura textos proibidos e literais de laboratório nos arquivos do dist. */
-export async function scanDist(dir, { extraText = [] } = {}) {
-  const files = (await walk(dir)).filter((path) => /\.(js|css|html|map)$/.test(path))
-  const needles = [...FORBIDDEN_TEXT, ...extraText]
+export async function scanDist(dir, { extraText = [], forbiddenText = FORBIDDEN_TEXT } = {}) {
+  const files = (await walk(dir)).filter((path) =>
+    /\.(js|css|html|map|json|txt|xml|ya?ml|toml|csv)$/.test(path),
+  )
+  const needles = [...forbiddenText, ...extraText]
   const hits = []
   for (const file of files) {
     const text = await readFile(file, 'utf8')
@@ -142,6 +180,7 @@ export async function collectGraph({ root, mode = 'production', define } = {}) {
     // Só remove o que ainda é, de fato, a pasta própria dentro do TEMP.
     if ((await realpath(directory)).startsWith(base))
       await rm(directory, { recursive: true, force: true })
+    await rm(`${directory}.audit.json`, { force: true })
   }
 }
 
@@ -149,9 +188,82 @@ export async function collectGraph({ root, mode = 'production', define } = {}) {
 export async function auditGraph(options) {
   const { moduleIds, manifestIds } = await collectGraph(options)
   const rooted = (id) => (id.startsWith('/') || /^[A-Za-z]:/.test(id) ? id : `/${id}`)
+  const forbidden = options?.mode === 'release' ? RELEASE_FORBIDDEN_MODULES : FORBIDDEN_MODULES
   return {
     modules: moduleIds.length,
-    leakedModules: scanModules(moduleIds),
-    leakedManifest: scanModules(manifestIds.map(rooted)),
+    leakedModules: scanModules(moduleIds, forbidden),
+    leakedManifest: scanModules(manifestIds.map(rooted), forbidden),
   }
+}
+
+async function fingerprints(dir) {
+  const files = {}
+  for (const file of (await walk(dir)).sort())
+    files[normalize(relative(dir, file))] = createHash('sha256')
+      .update(await readFile(file))
+      .digest('hex')
+  return files
+}
+
+/** Grafo do MESMO build, vinculado aos bytes emitidos. O relatório fica fora da pasta publicável. */
+export function releaseAuditPlugin() {
+  let root
+  return {
+    name: 'delegas-release-audit',
+    apply: 'build',
+    configResolved(config) {
+      root = config.root
+      if (!config.isProduction) throw new Error('Release exige NODE_ENV=production')
+    },
+    async writeBundle(options, bundle) {
+      const directory = resolve(root, options.dir)
+      const modules = Object.values(bundle).flatMap((item) =>
+        item.type === 'chunk'
+          ? Object.keys(item.modules).map((id) => normalize(relative(root, id)))
+          : [],
+      )
+      await writeFile(
+        `${directory}.audit.json`,
+        JSON.stringify(
+          {
+            mode: 'release',
+            modules: [...new Set(modules)].sort(),
+            files: await fingerprints(directory),
+          },
+          null,
+          2,
+        ),
+      )
+    },
+  }
+}
+
+/** Não reconstrói outro grafo: inspeciona exatamente o artefato informado. */
+export async function auditRelease({ root, dir = 'dist-release' }) {
+  const directory = resolve(root, dir)
+  const report = JSON.parse(await readFile(`${directory}.audit.json`, 'utf8'))
+  const problems = []
+  if (report.mode !== 'release' || !Array.isArray(report.modules))
+    throw new Error('Relatório de release inválido')
+  const actual = await fingerprints(directory)
+  for (const file of Object.keys(actual))
+    if (RELEASE_FORBIDDEN_FILE.test(file)) problems.push(`Arquivo proibido: ${file}`)
+  if (JSON.stringify(actual) !== JSON.stringify(report.files))
+    problems.push('Arquivos divergentes do build auditado')
+  const ids = report.modules.map((id) => `/${id}`)
+  for (const id of scanModules(ids, RELEASE_FORBIDDEN_MODULES))
+    problems.push(`Módulo proibido: ${id}`)
+  for (const required of [
+    'src/features/admin/AdminApp.tsx',
+    'src/features/admin/catalog/httpGateway.ts',
+  ])
+    if (!report.modules.includes(required)) problems.push(`Módulo obrigatório ausente: ${required}`)
+  const literals = await labLiterals(root, { release: true })
+  const { files, hits } = await scanDist(directory, {
+    extraText: literals,
+    forbiddenText: RELEASE_FORBIDDEN_TEXT,
+  })
+  for (const hit of hits)
+    problems.push(`Texto proibido em ${hit.file}: ${JSON.stringify(hit.needle)}`)
+  return { problems, files, modules: report.modules.length, literals: literals.length }
 }

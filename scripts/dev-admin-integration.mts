@@ -37,7 +37,7 @@ export async function startIntegration({
 }: {
   port?: number
   password?: string
-  mode?: 'admin-integration' | 'production'
+  mode?: 'admin-integration' | 'production' | 'release'
 } = {}) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid local port')
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'delegas-admin-integration-')))

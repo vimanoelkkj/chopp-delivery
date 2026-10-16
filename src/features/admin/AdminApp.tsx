@@ -25,10 +25,10 @@ export default function AdminApp() {
   const onRescueHandled = useCallback(() => {
     rescue.current = null
   }, [])
-  // No fallback: a real API failure remains an error in the real integration mode.
+  // Release e integração não têm fallback: falhas da API permanecem erros.
   const gateway = useMemo(
     () =>
-      import.meta.env.MODE === 'admin-integration'
+      import.meta.env.MODE === 'release' || import.meta.env.MODE === 'admin-integration'
         ? createHttpGateway()
         : createMockGateway(readMockMode(window.location.search)),
     [],
@@ -49,7 +49,7 @@ export default function AdminApp() {
 
   return (
     <div data-admin className={styles.root}>
-      {import.meta.env.MODE !== 'admin-integration' ? (
+      {import.meta.env.MODE !== 'release' && import.meta.env.MODE !== 'admin-integration' ? (
         <p role="note">Modo isolado: o catálogo é fictício e não grava no D1.</p>
       ) : null}
       {state.status === 'checking' ? <BootSplash /> : null}

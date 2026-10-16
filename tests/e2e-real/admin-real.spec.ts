@@ -18,7 +18,7 @@ type Ready = {
 type Integration = Ready & { database: DatabaseSync }
 const test = base.extend<{
   integration: Integration
-  runtimeMode: 'admin-integration' | 'production'
+  runtimeMode: 'admin-integration' | 'production' | 'release'
   whatsappNumber: string
 }>({
   runtimeMode: ['admin-integration', { option: true }],
@@ -74,6 +74,44 @@ function row<T>(instance: Integration, sql: string, ...values: (string | number 
   return instance.database.prepare(sql).get(...values) as T
 }
 const path = '/api/admin/catalog/v2'
+
+test.describe('L0A.1: release seguro', () => {
+  test.use({ runtimeMode: 'release' })
+
+  test('rota /admin/ exige sessão; cookie inválido e query mock não liberam o catálogo', async ({
+    page,
+    context,
+  }) => {
+    expect((await page.request.get(path)).status()).toBe(401)
+    await context.addCookies([
+      {
+        name: 'delegas_admin_local_session',
+        value: 'invalid-session',
+        url: `http://127.0.0.1:${integrationPort()}`,
+      },
+    ])
+    await page.goto('/admin/?mock=empty&preview')
+    await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
+    await expect(page.getByText(/catálogo é fictício/)).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Dronken', exact: true })).toHaveCount(0)
+    expect((await page.request.get(path)).status()).toBe(401)
+    // O namespace reservado ao CMS ainda não possui handlers nem cria uma exceção de acesso.
+    expect((await page.request.get('/api/admin/site')).status()).toBe(404)
+  })
+
+  test('falha na verificação de sessão permanece erro, sem login ou catálogo fictício', async ({
+    page,
+  }) => {
+    await page.route('**/api/auth/me', (route) => route.abort('failed'))
+    await page.goto('/admin?mock=empty')
+    await expect(
+      page.getByRole('heading', { name: 'Não conseguimos verificar seu acesso' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toHaveCount(0)
+    await expect(page.getByText(/catálogo é fictício/)).toHaveCount(0)
+  })
+})
+
 const save = (page: Page) => page.getByRole('button', { name: /^Salvar/ })
 const price = (page: Page) => page.getByLabel('30 L, preço em reais, Dronken', { exact: true })
 async function login(page: Page, instance: Integration) {

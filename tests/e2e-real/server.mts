@@ -8,7 +8,7 @@ sanitizeProcessEnv(['DELEGAS_INTEGRATION_MODE', 'DELEGAS_INTEGRATION_PORT', 'VIT
 // A plain Node child avoids inheriting Playwright's loader into Miniflare's RPC threads.
 let stopping = false
 const mode = process.env.DELEGAS_INTEGRATION_MODE || 'admin-integration'
-if (mode !== 'admin-integration' && mode !== 'production')
+if (mode !== 'admin-integration' && mode !== 'production' && mode !== 'release')
   throw new Error('Invalid local build mode')
 const pending = startIntegration({
   port: integrationPort(),

@@ -163,3 +163,6 @@ quando a versão oficial adotada já incorporar as correções. Não foi usado
 Referências: [Pages/D1 local](https://developers.cloudflare.com/d1/best-practices/local-development/),
 [testes D1 com Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/storage/d1/),
 [configuração Pages](https://developers.cloudflare.com/pages/functions/wrangler-configuration/).
+
+O modo explícito de release com painel HTTP real, os verificadores de artefato e os testes
+locais estão descritos em [docs/release-local.md](docs/release-local.md). Ele não autoriza deploy.

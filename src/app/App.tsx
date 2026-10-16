@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { LandingPage } from '@/pages/landing/LandingPage'
 
 /** Keep this literal gate here so the normal build eliminates the entire admin module.
- * The integration build is local-only. Mock data requires explicit dev/test opt-in.
+ * Release and local integration use HTTP. Mock data requires explicit dev/test opt-in.
  * API authentication is enforced by the backend regardless of this UI gate.
  */
 const ADMIN_ENABLED =
+  import.meta.env.MODE === 'release' ||
   import.meta.env.MODE === 'admin-integration' ||
   (import.meta.env.DEV && import.meta.env.MODE === 'admin-mock') ||
   import.meta.env.MODE === 'e2e'
