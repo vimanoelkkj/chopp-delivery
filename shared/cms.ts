@@ -1,4 +1,4 @@
-// No renderer, persistence or public application imports this contract in L0A.2.
+// Backend CMS contracts; public application remains independent in F4A.1.
 export type CmsMediaRef = { id: string; alt: string }
 type Editorial = { heading: string; body: string; media: CmsMediaRef | null }
 export type CmsContents = {
@@ -34,7 +34,7 @@ export type CmsMutation = {
   document: CmsDocument
 }
 export type CmsAdminSnapshot = {
-  draft: { revision: string; document: CmsDocument }
+  draft: { revision: string; document: CmsDocument | null }
   published: { versionId: string; revision: string; document: CmsDocument } | null
 }
 export type PublicCms = {
@@ -62,4 +62,15 @@ export const CMS_RULES: Record<
   faq: { region: 'details', max: 1, anchor: 'faq', navigation: 'primary' },
   highlight: { region: 'details', max: 3, anchor: null, navigation: 'none' },
   ticker: { region: 'intro', max: 1, anchor: null, navigation: 'none' },
+}
+
+export type CmsCommandResult = {
+  command: {
+    operationId: string
+    action: 'saveDraft'
+    expectedRevision: string
+    revision: string
+    versionId: string
+  }
+  site: CmsAdminSnapshot
 }

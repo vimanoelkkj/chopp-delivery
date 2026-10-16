@@ -42,6 +42,44 @@ export async function readLimitedBytes(stream, limit = LIMIT.bytes, deadlineMs =
   }
 }
 const stream = (bytes) => new Blob([bytes]).stream()
+// Walk segments/scans: EOI-looking bytes inside APP payloads are not markers.
+function checkJpegEnd(bytes) {
+  let offset = 2
+  while (offset < bytes.length) {
+    if (bytes[offset++] !== 0xff) throw new Error('JPEG_MARKER')
+    while (bytes[offset] === 0xff) offset++
+    const marker = bytes[offset++]
+    if (marker === 0xd9) {
+      if (offset !== bytes.length) throw new Error('JPEG_TRAILING')
+      return
+    }
+    if (marker === 0x01) continue
+    if (
+      !marker ||
+      marker === 0xd8 ||
+      (marker >= 0xd0 && marker <= 0xd7) ||
+      offset + 2 > bytes.length
+    )
+      throw new Error('JPEG_MARKER')
+    const length = bytes.readUInt16BE(offset)
+    if (length < 2 || offset + length > bytes.length) throw new Error('TRUNCATED_JPEG')
+    offset += length
+    if (marker !== 0xda) continue
+    while (offset < bytes.length) {
+      if (bytes[offset++] !== 0xff) continue
+      const start = offset - 1
+      while (bytes[offset] === 0xff) offset++
+      const next = bytes[offset]
+      if (next === 0 || (next >= 0xd0 && next <= 0xd7)) {
+        offset++
+        continue
+      }
+      offset = start
+      break
+    }
+  }
+  throw new Error('TRUNCATED_JPEG')
+}
 function actualFormat(bytes) {
   if (bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) {
     let offset = 8
@@ -59,7 +97,7 @@ function actualFormat(bytes) {
     throw new Error('TRUNCATED_PNG')
   }
   if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255]))) {
-    if (!bytes.subarray(-2).equals(Buffer.from([255, 217]))) throw new Error('TRUNCATED_JPEG')
+    checkJpegEnd(bytes)
     return 'jpeg'
   }
   if (bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP') {
@@ -157,6 +195,34 @@ export async function runMediaProof() {
   await check('metadata-fixture-has-exif', async () =>
     assert.ok((await sharp(jpeg).metadata()).exif),
   )
+  await check('jpeg-trailing-fake-eoi', () =>
+    assert.rejects(
+      processLocalImage(
+        stream(Buffer.concat([jpeg, Buffer.from('payload'), Buffer.from([255, 217])])),
+        'image/jpeg',
+      ),
+      /JPEG_TRAILING/,
+    ),
+  )
+  await check('jpeg-concatenated', () =>
+    assert.rejects(
+      processLocalImage(stream(Buffer.concat([jpeg, jpeg])), 'image/jpeg'),
+      /JPEG_TRAILING/,
+    ),
+  )
+  await check('jpeg-app-embedded-eoi', async () => {
+    const app = Buffer.from([255, 239, 0, 6, 255, 217, 1, 2])
+    await processLocalImage(
+      stream(Buffer.concat([jpeg.subarray(0, 2), app, jpeg.subarray(2)])),
+      'image/jpeg',
+    )
+  })
+  await check('jpeg-progressive-multiple-scans', async () => {
+    await processLocalImage(
+      stream(await sharp(base).jpeg({ progressive: true }).toBuffer()),
+      'image/jpeg',
+    )
+  })
   await check('mime-spoof', () =>
     assert.rejects(processLocalImage(stream(png), 'image/jpeg'), /MIME_MISMATCH/),
   )

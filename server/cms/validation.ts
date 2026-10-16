@@ -27,13 +27,16 @@ function exact(v: unknown, keys: string[]): v is Record<string, unknown> {
     keys.every((k) => Object.hasOwn(v, k))
   )
 }
-function text(v: unknown, max: number, required: boolean): boolean {
+function text(v: unknown, max: number, required: boolean, multiline = false): boolean {
   return (
     typeof v === 'string' &&
     [...v].length <= max &&
     !unsafeUnicode(v) &&
-    !containsControls(v, true) &&
-    !/[<>]|(?:[a-z][a-z0-9+.-]*:|\/\/|www\.)/iu.test(v) &&
+    !containsControls(v, multiline) &&
+    !(multiline ? /[\u007f-\u009f]/u : /[\p{Cc}\p{Zl}\p{Zp}]/u).test(v) &&
+    !/[<>]|\b(?:https?|ftp|sftp|javascript|vbscript|data|file|blob|mailto|tel|sms|wss?):|[a-z][a-z0-9+.-]*:\s*\/\/|\/\/|www\./iu.test(
+      v.replace(/[\p{Default_Ignorable_Code_Point}\t\r\n]/gu, ''),
+    ) &&
     (!required ||
       /[\p{Letter}\p{Number}\p{Punctuation}\p{Symbol}]/u.test(
         v.replace(/[\p{Default_Ignorable_Code_Point}\p{White_Space}\p{Mark}\u2800]/gu, ''),
@@ -48,7 +51,7 @@ function media(v: unknown, required: boolean, allowNull = !required): boolean {
 }
 function content(template: CmsTemplate, v: unknown, required: boolean): boolean {
   const heading = (value: unknown) => text(value, CMS_LIMITS.heading, required)
-  const body = (value: unknown) => text(value, CMS_LIMITS.text, required)
+  const body = (value: unknown) => text(value, CMS_LIMITS.text, required, true)
   if (template === 'hero')
     return (
       exact(v, ['heading', 'summary', 'media']) &&
@@ -80,21 +83,26 @@ function content(template: CmsTemplate, v: unknown, required: boolean): boolean 
   })
 }
 
-/** Operates on decoded JSON. Future HTTP must limit streaming bytes/time BEFORE JSON.parse. */
+export const CMS_REQUEST_BYTES = CMS_LIMITS.bytes + 1024
+function materialize(input: unknown, limit: number): { value: unknown } | null {
+  try {
+    const json = JSON.stringify(input)
+    if (typeof json !== 'string' || new TextEncoder().encode(json).byteLength > limit) return null
+    return { value: JSON.parse(json) }
+  } catch {
+    return null
+  }
+}
+/** Validate the same materialized JSON returned for persistence. HTTP limits precede this. */
 export function validateCmsDocument(input: unknown, mode: Mode): Result<CmsDocument> {
   const fail = (path: string): Result<CmsDocument> => ({
     fields: { [path]: 'Contrato CMS inválido ou incompleto.' },
   })
+  const parsed = materialize(input, CMS_LIMITS.bytes)
+  if (!parsed) return fail('document.bytes')
+  input = parsed.value
   if (!exact(input, ['schemaVersion', 'commercial', 'modules']) || input.schemaVersion !== 1)
     return fail('document')
-  // Reject cycles, non-JSON values and oversized decoded objects; do not sanitize unknown fields.
-  let json: string
-  try {
-    json = JSON.stringify(input)
-  } catch {
-    return fail('document')
-  }
-  if (new TextEncoder().encode(json).byteLength > CMS_LIMITS.bytes) return fail('document.bytes')
   const { commercial, modules } = input
   if (
     !exact(commercial, ['fulfillmentMode', 'whatsappNumber']) ||
@@ -148,10 +156,11 @@ export function validateCmsDocument(input: unknown, mode: Mode): Result<CmsDocum
   }
   if (!['hero', 'catalog', 'contact'].every((t) => counts.get(t as CmsTemplate) === 1))
     return fail('modules.required')
-  return { value: JSON.parse(json) as CmsDocument }
+  return { value: input as CmsDocument }
 }
 
 export function validateCmsMutation(input: unknown): Result<CmsMutation> {
+  input = materialize(input, CMS_REQUEST_BYTES)?.value
   if (
     !exact(input, ['action', 'expectedRevision', 'operationId', 'document']) ||
     !['saveDraft', 'publish'].includes(input.action as string) ||

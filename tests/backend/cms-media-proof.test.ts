@@ -12,7 +12,7 @@ it('prova offline isolada: bytes, decoder, derivados e binding Images via servic
   const evidence = JSON.parse(result.stdout)
   expect(evidence.scope).toBe('LOCAL_NODE_AND_MINIFLARE_OFFLINE_ONLY')
   expect(evidence.remoteExecuted).toBe(false)
-  expect(evidence.checks).toBe(23)
+  expect(evidence.checks).toBe(27)
   expect(evidence.hero.width).toBeLessThanOrEqual(1920)
   expect(evidence.hero.height).toBeLessThanOrEqual(1080)
 })
