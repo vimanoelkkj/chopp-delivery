@@ -20,12 +20,14 @@ type Integration = Ready & { database: DatabaseSync }
 const test = base.extend<{
   integration: Integration
   runtimeMode: 'admin-integration' | 'production' | 'release'
+  mediaLab: boolean
   whatsappNumber: string
 }>({
+  mediaLab: [false, { option: true }],
   runtimeMode: ['admin-integration', { option: true }],
   whatsappNumber: ['', { option: true }],
   integration: [
-    async ({ browserName, runtimeMode, whatsappNumber }, use) => {
+    async ({ browserName, runtimeMode, whatsappNumber, mediaLab }, use) => {
       if (browserName !== 'chromium') throw new Error('This suite targets local Chrome/Chromium')
       const child = fork('tests/e2e-real/server.mts', [], {
         execArgv: [],
@@ -35,6 +37,7 @@ const test = base.extend<{
           // MESMA porta do baseURL do navegador (playwright.real.config.ts).
           DELEGAS_INTEGRATION_PORT: String(integrationPort()),
           DELEGAS_INTEGRATION_MODE: runtimeMode,
+          DELEGAS_MEDIA_LAB: mediaLab ? '1' : '0',
           VITE_WHATSAPP_NUMBER: whatsappNumber,
         }),
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -952,4 +955,93 @@ test('F4A.1: rascunho autenticado, resposta perdida, replay, CSRF e catálogo is
   }, input)
   expect(unavailable.publish).toBe(404)
   expect(unavailable.media).toBe(404)
+})
+
+test.describe('F4A.2A: disposable private media library', () => {
+  test.use({ mediaLab: true })
+  test('Chrome uploads through Pages, recovers receipt, protects references and exposes no bytes', async ({
+    page,
+    integration,
+  }) => {
+    const sharp = (await import('sharp')).default
+    const bytes = await sharp({
+      create: { width: 64, height: 48, channels: 3, background: '#803020' },
+    })
+      .withMetadata()
+      .png()
+      .toBuffer()
+    const encoded = bytes.toString('base64'),
+      operation = crypto.randomUUID(),
+      id = `media_${operation}`
+    await page.goto('/')
+    const post = () =>
+      page.evaluate(
+        async ({ encoded, operation }) => {
+          const response = await fetch('/api/admin/media', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'image/png',
+              'X-Operation-Id': operation,
+              'If-None-Match': '*',
+            },
+            body: Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0)),
+          })
+          return {
+            status: response.status,
+            body: (await response.json()) as { media: { state: string } },
+          }
+        },
+        { encoded, operation },
+      )
+    expect((await post()).status).toBe(401)
+    await login(page, integration)
+    const response = await post()
+    expect(response.status).toBe(200)
+    expect(response.body.media.state).toBe('ready')
+    expect(JSON.stringify(response.body)).not.toMatch(/objectKey|sha256|quarantine|actor|session/)
+    expect((await post()).status).toBe(200)
+    expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media_jobs').n).toBe(1)
+    expect(
+      row<{ state: string }>(integration, 'SELECT state FROM cms_media WHERE media_id=?', id).state,
+    ).toBe('ready')
+    const snapshot = await (await page.request.get('/api/admin/site')).json()
+    const document = cmsDocument(),
+      hero = document.modules.find((m) => m.template === 'hero')
+    if (hero?.template !== 'hero') throw Error('fixture')
+    hero.content.media = { id, alt: 'foto' }
+    expect(
+      (
+        await page.request.put('/api/admin/site/draft', {
+          headers: { Origin: integration.origin, 'If-Match': `"${snapshot.draft.revision}"` },
+          data: {
+            action: 'saveDraft',
+            operationId: crypto.randomUUID(),
+            expectedRevision: snapshot.draft.revision,
+            document,
+          },
+        })
+      ).status(),
+    ).toBe(200)
+    const removed = await page.evaluate(
+      async ({ id, operation }) =>
+        (
+          await fetch(`/api/admin/media/${id}`, {
+            method: 'DELETE',
+            headers: { 'X-Operation-Id': crypto.randomUUID(), 'If-Match': `"${operation}"` },
+          })
+        ).status,
+      { id, operation },
+    )
+    expect(removed).toBe(409)
+    const privateRoute = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/media/${id}`)
+      return { status: r.status, type: r.headers.get('content-type') }
+    }, id)
+    expect(privateRoute.status).toBe(404)
+    expect(privateRoute.type).not.toBe('image/webp')
+    expect(
+      row<{ published_version_id: null }>(integration, 'SELECT published_version_id FROM cms_state')
+        .published_version_id,
+    ).toBeNull()
+  })
 })
