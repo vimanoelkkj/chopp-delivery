@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chopp Delivery | Premium Digital Experience Redesign Studio</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #101713;
+      --bg-secondary: #19251D;
+      --bg-elevated: #253229;
+      --off-white: #F5F0E6;
+      --soft-gold: #C6A46A;
+      --gold-hover: #D88B36;
+      --amber: #D88B36;
+      --text-muted: #B4B8AF;
+      --font-display: 'Big Shoulders Display', sans-serif;
+      --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    body {
+      background-color: #0b0f0c;
+      color: var(--off-white);
+      font-family: var(--font-body);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .font-display { font-family: var(--font-display); }
+    .font-mono { font-family: var(--font-mono); }
+    .font-body { font-family: var(--font-body); }
+
+    /* 3D Carousel Perspective & Physics */
+    .carousel-3d-scene {
+      perspective: 1200px;
+      perspective-origin: 50% 45%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .carousel-3d-track {
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.65s cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+
+    .keg-card {
+      transition: all 0.65s cubic-bezier(0.2, 0.9, 0.3, 1);
+      backface-visibility: hidden;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+    }
+
+    /* Posicionamento 3D refinado */
+    .keg-center {
+      transform: translate3d(0, 0, 50px) scale(1) rotateY(0deg);
+      z-index: 30;
+      opacity: 1;
+      filter: drop-shadow(0 25px 35px rgba(0,0,0,0.85)) drop-shadow(0 0 45px rgba(216,139,54,0.2));
+    }
+
+    .keg-left {
+      transform: translate3d(-340px, 30px, -90px) scale(0.8) rotateY(22deg);
+      z-index: 10;
+      opacity: 0.6;
+      filter: brightness(0.6) blur(0.5px) drop-shadow(0 15px 25px rgba(0,0,0,0.9));
+      cursor: pointer;
+    }
+
+    .keg-right {
+      transform: translate3d(340px, 30px, -90px) scale(0.8) rotateY(-22deg);
+      z-index: 10;
+      opacity: 0.6;
+      filter: brightness(0.6) blur(0.5px) drop-shadow(0 15px 25px rgba(0,0,0,0.9));
+      cursor: pointer;
+    }
+
+    .keg-hidden {
+      transform: translate3d(0, 40px, -200px) scale(0.6);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Mobile adjustments for 3D carousel */
+    @media (max-width: 640px) {
+      .keg-left {
+        transform: translate3d(-200px, 20px, -70px) scale(0.72) rotateY(20deg);
+        opacity: 0.45;
+      }
+      .keg-right {
+        transform: translate3d(200px, 20px, -70px) scale(0.72) rotateY(-20deg);
+        opacity: 0.45;
+      }
+    }
+
+    /* Simulated Device Containers */
+    .viewport-frame {
+      transition: width 0.35s ease, max-width 0.35s ease;
+      margin: 0 auto;
+      background: var(--bg-dark);
+      border: 1px solid rgba(198, 164, 106, 0.2);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9);
+    }
+
+    /* Subtle cinematic scanline & atmospheric glow */
+    .cinematic-glow {
+      background: radial-gradient(circle at 50% 35%, rgba(216, 139, 54, 0.15) 0%, rgba(16, 23, 19, 0) 70%);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0f0c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #253229;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #C6A46A;
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen text-[var(--off-white)]">
+
+  <!-- ========================================== -->
+  <!-- BARRA DE CONTROLE DO DESIGN STUDIO (TOOLING) -->
+  <!-- ========================================== -->
+  <header class="sticky top-0 z-50 bg-[#080d0a]/95 backdrop-blur-md border-b border-[#253229] px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- Brand & Mode -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded bg-gradient-to-br from-[#C6A46A] to-[#D88B36] flex items-center justify-center font-display font-black text-black text-xl tracking-tighter">
+          CD
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-wider uppercase text-white flex items-center gap-2">
+            CHOPP DELIVERY <span class="text-xs px-1.5 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-mono">REDESIGN V1</span>
+          </h1>
+          <p class="text-[11px] text-[var(--text-muted)]">Design Exploration &amp; Architecture Showcase</p>
+        </div>
+      </div>
+
+      <!-- Navegação dos Conceitos (Tabs) -->
+      <nav class="flex items-center bg-[#141b16] p-1 rounded-lg border border-[#253229] text-xs font-medium">
+        <button onclick="switchConcept('concept-c')" id="tab-concept-c" class="concept-tab px-3 py-1.5 rounded-md text-[#C6A46A] bg-[#253229] font-semibold transition flex items-center gap-1.5 shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-[#D88B36] animate-pulse"></span>
+          Conceito C: Híbrido Imersivo <span class="text-[10px] uppercase tracking-wider text-[#C6A46A] bg-[#101713] px-1 rounded">Prioridade</span>
+        </button>
+        <button onclick="switchConcept('concept-a')" id="tab-concept-a" class="concept-tab px-3 py-1.5 rounded-md text-[var(--text-muted)] hover:text-white transition">
+          Conceito A: Dark Cinematic (MOVA)
+        </button>
+        <button onclick="switchConcept('concept-b')" id="tab-concept-b" class="concept-tab px-3 py-1.5 rounded-md text-[var(--text-muted)] hover:text-white transition">
+          Conceito B: Premium Commerce (BrewDog)
+        </button>
+        <button onclick="switchConcept('concept-pdp')" id="tab-concept-pdp" class="concept-tab px-3 py-1.5 rounded-md text-[var(--text-muted)] hover:text-white transition">
+          Página de Produto (PDP)
+        </button>
+      </nav>
+
+      <!-- Viewport Presets Simulator -->
+      <div class="flex items-center gap-2 text-xs">
+        <span class="text-[var(--text-muted)] font-mono text-[11px]">Viewport:</span>
+        <div class="flex bg-[#141b16] p-0.5 rounded border border-[#253229]">
+          <button onclick="setViewport('100%')" id="vp-full" class="vp-btn px-2 py-1 rounded bg-[#253229] text-white font-mono text-[11px]">Full</button>
+          <button onclick="setViewport('1440px')" id="vp-1440" class="vp-btn px-2 py-1 rounded text-[var(--text-muted)] hover:text-white font-mono text-[11px]">1440</button>
+          <button onclick="setViewport('1280px')" id="vp-1280" class="vp-btn px-2 py-1 rounded text-[var(--text-muted)] hover:text-white font-mono text-[11px]">1280</button>
+          <button onclick="setViewport('768px')" id="vp-768" class="vp-btn px-2 py-1 rounded text-[var(--text-muted)] hover:text-white font-mono text-[11px]">768</button>
+          <button onclick="setViewport('390px')" id="vp-390" class="vp-btn px-2 py-1 rounded text-[var(--text-muted)] hover:text-white font-mono text-[11px]">390</button>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- CONTAINER PRINCIPAL DO VIEWPORT SIMULADO   -->
+  <!-- ========================================== -->
+  <main id="viewport-container" class="viewport-frame min-h-screen my-4 rounded-xl overflow-hidden" style="width: 100%; max-width: 100%;">
+
+    <!-- ======================================================== -->
+    <!-- CONCEITO C: IMMERSIVE HYBRID (EQUILÍBRIO MOVA + BREWDOG) -->
+    <!-- ======================================================== -->
+    <div id="view-concept-c" class="concept-view block">
+      
+      <!-- Top Delivery Pill (100% Delivery SJDR) -->
+      <div class="bg-[#19251D] border-b border-[#253229] py-1.5 px-4 text-center text-xs text-[#C6A46A] tracking-wider uppercase flex items-center justify-center gap-2 font-mono">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#D88B36]"></span>
+        Operação Exclusiva por Delivery &bull; Entrega e Instalação em São João del-Rei e Região &bull; Sem Retirada
+      </div>
+
+      <!-- Header Minimalista Premium -->
+      <header class="border-b border-[#253229]/60 px-6 py-4 flex items-center justify-between bg-[#101713]/80 backdrop-blur sticky top-0 z-40">
+        <div class="flex items-center gap-8">
+          <a href="#" class="font-display text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            CHOPP<span class="text-[#C6A46A]">DELIVERY</span>
+          </a>
+          <nav class="hidden md:flex items-center gap-6 text-sm text-[var(--text-muted)] font-medium">
+            <a href="#hero-c" class="hover:text-white transition">Início</a>
+            <a href="#carrossel-c" class="text-[#C6A46A] font-semibold flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#C6A46A]"></span> Vitrine de Barris
+            </a>
+            <a href="#catalogo-c" class="hover:text-white transition">Catálogo</a>
+            <a href="#como-funciona-c" class="hover:text-white transition">Como Funciona</a>
+            <a href="#historia-c" class="hover:text-white transition">Origem</a>
+          </nav>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="https://wa.me/5532999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20a%20disponibilidade%20de%20barril" target="_blank" class="px-4 py-2 rounded-full bg-[#C6A46A] hover:bg-[#D88B36] text-black font-semibold text-xs tracking-wider uppercase transition shadow-lg shadow-[#C6A46A]/20 flex items-center gap-2">
+            <span>Pedir no WhatsApp</span>
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+          </a>
+        </div>
+      </header>
+
+      <!-- SEÇÃO 02: HERO CINEMATOGRÁFICO COM BARRIL PROTAGONISTA -->
+      <section id="hero-c" class="relative py-16 md:py-24 px-6 overflow-hidden cinematic-glow border-b border-[#253229]">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <div class="lg:col-span-7 space-y-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#19251D] border border-[#C6A46A]/30 text-[#C6A46A] text-xs font-mono uppercase tracking-widest">
+              <span class="w-2 h-2 rounded-full bg-[#D88B36]"></span>
+              Chopp Delivery Especial &bull; Barris 30L &amp; 50L
+            </div>
+
+            <h2 class="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight uppercase text-white">
+              O Melhor do Chopp.<br>
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#C6A46A] via-[#E8D19F] to-[#D88B36]">
+                Direto Para o Seu Evento.
+              </span>
+            </h2>
+
+            <p class="text-lg md:text-xl text-[var(--text-muted)] font-normal max-w-xl leading-relaxed">
+              Escolha seu barril em aço escovado, receba com a chopeira regulada e pronta para servir, e aproveite uma experiência feita para celebrar.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-4 pt-4">
+              <a href="#carrossel-c" class="px-8 py-4 rounded-xl bg-gradient-to-r from-[#C6A46A] to-[#D88B36] text-black font-bold text-sm tracking-wider uppercase transition transform hover:-translate-y-0.5 shadow-xl shadow-[#C6A46A]/20 flex items-center gap-3">
+                <span>Explorar Barris 3D</span>
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </a>
+              <a href="#catalogo-c" class="px-8 py-4 rounded-xl border border-[#C6A46A]/40 bg-[#141b16] text-[#F5F0E6] hover:bg-[#19251D] font-semibold text-sm tracking-wider uppercase transition">
+                Ver Tabela &amp; Preços
+              </a>
+            </div>
+
+            <!-- Trust Badges -->
+            <div class="grid grid-cols-3 gap-4 pt-8 border-t border-[#253229]">
+              <div>
+                <p class="font-display text-2xl font-bold text-[#C6A46A]">30L &amp; 50L</p>
+                <p class="text-xs text-[var(--text-muted)]">Barris de inox escovado</p>
+              </div>
+              <div>
+                <p class="font-display text-2xl font-bold text-[#C6A46A]">100% Instalação</p>
+                <p class="text-xs text-[var(--text-muted)]">Chopeira 110V/220V inclusa</p>
+              </div>
+              <div>
+                <p class="font-display text-2xl font-bold text-[#C6A46A]">Zero Espera</p>
+                <p class="text-xs text-[var(--text-muted)]">Agendamento pontual</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Protagonist Visual -->
+          <div class="lg:col-span-5 relative flex justify-center">
+            <div class="relative w-full max-w-[440px] aspect-[4/5] rounded-2xl overflow-hidden border border-[#C6A46A]/30 bg-gradient-to-b from-[#19251D] to-[#101713] shadow-2xl flex items-center justify-center p-4 group">
+              <!-- Render Hero do Barril -->
+              <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril de Chopp de Inox Escovado 50 Litros com Iluminação Cinematográfica" class="w-full h-full object-contain filter drop-shadow-[0_20px_30px_rgba(0,0,0,0.9)] transform group-hover:scale-105 transition duration-700">
+              
+              <!-- Floating Specs Pill -->
+              <div class="absolute bottom-5 left-5 right-5 bg-[#101713]/90 backdrop-blur-md border border-[#253229] p-3.5 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-[#C6A46A] uppercase font-mono tracking-wider font-semibold">Protagonista</span>
+                  <h4 class="text-sm font-bold text-white">Barril Artesanal 50 Litros</h4>
+                  <p class="text-xs text-[var(--text-muted)]">Rendimento aprox: 100 copos de 500ml</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-[var(--text-muted)] line-through"></span>
+                  <span class="font-mono text-sm font-bold text-[#C6A46A]">A partir R$ 640</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SEÇÃO 03: O ELEMENTO ASSINATURA - CARROSSEL 3D DE BARRIS -->
+      <section id="carrossel-c" class="py-20 px-6 bg-[#0c120f] border-b border-[#253229] relative">
+        <div class="max-w-7xl mx-auto">
+          
+          <div class="text-center max-w-3xl mx-auto mb-12 space-y-3">
+            <p class="text-[#C6A46A] font-mono text-xs uppercase tracking-widest font-semibold">01 &bull; Vitrine Assinatura</p>
+            <h3 class="font-display text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tight">
+              Escolha Seu Barril em 3D
+            </h3>
+            <p class="text-[var(--text-muted)] text-base">
+              Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as setas para inspecionar os detalhes, litragens e valores de cada cervejaria.
+            </p>
+          </div>
+
+          <!-- Carrossel 3D Interativo -->
+          <div class="carousel-3d-scene w-full h-[480px] md:h-[540px] flex items-center justify-center">
+            
+            <div id="carousel-track" class="carousel-3d-track relative w-[320px] md:w-[380px] h-[440px] flex items-center justify-center">
+
+              <!-- Barril 0: Palato Beber (Lager Pilsen) -->
+              <div id="keg-0" class="keg-card absolute inset-0 flex flex-col items-center justify-center p-4 rounded-2xl bg-gradient-to-b from-[#1a261f] to-[#121a15] border border-[#253229]" onclick="rotateCarouselTo(0)">
+                <div class="w-full h-[280px] flex items-center justify-center relative">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Palato Beber 30L/50L" class="max-h-full object-contain filter drop-shadow-[0_15px_20px_rgba(0,0,0,0.8)]">
+                  <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-[#C6A46A] text-black font-mono text-[10px] font-bold uppercase">Pilsen Premium</span>
+                </div>
+                <div class="w-full text-center mt-3 pt-3 border-t border-[#253229]/60">
+                  <h4 class="font-display text-2xl font-bold uppercase text-white tracking-wide">Palato Beber</h4>
+                  <p class="text-xs text-[var(--text-muted)]">Premium Lager Pilsen &bull; Puro Malte</p>
+                  <div class="flex items-center justify-center gap-3 mt-2 text-xs font-mono">
+                    <span class="text-[#C6A46A] font-semibold">30L: R$ 490</span>
+                    <span class="text-[var(--text-muted)]">|</span>
+                    <span class="text-[#C6A46A] font-semibold">50L: R$ 640</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barril 1: Dronken (Double Double) - SELECIONADO DEFAULT -->
+              <div id="keg-1" class="keg-card absolute inset-0 flex flex-col items-center justify-center p-4 rounded-2xl bg-gradient-to-b from-[#213027] to-[#152019] border border-[#C6A46A]/50" onclick="rotateCarouselTo(1)">
+                <div class="w-full h-[280px] flex items-center justify-center relative">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Dronken Double Double" class="max-h-full object-contain filter drop-shadow-[0_20px_25px_rgba(0,0,0,0.9)]">
+                  <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-[#D88B36] text-black font-mono text-[10px] font-bold uppercase">Mais Pedido</span>
+                </div>
+                <div class="w-full text-center mt-3 pt-3 border-t border-[#C6A46A]/30">
+                  <h4 class="font-display text-3xl font-extrabold uppercase text-white tracking-wide">Dronken</h4>
+                  <p class="text-xs text-[#E8D19F]">Double Double &bull; Artesanal Encorpado</p>
+                  <div class="flex items-center justify-center gap-3 mt-2 text-sm font-mono font-bold">
+                    <span class="text-[#C6A46A]">30L: R$ 510</span>
+                    <span class="text-[var(--text-muted)]">|</span>
+                    <span class="text-[#C6A46A]">50L: R$ 650</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barril 2: Villa Alemã (Chopp Especial) -->
+              <div id="keg-2" class="keg-card absolute inset-0 flex flex-col items-center justify-center p-4 rounded-2xl bg-gradient-to-b from-[#1a261f] to-[#121a15] border border-[#253229]" onclick="rotateCarouselTo(2)">
+                <div class="w-full h-[280px] flex items-center justify-center relative">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Villa Alemã Chopp" class="max-h-full object-contain filter drop-shadow-[0_15px_20px_rgba(0,0,0,0.8)] scale-x-[-1]">
+                  <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] border border-[#C6A46A]/30 font-mono text-[10px] font-bold uppercase">Tradicional</span>
+                </div>
+                <div class="w-full text-center mt-3 pt-3 border-t border-[#253229]/60">
+                  <h4 class="font-display text-2xl font-bold uppercase text-white tracking-wide">Villa Alemã</h4>
+                  <p class="text-xs text-[var(--text-muted)]">Chopp Pilsen Clássico Suave</p>
+                  <div class="flex items-center justify-center gap-3 mt-2 text-xs font-mono">
+                    <span class="text-[#C6A46A] font-semibold">30L: R$ 520</span>
+                    <span class="text-[var(--text-muted)]">|</span>
+                    <span class="text-[#C6A46A] font-semibold">50L: R$ 670</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barril 3: Heineken (Premium Puro Malte 50L) -->
+              <div id="keg-3" class="keg-card absolute inset-0 flex flex-col items-center justify-center p-4 rounded-2xl bg-gradient-to-b from-[#1a261f] to-[#121a15] border border-[#253229]" onclick="rotateCarouselTo(3)">
+                <div class="w-full h-[280px] flex items-center justify-center relative">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Heineken 50L" class="max-h-full object-contain filter drop-shadow-[0_15px_20px_rgba(0,0,0,0.8)]">
+                  <span class="absolute top-2 right-2 px-2 py-0.5 rounded bg-emerald-900 text-emerald-200 font-mono text-[10px] font-bold uppercase">Exclusivo 50L</span>
+                </div>
+                <div class="w-full text-center mt-3 pt-3 border-t border-[#253229]/60">
+                  <h4 class="font-display text-2xl font-bold uppercase text-white tracking-wide">Heineken</h4>
+                  <p class="text-xs text-[var(--text-muted)]">Premium Puro Malte Importado</p>
+                  <div class="flex items-center justify-center gap-3 mt-2 text-xs font-mono">
+                    <span class="text-[var(--text-muted)] line-through">30L: Indisp.</span>
+                    <span class="text-[var(--text-muted)]">|</span>
+                    <span class="text-[#C6A46A] font-semibold">50L: R$ 990</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Controles do Carrossel 3D -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-[#253229] max-w-xl mx-auto">
+            <button onclick="prevKeg()" aria-label="Barril Anterior" class="px-5 py-2.5 rounded-xl border border-[#253229] bg-[#141b16] hover:bg-[#19251D] text-white text-xs font-mono tracking-wider uppercase transition flex items-center gap-2">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L4.414 9H17a1 1 0 110 2H4.414l5.293 5.293a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+              <span>Anterior</span>
+            </button>
+
+            <!-- Active Details & Direct Action -->
+            <div id="carousel-status" class="text-center font-mono text-xs text-[var(--text-muted)]">
+              Barril <span id="active-keg-index" class="text-[#C6A46A] font-bold">2</span> de 4 &bull; <span id="active-keg-name" class="text-white font-semibold">Dronken</span>
+            </div>
+
+            <button onclick="nextKeg()" aria-label="Próximo Barril" class="px-5 py-2.5 rounded-xl border border-[#253229] bg-[#141b16] hover:bg-[#19251D] text-white text-xs font-mono tracking-wider uppercase transition flex items-center gap-2">
+              <span>Próximo</span>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+
+          <div class="text-center mt-6">
+            <button onclick="openPdpWithActiveKeg()" class="px-8 py-3.5 rounded-xl bg-[#C6A46A] hover:bg-[#D88B36] text-black font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#C6A46A]/20">
+              Ver Detalhes do Barril Selecionado &rarr;
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SEÇÃO 04: CATÁLOGO COMERCIAL COMPLETO (INSPIRAÇÃO BREWDOG) -->
+      <section id="catalogo-c" class="py-20 px-6 bg-[#101713] border-b border-[#253229]">
+        <div class="max-w-7xl mx-auto">
+          
+          <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div>
+              <p class="text-[#C6A46A] font-mono text-xs uppercase tracking-widest font-semibold">02 &bull; Catálogo Real</p>
+              <h3 class="font-display text-4xl sm:text-5xl font-black uppercase text-white tracking-tight">
+                Nossos Chopes &amp; Litragens
+              </h3>
+              <p class="text-[var(--text-muted)] text-sm mt-1">
+                Tabela comercial verificada diretamente da câmara fria de São João del-Rei.
+              </p>
+            </div>
+
+            <!-- Volume Global Quick Switcher -->
+            <div class="flex items-center gap-2 bg-[#19251D] p-1 rounded-xl border border-[#253229]">
+              <span class="text-xs text-[var(--text-muted)] px-3 font-mono">Visualizar por:</span>
+              <button onclick="setGlobalVolume('30')" id="btn-vol-30" class="vol-btn px-4 py-1.5 rounded-lg text-xs font-mono font-bold transition bg-[#C6A46A] text-black">
+                Barril 30L
+              </button>
+              <button onclick="setGlobalVolume('50')" id="btn-vol-50" class="vol-btn px-4 py-1.5 rounded-lg text-xs font-mono font-bold transition text-[var(--text-muted)] hover:text-white">
+                Barril 50L
+              </button>
+            </div>
+          </div>
+
+          <!-- Grid dos 8 Chopes Reais -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- Card 1: Dronken -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Duplo Malte</span>
+                  <span class="text-[10px] text-emerald-400 font-mono">Em estoque</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Dronken" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Dronken</h4>
+                <p class="text-xs text-[var(--text-muted)]">Double Double &bull; Marcante e encorpado</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="R$ 510" data-price-50="R$ 650">R$ 510</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Dronken" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 2: Palato Beber -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Pilsen Puro Malte</span>
+                  <span class="text-[10px] text-emerald-400 font-mono">Em estoque</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Palato Beber" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Palato Beber</h4>
+                <p class="text-xs text-[var(--text-muted)]">Premium Lager Pilsen &bull; Alta refrescância</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="R$ 490" data-price-50="R$ 640">R$ 490</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Palato%20Beber" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 3: Villa Alemã -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Chopp Clássico</span>
+                  <span class="text-[10px] text-emerald-400 font-mono">Em estoque</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Villa Alemã" class="h-full object-contain filter group-hover:scale-110 transition duration-500 scale-x-[-1]">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Villa Alemã</h4>
+                <p class="text-xs text-[var(--text-muted)]">Receita alemã de tradição equilibrada</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="R$ 520" data-price-50="R$ 670">R$ 520</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Villa%20Alema" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 4: Krug Bier -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Cervejaria Mineira</span>
+                  <span class="text-[10px] text-emerald-400 font-mono">Em estoque</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Krug Bier" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Krug Bier</h4>
+                <p class="text-xs text-[var(--text-muted)]">Pioneira artesanal &bull; Aroma maltado</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="R$ 570" data-price-50="R$ 760">R$ 570</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Krug%20Bier" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 5: Brahma -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Tradicional</span>
+                  <span class="text-[10px] text-[#C6A46A] font-mono">Apenas 50L</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Brahma" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Brahma</h4>
+                <p class="text-xs text-[var(--text-muted)]">O clássico dos eventos &bull; Leve e suave</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="— (Não comercializado)" data-price-50="R$ 890">—</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Brahma%2050L" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 6: Kaiser -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Pilsen</span>
+                  <span class="text-[10px] text-[#C6A46A] font-mono">Apenas 50L</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Kaiser" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Kaiser</h4>
+                <p class="text-xs text-[var(--text-muted)]">Chopp leve &bull; Sabor suave</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="— (Não comercializado)" data-price-50="R$ 890">—</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Kaiser%2050L" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 7: Heineken -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Puro Malte Premium</span>
+                  <span class="text-[10px] text-[#C6A46A] font-mono">Apenas 50L</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Heineken" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Heineken</h4>
+                <p class="text-xs text-[var(--text-muted)]">Amargor marcante e lúpulo nobre</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="— (Não comercializado)" data-price-50="R$ 990">—</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Heineken%2050L" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 8: Chopp de Vinho -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] hover:border-[#C6A46A]/60 p-5 flex flex-col justify-between transition group">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#253229] text-[#C6A46A] font-semibold">Especial</span>
+                  <span class="text-[10px] text-emerald-400 font-mono">Em estoque</span>
+                </div>
+                <div class="h-44 w-full flex items-center justify-center my-2 overflow-hidden">
+                  <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Chopp de Vinho" class="h-full object-contain filter group-hover:scale-110 transition duration-500">
+                </div>
+                <h4 class="font-display text-2xl font-bold uppercase text-white mt-3">Chopp de Vinho</h4>
+                <p class="text-xs text-[var(--text-muted)]">Doce, refrescante e aromático</p>
+              </div>
+              <div class="mt-6 pt-4 border-t border-[#253229]">
+                <div class="flex items-baseline justify-between mb-3">
+                  <span class="text-xs text-[var(--text-muted)] font-mono">Preço:</span>
+                  <span class="font-mono text-lg font-bold text-[#C6A46A]" data-price-30="R$ 570" data-price-50="R$ 790">R$ 570</span>
+                </div>
+                <a href="https://wa.me/5532999999999?text=Quero%20pedir%20o%20barril%20Chopp%20de%20Vinho" target="_blank" class="w-full py-2.5 rounded-lg bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white text-xs font-mono font-semibold tracking-wider uppercase transition text-center block">
+                  Pedir Barril
+                </a>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Banner Especial da Cachaça Artesanal (Preservado do Catálogo Real) -->
+          <div class="mt-12 rounded-2xl bg-gradient-to-r from-[#19251D] via-[#141b16] to-[#19251D] border border-[#C6A46A]/30 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-2">
+              <span class="text-xs font-mono uppercase text-[#D88B36] tracking-widest font-semibold">&bull; Tradição Mineira em Barril</span>
+              <h4 class="font-display text-3xl font-bold text-white uppercase">Cachaça Artesanal Delegas (700ml)</h4>
+              <p class="text-sm text-[var(--text-muted)] max-w-xl">
+                Conservada em barril de umburana com jequitibá rosa. Ideal como acompanhamento para eventos e celebrações.
+              </p>
+            </div>
+            <div class="flex items-center gap-6">
+              <div class="text-right">
+                <span class="text-xs text-[var(--text-muted)] font-mono block">Garrafa 700ml</span>
+                <span class="font-mono text-2xl font-bold text-[#C6A46A]">R$ 30,00</span>
+              </div>
+              <a href="https://wa.me/5532999999999?text=Gostaria%20de%20adicionar%20a%20Cachaca%20Artesanal" target="_blank" class="px-6 py-3 rounded-xl bg-[#253229] hover:bg-[#C6A46A] hover:text-black text-white font-mono text-xs font-bold uppercase transition">
+                Adicionar ao Pedido
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SEÇÃO 05: COMO FUNCIONA (100% DELIVERY) -->
+      <section id="como-funciona-c" class="py-20 px-6 bg-[#0c120f] border-b border-[#253229]">
+        <div class="max-w-7xl mx-auto">
+          <div class="text-center max-w-2xl mx-auto mb-16 space-y-3">
+            <p class="text-[#C6A46A] font-mono text-xs uppercase tracking-widest font-semibold">03 &bull; Sem Complicações</p>
+            <h3 class="font-display text-4xl sm:text-5xl font-black uppercase text-white tracking-tight">
+              Como Funciona a Entrega
+            </h3>
+            <p class="text-[var(--text-muted)] text-sm">
+              Operação exclusivamente por delivery. Levamos o barril gelado, conectamos a chopeira e deixamos pronta para o brinde.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div class="bg-[#141b16] p-6 rounded-2xl border border-[#253229] relative">
+              <span class="font-display text-5xl font-black text-[#C6A46A]/20 absolute top-4 right-4">01</span>
+              <h5 class="text-lg font-bold text-white mb-2">Escolha o Chopp</h5>
+              <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                Selecione o estilo e a cervejaria desejada, definindo entre 30L ou 50L conforme sua lista de convidados.
+              </p>
+            </div>
+            <div class="bg-[#141b16] p-6 rounded-2xl border border-[#253229] relative">
+              <span class="font-display text-5xl font-black text-[#C6A46A]/20 absolute top-4 right-4">02</span>
+              <h5 class="text-lg font-bold text-white mb-2">Dados de Entrega</h5>
+              <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                Informe data, horário, endereço do evento e se a tomada disponível é 110V ou 220V para a chopeira.
+              </p>
+            </div>
+            <div class="bg-[#141b16] p-6 rounded-2xl border border-[#253229] relative">
+              <span class="font-display text-5xl font-black text-[#C6A46A]/20 absolute top-4 right-4">03</span>
+              <h5 class="text-lg font-bold text-white mb-2">Instalação Inclusa</h5>
+              <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                Nossa equipe posiciona o barril, liga a chopeira, testa a vazão de espuma e deixa tudo 100% calibrado.
+              </p>
+            </div>
+            <div class="bg-[#141b16] p-6 rounded-2xl border border-[#253229] relative">
+              <span class="font-display text-5xl font-black text-[#C6A46A]/20 absolute top-4 right-4">04</span>
+              <h5 class="text-lg font-bold text-white mb-2">Aproveite o Chopp</h5>
+              <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                Chopp sempre gelado do primeiro ao último copo. Após o evento, nós fazemos o recolhimento sem estresse.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEÇÃO 07: HISTÓRIA E STORYTELLING (MOVA BREWERY ATMOSPHERE) -->
+      <section id="historia-c" class="py-20 px-6 bg-[#101713] border-b border-[#253229]">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="space-y-6">
+            <span class="text-xs font-mono uppercase text-[#C6A46A] tracking-widest font-semibold">04 &bull; Origem &amp; Compromisso</span>
+            <h3 class="font-display text-4xl sm:text-5xl font-black uppercase text-white leading-tight">
+              O Chopp Como Centro da Sua Celebração.
+            </h3>
+            <p class="text-base text-[var(--text-muted)] leading-relaxed">
+              Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril de chopp. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.
+            </p>
+            <p class="text-sm text-[var(--text-muted)] leading-relaxed">
+              Fundado em São João del-Rei, o Chopp Delivery une a pontualidade da entrega local com equipamentos profissionais de refrigeração para fazer cada brinde memorável.
+            </p>
+          </div>
+          <div class="relative rounded-2xl overflow-hidden border border-[#253229] bg-[#141b16] p-6">
+            <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barris de Chopp em Aço Escovado" class="w-full h-80 object-cover rounded-xl filter brightness-90">
+            <div class="mt-4 flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
+              <span>Barris em aço inoxidável padrão alimentício</span>
+              <span class="text-[#C6A46A]">&bull; Higienização rigorosa</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEÇÃO 08: CTA FINAL IMPACTANTE -->
+      <section class="py-24 px-6 bg-gradient-to-b from-[#101713] to-[#080d0a] text-center border-b border-[#253229]">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <span class="text-xs font-mono uppercase text-[#D88B36] tracking-widest font-semibold">Reserve Seu Barril Hoje</span>
+          <h2 class="font-display text-5xl sm:text-6xl md:text-7xl font-black uppercase text-white tracking-tight">
+            Pronto Para Fazer Seu Evento Inesquecível?
+          </h2>
+          <p class="text-lg text-[var(--text-muted)] max-w-xl mx-auto">
+            Consulte a disponibilidade de datas no WhatsApp e garanta seu barril com antecedência.
+          </p>
+          <div class="pt-4 flex flex-wrap justify-center gap-4">
+            <a href="https://wa.me/5532999999999?text=Quero%20fazer%20uma%20reserva%20de%20barril" target="_blank" class="px-10 py-5 rounded-2xl bg-gradient-to-r from-[#C6A46A] to-[#D88B36] text-black font-extrabold text-sm uppercase tracking-wider transition transform hover:-translate-y-1 shadow-2xl shadow-[#C6A46A]/25 flex items-center gap-3">
+              <span>Falar no WhatsApp Agora</span>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="py-12 px-6 bg-[#080d0a] text-xs text-[var(--text-muted)] border-t border-[#253229]">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div class="flex items-center gap-3">
+            <span class="font-display text-xl font-black text-white">CHOPP DELIVERY</span>
+            <span>&bull; São João del-Rei, MG</span>
+          </div>
+          <div class="flex items-center gap-6">
+            <span class="text-amber-500/80 font-mono">Beba com moderação &bull; Proibido para menores de 18 anos</span>
+          </div>
+          <div>
+            <span>&copy; 2026 Chopp Delivery Delegas. Todos os direitos reservados.</span>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- CONCEITO A: DARK CINEMATIC (PREDOMINÂNCIA MOVA BREWERY)   -->
+    <!-- ======================================================== -->
+    <div id="view-concept-a" class="concept-view hidden bg-[#080c09]">
+      <div class="p-8 md:p-16 max-w-7xl mx-auto space-y-12">
+        <div class="border-b border-[#253229] pb-6 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono uppercase text-[#C6A46A] tracking-widest">Conceito A &bull; Direção de Arte Editorial</span>
+            <h3 class="font-display text-5xl font-black uppercase text-white mt-1">DARK CINEMATIC</h3>
+          </div>
+          <span class="px-3 py-1 rounded bg-[#19251D] text-xs font-mono text-[#C6A46A]">MOVA Brewery Philosophy</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="space-y-6">
+            <h4 class="font-display text-4xl md:text-5xl font-extrabold uppercase text-white leading-tight">
+              Aço Inox. Iluminação Lateral. O Protagonismo Absoluto do Barril.
+            </h4>
+            <p class="text-[var(--text-muted)] text-base leading-relaxed">
+              No Conceito A, eliminamos qualquer ruído comercial promocional agressivo. O foco visual é a textura do aço escovado, o contraste com fundos escuros de alta densidade (#080c09 e #101713) e uma iluminação dramática que eleva o barril de chopp ao status de objeto de desejo gastronômico.
+            </p>
+            <div class="p-4 rounded-xl bg-[#101713] border-l-2 border-[#C6A46A] space-y-2">
+              <h5 class="text-xs font-mono uppercase font-bold text-[#C6A46A]">Atributos Chave de UX/UI:</h5>
+              <ul class="text-xs text-[var(--text-muted)] space-y-1 font-mono">
+                <li>&bull; Headlines monumentais com espaçamento generoso e tracking negativo</li>
+                <li>&bull; Renders isolados dos barris com reflexos ambarinos profundos</li>
+                <li>&bull; Cards minimalistas com opacidade reduzida e bordas ultra-finas</li>
+                <li>&bull; Microinterações discretas com transições desaceleradas (cubic-bezier)</li>
+              </ul>
+            </div>
+          </div>
+          <div class="relative rounded-2xl overflow-hidden border border-[#253229] bg-gradient-to-br from-[#101713] via-[#0b0f0c] to-[#050705] p-6 shadow-2xl flex items-center justify-center">
+            <img src="craft_beer_keg_hero_1793303975353.jpg" alt="Conceito A Mockup" class="max-h-96 object-contain filter drop-shadow-[0_25px_35px_rgba(0,0,0,0.95)]">
+          </div>
+        </div>
+
+        <!-- Exemplo de Card Editorial Conceito A -->
+        <div class="pt-8 border-t border-[#253229]">
+          <h4 class="font-display text-2xl font-bold uppercase text-white mb-6">Exemplo de Card de Produto Editorial (Conceito A)</h4>
+          <div class="max-w-md bg-[#101713] border border-[#253229] rounded-2xl p-6 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-[#C6A46A]/5 rounded-bl-full pointer-events-none"></div>
+            <div class="h-56 flex items-center justify-center my-4">
+              <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Dronken" class="h-full object-contain filter drop-shadow-[0_15px_20px_rgba(0,0,0,0.9)] group-hover:scale-105 transition duration-500">
+            </div>
+            <div class="space-y-2">
+              <span class="text-[11px] font-mono uppercase text-[#C6A46A] tracking-wider">Artesanal &bull; 50 Litros</span>
+              <h5 class="font-display text-3xl font-bold text-white uppercase">Dronken Double Double</h5>
+              <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                Brassagem de alta densidade com corpo aveludado e notas marcantes de malte tostado.
+              </p>
+              <div class="pt-4 flex items-center justify-between border-t border-[#253229]">
+                <span class="font-mono text-xl font-bold text-white">R$ 650,00</span>
+                <span class="text-xs text-[#C6A46A] uppercase font-mono tracking-wider font-semibold">Delivery Incluso &rarr;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- CONCEITO B: PREMIUM COMMERCE (PREDOMINÂNCIA BREWDOG)      -->
+    <!-- ======================================================== -->
+    <div id="view-concept-b" class="concept-view hidden bg-[#121815]">
+      <div class="p-8 md:p-16 max-w-7xl mx-auto space-y-12">
+        <div class="border-b border-[#253229] pb-6 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono uppercase text-[#D88B36] tracking-widest">Conceito B &bull; Engenharia Comercial</span>
+            <h3 class="font-display text-5xl font-black uppercase text-white mt-1">PREMIUM COMMERCE</h3>
+          </div>
+          <span class="px-3 py-1 rounded bg-[#253229] text-xs font-mono text-[#D88B36]">BrewDog Commerce Focus</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="space-y-6">
+            <h4 class="font-display text-4xl md:text-5xl font-extrabold uppercase text-white leading-tight">
+              Velocidade, Preço Transparente e Conversão Instantânea.
+            </h4>
+            <p class="text-[var(--text-muted)] text-base leading-relaxed">
+              O Conceito B prioriza a clareza transacional. O cliente que contrata um chopp para o fim de semana quer saber: quais marcas estão disponíveis? Qual o valor do barril de 30L vs 50L? Quantos copos serve? E como pedir agora sem atrito.
+            </p>
+            <div class="p-4 rounded-xl bg-[#19251D] border-l-2 border-[#D88B36] space-y-2">
+              <h5 class="text-xs font-mono uppercase font-bold text-[#D88B36]">Atributos Chave de UX/UI:</h5>
+              <ul class="text-xs text-[var(--text-muted)] space-y-1 font-mono">
+                <li>&bull; Seletor instantâneo de litragem (30L vs 50L) embutido no próprio card</li>
+                <li>&bull; Cálculo automático de rendimento de doses (60 a 100 copos)</li>
+                <li>&bull; Distinção visual explícita entre itens disponíveis e marcas só em 50L</li>
+                <li>&bull; CTA de WhatsApp pré-configurado com a marca e o volume selecionados</li>
+              </ul>
+            </div>
+          </div>
+          <div class="bg-[#141b16] rounded-2xl border border-[#253229] p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-[#253229] pb-3">
+              <span class="text-xs font-mono text-[var(--text-muted)]">Comparativo Rápido de Litragem</span>
+              <span class="text-xs font-mono text-[#C6A46A]">Rendimento Estimado</span>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-4 rounded-xl bg-[#19251D] border border-[#253229] text-center">
+                <span class="font-display text-3xl font-black text-white">30 LITROS</span>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Aprox. 60 copos de 500ml</p>
+                <p class="text-xs text-[#C6A46A] font-mono mt-2 font-bold">A partir R$ 490</p>
+              </div>
+              <div class="p-4 rounded-xl bg-[#19251D] border border-[#C6A46A]/50 text-center">
+                <span class="font-display text-3xl font-black text-[#C6A46A]">50 LITROS</span>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Aprox. 100 copos de 500ml</p>
+                <p class="text-xs text-[#D88B36] font-mono mt-2 font-bold">A partir R$ 640</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exemplo de Card Comercial Conceito B -->
+        <div class="pt-8 border-t border-[#253229]">
+          <h4 class="font-display text-2xl font-bold uppercase text-white mb-6">Exemplo de Card com Toggle de Litragem Ativo (Conceito B)</h4>
+          <div class="max-w-md bg-[#19251D] border border-[#253229] rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <h5 class="font-display text-3xl font-black text-white uppercase">Palato Beber</h5>
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-[#C6A46A] text-black font-bold uppercase">Pilsen</span>
+            </div>
+            <div class="h-44 flex items-center justify-center">
+              <img src="barril_chopp_30l_studio_1793304022404.jpg" alt="Barril Palato Beber" class="h-full object-contain filter drop-shadow-md">
+            </div>
+            <div class="bg-[#141b16] p-2 rounded-xl border border-[#253229] flex items-center justify-between">
+              <button class="flex-1 py-1.5 rounded-lg bg-[#C6A46A] text-black text-xs font-mono font-bold">30 Litros (R$ 490)</button>
+              <button class="flex-1 py-1.5 rounded-lg text-[var(--text-muted)] text-xs font-mono hover:text-white">50 Litros (R$ 640)</button>
+            </div>
+            <a href="#" class="w-full py-3 rounded-xl bg-[#D88B36] hover:bg-[#C6A46A] text-black font-bold text-xs uppercase font-mono tracking-wider transition text-center block">
+              Comprar Barril via WhatsApp &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- PÁGINA DE PRODUTO (PDP): VISÃO ESPECÍFICA DO BARRIL       -->
+    <!-- ======================================================== -->
+    <div id="view-concept-pdp" class="concept-view hidden bg-[#101713]">
+      <div class="p-8 md:p-16 max-w-7xl mx-auto space-y-12">
+        
+        <div class="border-b border-[#253229] pb-4 flex items-center justify-between">
+          <a href="#" onclick="switchConcept('concept-c')" class="text-xs font-mono text-[#C6A46A] hover:underline flex items-center gap-1">
+            &larr; Voltar para a Vitrine
+          </a>
+          <span class="text-xs font-mono text-[var(--text-muted)]">Ficha Técnica e Pedido &bull; Barril de Chopp</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+          
+          <!-- Imagem Dominante do Barril -->
+          <div class="lg:col-span-6 bg-gradient-to-b from-[#19251D] to-[#101713] border border-[#253229] rounded-2xl p-8 flex flex-col items-center justify-center relative shadow-2xl">
+            <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-[#101713] border border-[#C6A46A]/40 text-[#C6A46A] font-mono text-xs font-semibold uppercase">
+              Barril Inox Padrão DIN
+            </span>
+            <img id="pdp-keg-image" src="craft_beer_keg_hero_1793303975353.jpg" alt="Barril Dronken em Alta Resolução" class="w-full max-h-[460px] object-contain filter drop-shadow-[0_25px_30px_rgba(0,0,0,0.95)]">
+            <div class="w-full mt-6 pt-4 border-t border-[#253229] flex items-center justify-around text-center text-xs font-mono text-[var(--text-muted)]">
+              <div>
+                <span class="block text-white font-bold">100% Inox</span>
+                <span>Alimentício 304</span>
+              </div>
+              <div class="border-l border-[#253229] pl-6">
+                <span class="block text-white font-bold">Válvula S</span>
+                <span>Engate Padrão Brasil</span>
+              </div>
+              <div class="border-l border-[#253229] pl-6">
+                <span class="block text-white font-bold">Pressurizado</span>
+                <span>Cilindro CO2 Incluso</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informações Comerciais e Seleção -->
+          <div class="lg:col-span-6 space-y-6">
+            <div>
+              <span class="text-xs font-mono text-[#C6A46A] uppercase tracking-wider font-semibold">Artesanal Encorpado</span>
+              <h2 id="pdp-keg-title" class="font-display text-5xl font-black uppercase text-white mt-1">Dronken Double Double</h2>
+              <p id="pdp-keg-desc" class="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">
+                Chopp artesanal de coloração âmbar profunda, com dupla dosagem de malte e lúpulos nobres. Espuma cremosa, densa e persistente, ideal para quem busca uma experiência diferenciada para celebrações.
+              </p>
+            </div>
+
+            <!-- Seletor de Volume (30L vs 50L) -->
+            <div class="space-y-3 pt-4 border-t border-[#253229]">
+              <label class="text-xs font-mono uppercase text-white font-semibold block">Escolha o Volume do Barril:</label>
+              <div class="grid grid-cols-2 gap-4">
+                <button onclick="setPdpVolume('30')" id="pdp-vol-30" class="pdp-vol-btn p-4 rounded-xl border-2 border-[#C6A46A] bg-[#19251D] text-left transition">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="font-display text-2xl font-bold text-white">30 LITROS</span>
+                    <span class="w-3 h-3 rounded-full bg-[#C6A46A]"></span>
+                  </div>
+                  <p class="text-[11px] text-[var(--text-muted)]">Rende aprox. 60 copos</p>
+                  <p class="font-mono text-sm font-bold text-[#C6A46A] mt-2" id="pdp-price-30-val">R$ 510,00</p>
+                </button>
+
+                <button onclick="setPdpVolume('50')" id="pdp-vol-50" class="pdp-vol-btn p-4 rounded-xl border border-[#253229] bg-[#141b16] text-left transition hover:border-[#C6A46A]/50">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="font-display text-2xl font-bold text-white">50 LITROS</span>
+                    <span class="w-3 h-3 rounded-full border border-gray-600"></span>
+                  </div>
+                  <p class="text-[11px] text-[var(--text-muted)]">Rende aprox. 100 copos</p>
+                  <p class="font-mono text-sm font-bold text-[#C6A46A] mt-2" id="pdp-price-50-val">R$ 650,00</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- O que está incluído no pedido -->
+            <div class="bg-[#141b16] rounded-xl border border-[#253229] p-5 space-y-3">
+              <h4 class="text-xs font-mono uppercase font-bold text-white flex items-center gap-2">
+                <svg class="w-4 h-4 text-[#C6A46A]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                O que está incluso na entrega:
+              </h4>
+              <ul class="text-xs text-[var(--text-muted)] space-y-1.5 font-mono">
+                <li>&check; Barril higienizado e lacrado com chopp fresco</li>
+                <li>&check; Chopeira elétrica profissional (escolha 110V ou 220V)</li>
+                <li>&check; Cilindro de gás CO2 e regulador de pressão aferido</li>
+                <li>&check; Instalação no local e teste de vazão da chopeira</li>
+                <li>&check; Recolhimento programado após o término do evento</li>
+              </ul>
+            </div>
+
+            <!-- Preço Final e CTA de Compra Direta -->
+            <div class="pt-4 flex flex-col sm:flex-row items-center gap-4">
+              <div class="w-full sm:w-auto">
+                <span class="text-xs text-[var(--text-muted)] font-mono block">Valor Total:</span>
+                <span id="pdp-active-price" class="font-mono text-3xl font-black text-[#C6A46A]">R$ 510,00</span>
+              </div>
+              <a id="pdp-cta-btn" href="https://wa.me/5532999999999?text=Quero%20fazer%20o%20pedido%20do%20Barril%20Dronken%2030L" target="_blank" class="flex-1 w-full py-4 rounded-xl bg-gradient-to-r from-[#C6A46A] to-[#D88B36] text-black font-extrabold text-sm uppercase font-mono tracking-wider transition text-center shadow-xl shadow-[#C6A46A]/20">
+                Pedir Barril no WhatsApp &rarr;
+              </a>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT: CONTROLE 3D E INTERATIVIDADE   -->
+  <!-- ========================================== -->
+  <script>
+    // Estado do Carrossel 3D
+    let activeKegIndex = 1; // Dronken por padrão
+    const totalKegs = 4;
+    const kegData = [
+      { name: "Palato Beber", style: "Premium Lager Pilsen", price30: 490, price50: 640, img: "barril_chopp_30l_studio_1793304022404.jpg" },
+      { name: "Dronken", style: "Double Double Artesanal", price30: 510, price50: 650, img: "craft_beer_keg_hero_1793303975353.jpg" },
+      { name: "Villa Alemã", style: "Chopp Tradicional Suave", price30: 520, price50: 670, img: "barril_chopp_30l_studio_1793304022404.jpg" },
+      { name: "Heineken", style: "Puro Malte Importado (Apenas 50L)", price30: null, price50: 990, img: "craft_beer_keg_hero_1793303975353.jpg" }
+    ];
+
+    function updateCarouselClasses() {
+      for (let i = 0; i < totalKegs; i++) {
+        const el = document.getElementById('keg-' + i);
+        if (!el) continue;
+
+        el.classList.remove('keg-center', 'keg-left', 'keg-right', 'keg-hidden');
+
+        // Distância circular
+        let diff = (i - activeKegIndex + totalKegs) % totalKegs;
+        if (diff > totalKegs / 2) diff -= totalKegs;
+
+        if (diff === 0) {
+          el.classList.add('keg-center');
+        } else if (diff === -1 || (diff === totalKegs - 1)) {
+          el.classList.add('keg-left');
+        } else if (diff === 1) {
+          el.classList.add('keg-right');
+        } else {
+          el.classList.add('keg-hidden');
+        }
+      }
+
+      const activeKeg = kegData[activeKegIndex];
+      const indexEl = document.getElementById('active-keg-index');
+      const nameEl = document.getElementById('active-keg-name');
+      if (indexEl) indexEl.innerText = activeKegIndex + 1;
+      if (nameEl) nameEl.innerText = activeKeg.name;
+    }
+
+    function rotateCarouselTo(index) {
+      activeKegIndex = index;
+      updateCarouselClasses();
+    }
+
+    function prevKeg() {
+      activeKegIndex = (activeKegIndex - 1 + totalKegs) % totalKegs;
+      updateCarouselClasses();
+    }
+
+    function nextKeg() {
+      activeKegIndex = (activeKegIndex + 1) % totalKegs;
+      updateCarouselClasses();
+    }
+
+    // Navegação por Teclado
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') prevKeg();
+      if (e.key === 'ArrowRight') nextKeg();
+    });
+
+    // Alternar Conceito (Tabs)
+    function switchConcept(conceptId) {
+      document.querySelectorAll('.concept-view').forEach(view => {
+        view.classList.add('hidden');
+        view.classList.remove('block');
+      });
+      const target = document.getElementById('view-' + conceptId);
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('block');
+      }
+
+      document.querySelectorAll('.concept-tab').forEach(tab => {
+        tab.classList.remove('bg-[#253229]', 'text-[#C6A46A]', 'font-semibold');
+        tab.classList.add('text-[var(--text-muted)]');
+      });
+      const activeTab = document.getElementById('tab-' + conceptId);
+      if (activeTab) {
+        activeTab.classList.add('bg-[#253229]', 'text-[#C6A46A]', 'font-semibold');
+        activeTab.classList.remove('text-[var(--text-muted)]');
+      }
+    }
+
+    // Alternar Viewport Simulator
+    function setViewport(width) {
+      const frame = document.getElementById('viewport-container');
+      if (width === '100%') {
+        frame.style.width = '100%';
+        frame.style.maxWidth = '100%';
+      } else {
+        frame.style.width = width;
+        frame.style.maxWidth = width;
+      }
+
+      document.querySelectorAll('.vp-btn').forEach(btn => {
+        btn.classList.remove('bg-[#253229]', 'text-white');
+        btn.classList.add('text-[var(--text-muted)]');
+      });
+      const targetId = width === '100%' ? 'vp-full' : 'vp-' + width.replace('px', '');
+      const activeBtn = document.getElementById(targetId);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-[#253229]', 'text-white');
+        activeBtn.classList.remove('text-[var(--text-muted)]');
+      }
+    }
+
+    // Toggle Global Volume no Catálogo
+    function setGlobalVolume(vol) {
+      document.querySelectorAll('[data-price-30]').forEach(el => {
+        if (vol === '30') {
+          el.innerText = el.getAttribute('data-price-30');
+        } else {
+          el.innerText = el.getAttribute('data-price-50');
+        }
+      });
+
+      const btn30 = document.getElementById('btn-vol-30');
+      const btn50 = document.getElementById('btn-vol-50');
+      if (vol === '30') {
+        btn30.classList.add('bg-[#C6A46A]', 'text-black');
+        btn30.classList.remove('text-[var(--text-muted)]');
+        btn50.classList.remove('bg-[#C6A46A]', 'text-black');
+        btn50.classList.add('text-[var(--text-muted)]');
+      } else {
+        btn50.classList.add('bg-[#C6A46A]', 'text-black');
+        btn50.classList.remove('text-[var(--text-muted)]');
+        btn30.classList.remove('bg-[#C6A46A]', 'text-black');
+        btn30.classList.add('text-[var(--text-muted)]');
+      }
+    }
+
+    // PDP Interatividade
+    let currentPdpVol = '30';
+    function setPdpVolume(vol) {
+      currentPdpVol = vol;
+      const b30 = document.getElementById('pdp-vol-30');
+      const b50 = document.getElementById('pdp-vol-50');
+      const priceDisplay = document.getElementById('pdp-active-price');
+      const cta = document.getElementById('pdp-cta-btn');
+      const p30 = document.getElementById('pdp-price-30-val').innerText;
+      const p50 = document.getElementById('pdp-price-50-val').innerText;
+      const title = document.getElementById('pdp-keg-title').innerText;
+
+      if (vol === '30') {
+        b30.classList.add('border-2', 'border-[#C6A46A]', 'bg-[#19251D]');
+        b30.classList.remove('border-[#253229]', 'bg-[#141b16]');
+        b50.classList.remove('border-2', 'border-[#C6A46A]', 'bg-[#19251D]');
+        b50.classList.add('border-[#253229]', 'bg-[#141b16]');
+        priceDisplay.innerText = p30;
+      } else {
+        b50.classList.add('border-2', 'border-[#C6A46A]', 'bg-[#19251D]');
+        b50.classList.remove('border-[#253229]', 'bg-[#141b16]');
+        b30.classList.remove('border-2', 'border-[#C6A46A]', 'bg-[#19251D]');
+        b30.classList.add('border-[#253229]', 'bg-[#141b16]');
+        priceDisplay.innerText = p50;
+      }
+
+      cta.href = `https://wa.me/5532999999999?text=Quero%20fazer%20o%20pedido%20do%20Barril%20${encodeURIComponent(title)}%20${vol}L`;
+    }
+
+    function openPdpWithActiveKeg() {
+      const activeKeg = kegData[activeKegIndex];
+      document.getElementById('pdp-keg-title').innerText = activeKeg.name;
+      document.getElementById('pdp-keg-desc').innerText = `Chopp de estilo ${activeKeg.style}. Fornecido em barril de aço inox escovado estéril com chopeira regulada inclusa.`;
+      document.getElementById('pdp-keg-image').src = activeKeg.img;
+      
+      const p30 = activeKeg.price30 ? `R$ ${activeKeg.price30},00` : 'Indisponível';
+      const p50 = activeKeg.price50 ? `R$ ${activeKeg.price50},00` : 'Indisponível';
+      document.getElementById('pdp-price-30-val').innerText = p30;
+      document.getElementById('pdp-price-50-val').innerText = p50;
+
+      if (!activeKeg.price30) {
+        setPdpVolume('50');
+      } else {
+        setPdpVolume('30');
+      }
+
+      switchConcept('concept-pdp');
+    }
+
+    // Inicializar carrossel
+    updateCarouselClasses();
+  </script>
+</body>
+</html>
