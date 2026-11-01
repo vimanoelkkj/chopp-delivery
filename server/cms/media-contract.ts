@@ -1,5 +1,6 @@
-import type { CmsDocument } from '../../shared/cms'
-import { cmsMediaId } from './validation'
+import type { CmsAnyDocument } from '../../shared/cms'
+import { collectMediaRefs } from './media-refs'
+import { cmsMediaId } from './primitives'
 
 export type CmsMediaState =
   | 'quarantined'
@@ -34,17 +35,13 @@ export const MEDIA_PROFILES = {
   section: { width: 1200, height: 900 },
 } as const
 
-export function cmsMediaIds(document: CmsDocument): string[] {
-  const ids = new Set<string>()
-  for (const m of document.modules) {
-    if ('media' in m.content && m.content.media) ids.add(m.content.media.id)
-  }
-  return [...ids].sort()
+export function cmsMediaIds(document: CmsAnyDocument): string[] {
+  return collectMediaRefs(document)
 }
 
 /** Integrity precondition only. SQL must repeat it atomically with publication/ref insertion. */
 export function publicationMediaErrors(
-  document: CmsDocument,
+  document: CmsAnyDocument,
   inventory: ReadonlyMap<string, CmsMediaRecord>,
 ): string[] {
   return cmsMediaIds(document).filter((id) => {
