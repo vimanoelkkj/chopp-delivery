@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { test as base, expect, type Locator, type Page } from '@playwright/test'
 import { childEnv, SENSITIVE_NAME } from '../../scripts/clean-env.mts'
 import { integrationPort } from '../../scripts/integration-port.mts'
+import { cmsDocument } from '../backend/cms-document-fixture'
 
 type Ready = {
   origin: string
@@ -95,8 +96,8 @@ test.describe('L0A.1: release seguro', () => {
     await expect(page.getByText(/catálogo é fictício/)).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Dronken', exact: true })).toHaveCount(0)
     expect((await page.request.get(path)).status()).toBe(401)
-    // Stage 1 must not incorporate the CMS backend.
-    expect((await page.request.get('/api/admin/site')).status()).toBe(404)
+    // Stage 2 CMS reads require the same real administrative session.
+    expect((await page.request.get('/api/admin/site')).status()).toBe(401)
   })
 
   test('falha na verificação de sessão permanece erro, sem login ou catálogo fictício', async ({
@@ -564,12 +565,12 @@ test.describe('Etapa 1: painel real preserva o Conceito C', () => {
         expect(await shop.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
         )
-        expect((await shop.request.get('/api/admin/site')).status()).toBe(404)
+        expect((await shop.request.get('/api/admin/site')).status()).toBe(401)
         expect((await shop.request.get('/api/admin/media')).status()).toBe(404)
         expect(
           row<{ n: number }>(
             integration,
-            "SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name LIKE 'cms_%'",
+            "SELECT count(*) n FROM sqlite_schema WHERE type='table' AND name IN ('cms_media_jobs','cms_media_events')",
           ).n,
         ).toBe(0)
       } finally {
@@ -637,5 +638,128 @@ test('rejeição antecipada mantém 401/403; contexto independente verifica 405 
     expect((await csrf.json()).error.code).toBe('INVALID_ORIGIN')
   } finally {
     await isolated.dispose()
+  }
+})
+
+test('F4A.1: rascunho autenticado, resposta perdida, replay, CSRF e catálogo isolado', async ({
+  page,
+  integration,
+  browser,
+}) => {
+  expect((await page.request.get('/api/admin/site')).status()).toBe(401)
+  await login(page, integration)
+  const before = await (await page.request.get('/api/catalog')).json()
+  const initialResponse = await page.request.get('/api/admin/site')
+  expect(initialResponse.status()).toBe(200)
+  const initial = await initialResponse.json()
+  expect(initial.draft.document).toBeNull()
+  expect(initial.published).toBeNull()
+  const input = {
+    action: 'saveDraft',
+    expectedRevision: initial.draft.revision,
+    operationId: crypto.randomUUID(),
+    document: cmsDocument(),
+  }
+  Object.assign(input.document.modules[0].content, { heading: 'Rascunho privado Etapa 2' })
+  await page.route('**/api/admin/site/draft', async (route) => {
+    const response = await route.fetch()
+    expect(response.status()).toBe(200)
+    await route.abort('failed')
+  })
+  const lost = await page.evaluate(async (command) => {
+    try {
+      await fetch('/api/admin/site/draft', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'If-Match': `"${command.expectedRevision}"`,
+        },
+        body: JSON.stringify(command),
+      })
+      return false
+    } catch {
+      return true
+    }
+  }, input)
+  expect(lost).toBe(true)
+  const recoveredResponse = await page.request.get(`/api/admin/site/commands/${input.operationId}`)
+  expect(recoveredResponse.status()).toBe(200)
+  expect(recoveredResponse.headers()['cache-control']).toBe('no-store')
+  const recovered = await recoveredResponse.json()
+  expect(recovered.site.draft.document).toEqual(input.document)
+  const headers = { Origin: integration.origin, 'If-Match': `"${input.expectedRevision}"` }
+  const replay = await page.request.put('/api/admin/site/draft', { headers, data: input })
+  expect(replay.status()).toBe(200)
+  expect(await replay.json()).toEqual(recovered)
+  const conflicting = { ...input, operationId: crypto.randomUUID() }
+  expect(
+    (await page.request.put('/api/admin/site/draft', { headers, data: conflicting })).status(),
+  ).toBe(409)
+  expect(
+    (
+      await page.request.put('/api/admin/site/draft', {
+        headers: { ...headers, Origin: 'https://evil.invalid' },
+        data: input,
+      })
+    ).status(),
+  ).toBe(403)
+  const stranger = await browser.newContext()
+  try {
+    expect(
+      (
+        await stranger.request.get(
+          `${integration.origin}/api/admin/site/commands/${input.operationId}`,
+        )
+      ).status(),
+    ).toBe(401)
+  } finally {
+    await stranger.close()
+  }
+  expect(row<{ n: number }>(integration, 'SELECT COUNT(*) AS n FROM cms_versions').n).toBe(1)
+  expect(row<{ n: number }>(integration, 'SELECT COUNT(*) AS n FROM cms_media_refs').n).toBe(0)
+  expect(row(integration, 'SELECT published_version_id,published_revision FROM cms_state')).toEqual(
+    { published_version_id: null, published_revision: null },
+  )
+  expect(await (await page.request.get('/api/catalog')).json()).toEqual(before)
+  // Exercise unavailable routes through the real browser transport; see local diagnostic evidence.
+  const unavailable = await page.evaluate(async (command) => {
+    const headers = {
+      'Content-Type': 'application/json',
+      'If-Match': `"${command.expectedRevision}"`,
+    }
+    const publish = await fetch('/api/admin/site/publish', {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(command),
+    })
+    await publish.text()
+    const media = await fetch('/api/admin/site/media', { method: 'POST', headers, body: '{}' })
+    await media.text()
+    return { publish: publish.status, media: media.status }
+  }, input)
+  expect(unavailable.publish).toBe(404)
+  expect(unavailable.media).toBe(404)
+  const publicContext = await browser.newContext({ baseURL: integration.origin })
+  try {
+    for (const endpoint of ['/api/site', '/api/cms', '/api/admin/site/publish', '/api/admin/media'])
+      expect((await publicContext.request.get(endpoint)).status()).toBe(404)
+    expect((await publicContext.request.get('/api/admin/site')).status()).toBe(401)
+    expect(
+      (await publicContext.request.get(`/api/admin/site/commands/${input.operationId}`)).status(),
+    ).toBe(401)
+    const shop = await publicContext.newPage()
+    const cmsRequests: string[] = []
+    shop.on('request', (request) => {
+      if (/\/api\/(?:admin\/site|site|cms)(?:[/?]|$)/.test(request.url()))
+        cmsRequests.push(request.url())
+    })
+    await shop.goto('/')
+    await expect(shop.getByRole('heading', { level: 1 })).toContainText('O melhor do chopp.')
+    await expect(shop.getByText('Rascunho privado Etapa 2', { exact: true })).toHaveCount(0)
+    await expect(shop.locator('tbody tr')).toHaveCount(8)
+    expect(cmsRequests).toEqual([])
+    expect(await (await shop.request.get('/api/catalog')).json()).toEqual(before)
+  } finally {
+    await publicContext.close()
   }
 })

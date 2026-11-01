@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('rotas administrativas reais exigem autenticação e preservam a API pública', async ({
   request,
+  playwright,
 }) => {
   for (const resource of ['products', 'cachacas']) {
     const response = await request.get(`/api/admin/${resource}`)
@@ -10,12 +11,20 @@ test('rotas administrativas reais exigem autenticação e preservam a API públi
     expect(['UNAUTHENTICATED', 'AUTH_UNAVAILABLE']).toContain((await response.json()).error.code)
     expect(response.headers()['cache-control']).toBe('no-store')
     expect(response.headers()['access-control-allow-origin']).toBeUndefined()
-    const patch = await request.patch(
-      `/api/admin/${resource}/${resource === 'products' ? 'dronken' : 'cachaca'}`,
-      { data: { visible: false }, headers: { Origin: new URL(response.url()).origin } },
-    )
-    expect([401, 503]).toContain(patch.status())
-    expect(['UNAUTHENTICATED', 'AUTH_UNAVAILABLE']).toContain((await patch.json()).error.code)
+    // Early rejection with an unread body can reset the emulated Pages connection.
+    // Isolate this mutation; preserve subsequent read assertions without transport retries.
+    const origin = new URL(response.url()).origin
+    const mutationContext = await playwright.request.newContext({ baseURL: origin })
+    try {
+      const patch = await mutationContext.patch(
+        `/api/admin/${resource}/${resource === 'products' ? 'dronken' : 'cachaca'}`,
+        { data: { visible: false }, headers: { Origin: origin }, maxRetries: 0 },
+      )
+      expect([401, 503]).toContain(patch.status())
+      expect(['UNAUTHENTICATED', 'AUTH_UNAVAILABLE']).toContain((await patch.json()).error.code)
+    } finally {
+      await mutationContext.dispose()
+    }
   }
   const catalog = await request.get('/api/products')
   expect(catalog.status()).toBe(200)
