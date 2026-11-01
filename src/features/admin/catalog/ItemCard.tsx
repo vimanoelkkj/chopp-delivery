@@ -28,6 +28,7 @@ type ItemCardProps = {
   onVisible: (visible: boolean) => void
   onMove: (direction: -1 | 1) => void
   /** Só para item ainda não salvo. */
+  identityLocked?: boolean
   onCancel: () => void
 }
 
@@ -53,6 +54,7 @@ export function ItemCard({
   onVisible,
   onMove,
   onCancel,
+  identityLocked = false,
 }: ItemCardProps) {
   const isNew = item.id === null
   const unit = volumeUnit(item.categoryId)
@@ -101,6 +103,7 @@ export function ItemCard({
               {fresh ? (
                 <>
                   <TextField
+                    disabled={identityLocked}
                     label="Rótulo"
                     placeholder="Ex.: Barril de 20 L"
                     value={variant.label}
@@ -110,6 +113,7 @@ export function ItemCard({
                     onBlur={() => onTouch(`label:${variant.key}`)}
                   />
                   <TextField
+                    disabled={identityLocked}
                     label={`Volume (${unit})`}
                     inputMode={unit === 'L' ? 'decimal' : 'numeric'}
                     placeholder={unit === 'L' ? '20' : '700'}
@@ -148,6 +152,7 @@ export function ItemCard({
                   type="button"
                   className={styles.remove}
                   aria-label={`Remover ${name}`}
+                  disabled={identityLocked}
                   onClick={() => onRemoveVariant(variant.key)}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -159,7 +164,12 @@ export function ItemCard({
           )
         })}
         {errors.variants ? <p className={styles.error}>{errors.variants}</p> : null}
-        <AdminButton variant="outline" className={styles.add} onClick={onAddVariant}>
+        <AdminButton
+          variant="outline"
+          className={styles.add}
+          disabled={identityLocked}
+          onClick={onAddVariant}
+        >
           Adicionar variante
         </AdminButton>
       </fieldset>
@@ -206,7 +216,12 @@ export function ItemCard({
       </div>
       {errors.row ? <p className={styles.error}>{errors.row}</p> : null}
       {isNew ? (
-        <AdminButton variant="outline" className={styles.cancel} onClick={onCancel}>
+        <AdminButton
+          variant="outline"
+          className={styles.cancel}
+          disabled={identityLocked}
+          onClick={onCancel}
+        >
           Cancelar cadastro
         </AdminButton>
       ) : null}

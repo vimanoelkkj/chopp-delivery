@@ -3,25 +3,35 @@ import type { PublicCatalog } from '../shared/catalog'
 
 test('rota administrativa v2 real falha fechada e preserva revisão pública', async ({
   request,
+  playwright,
 }) => {
-  const before = await (await request.get('/api/catalog')).json()
+  const catalogResponse = await request.get('/api/catalog')
+  const origin = new URL(catalogResponse.url()).origin
+  const before = await catalogResponse.json()
   for (const method of ['GET', 'PUT']) {
     const response = await request.fetch('/api/admin/catalog/v2', {
       method,
       ...(method === 'PUT'
         ? {
             data: { revision: before.revision, categories: [] },
-            headers: { 'If-Match': `"${before.revision}"` },
+            headers: { Origin: origin, 'If-Match': `"${before.revision}"` },
           }
         : {}),
     })
     expect([401, 503]).toContain(response.status())
     expect(['UNAUTHENTICATED', 'AUTH_UNAVAILABLE']).toContain((await response.json()).error.code)
   }
-  const invalidMethod = await request.post('/api/admin/catalog/v2')
-  expect(invalidMethod.status()).toBe(405)
-  expect(invalidMethod.headers().allow).toBe('GET, PUT')
-  expect(await (await request.get('/api/catalog')).json()).toEqual(before)
+  // An early 401 with an unread body may close the emulated Pages connection.
+  // Method dispatch is independent of that connection; do not retry a reset.
+  const methodContext = await playwright.request.newContext({ baseURL: origin })
+  try {
+    const invalidMethod = await methodContext.post('/api/admin/catalog/v2', { maxRetries: 0 })
+    expect(invalidMethod.status()).toBe(405)
+    expect(invalidMethod.headers().allow).toBe('GET, PUT')
+    expect(await (await methodContext.get('/api/catalog')).json()).toEqual(before)
+  } finally {
+    await methodContext.dispose()
+  }
 })
 
 for (const width of [1280, 390])

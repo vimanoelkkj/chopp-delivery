@@ -101,6 +101,32 @@ const withVariant = (item: DraftItem, key: string, change: (v: DraftVariant) => 
 })
 
 export function reducer(state: State, action: Action): State {
+  // A pending request must see a stable draft. UI controls are disabled as well.
+  if (
+    state.saving &&
+    [
+      'item-field',
+      'variant-field',
+      'visible',
+      'move',
+      'add-item',
+      'cancel-item',
+      'add-variant',
+      'remove-variant',
+      'discard',
+      'blur-price',
+    ].includes(action.type)
+  )
+    return state
+  // These identities may already exist in D1. Reconcile before changing their structure.
+  if (
+    state.uncertain &&
+    (['discard', 'cancel-item', 'remove-variant', 'add-item', 'add-variant'].includes(
+      action.type,
+    ) ||
+      (action.type === 'variant-field' && action.field !== 'priceText'))
+  )
+    return state
   const { draft } = state
   switch (action.type) {
     case 'loading':
@@ -383,12 +409,13 @@ export function useCatalogEditor(
       dispatch({ type: 'conflict-open' })
       return true
     }
+    // Confirmation is read-only and must remain possible even if later edits are invalid.
+    if (uncertain && !(await reconcile(uncertain))) return true
     if (Object.keys(validate(draft)).length) {
       dispatch({ type: 'attempt' })
       notify('error', 'Corrija os campos destacados para salvar.')
       return false
     }
-    if (uncertain && !(await reconcile(uncertain))) return true
     dispatch({ type: 'saving' })
     const outcome = await performSave(gateway, load.saved, draft)
     switch (outcome.kind) {

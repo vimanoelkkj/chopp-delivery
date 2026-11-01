@@ -129,29 +129,63 @@ test.describe('Motion System F1 - Correções Pós-Revisão Cruzada', () => {
     expect(overflow).toBe(0)
   })
 
-  // Validação real do Hero sem marca-d'água / logotipo no fundo
-  test('[Hero] validação real: zero imagens e zero referências a logo no background', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/')
-    await page.evaluate(() => document.fonts.ready)
-
-    const hero = page.locator('section[class*="hero"]').first()
-    await expect(hero).toBeVisible()
-
-    // 1. Condição real no DOM: zero tags <img> dentro do Hero
-    const imgCount = await hero.locator('img').count()
-    expect(imgCount).toBe(0)
-
-    // 2. Condição real de estilo: background não deve conter URLs de imagem ou 'logo'
-    const bgImage = await hero.evaluate((el) => getComputedStyle(el).backgroundImage)
-    expect(bgImage.toLowerCase()).not.toContain('logo')
-    expect(bgImage.toLowerCase()).not.toContain('.png')
-    expect(bgImage.toLowerCase()).not.toContain('.jpg')
-    expect(bgImage.toLowerCase()).not.toContain('.webp')
-
-    // 3. Título permanece visível e com tipografia íntegra
-    await expect(page.locator('#hero-title')).toContainText('Chope')
+  // Original: zero imagens no Hero anterior. C tem barril legítimo; proteger estabilidade e acessibilidade.
+  test('[Hero C] imagem estável e navegação acessível com movimento reduzido', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/')
+      await expect(page.locator('tbody tr')).toHaveCount(8)
+      await page.evaluate(() => document.fonts.ready)
+      const hero = page.getByRole('region', { name: /O melhor do chopp/i })
+      const heading = hero.getByRole('heading', { level: 1 })
+      const image = hero.getByRole('img', { name: /Barril de Chopp/i })
+      await expect(heading).toBeVisible()
+      await expect(image).toHaveJSProperty('complete', true)
+      expect(await image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+      expect(await hero.evaluate((el) => getComputedStyle(el).backgroundImage)).not.toMatch(/logo/i)
+      const geometry = () =>
+        hero.evaluate((el) =>
+          [...el.querySelectorAll('h1, a, button, img')].map((node) => {
+            const r = node.getBoundingClientRect()
+            return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height }
+          }),
+        )
+      await image.scrollIntoViewIfNeeded()
+      const before = await geometry()
+      await image.hover()
+      const motion = await image.evaluate((el) => ({
+        durations: getComputedStyle(el).transitionDuration.split(',').map(Number.parseFloat),
+        transform: getComputedStyle(el).transform,
+      }))
+      expect(motion.durations, 'hover sem transição não essencial em reduced-motion').toEqual(
+        motion.durations.map(() => 0),
+      )
+      expect(motion.transform).toBe('none')
+      expect(
+        await hero.evaluate(
+          (el) =>
+            el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running').length,
+        ),
+      ).toBe(0)
+      const after = await geometry()
+      for (let i = 0; i < before.length; i++)
+        for (const key of ['x', 'y', 'width', 'height'] as const)
+          expect(Math.abs(after[i][key] - before[i][key])).toBeLessThanOrEqual(1)
+      const explore = hero.getByRole('link', { name: 'Explorar Barris 3D' })
+      await explore.focus()
+      await page.keyboard.press('Tab')
+      await page.keyboard.press('Shift+Tab')
+      await expect(explore).toBeFocused()
+      expect(await explore.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe('none')
+      expect(
+        await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior),
+      ).toBe('auto')
+      await explore.press('Enter')
+      await expect(page).toHaveURL(/#barris$/)
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Escolha seu Barril em 3D' }),
+      ).toBeInViewport()
+    }
   })
 })

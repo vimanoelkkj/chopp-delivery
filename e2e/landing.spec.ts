@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
+import type { PublicCatalog } from '../shared/catalog'
 
 // As verificações visuais precisam medir o catálogo real, depois da leitura D1.
 async function openLanding(page: Page) {
@@ -96,50 +97,134 @@ test('sem número configurado, o WhatsApp avisa em vez de fingir que abre', asyn
   ).toHaveCount(1)
 })
 
-test('título do Hero: quebra fixa em quatro linhas no desktop', async ({ page }) => {
-  for (const width of [1440, 820]) {
+// Original: quatro linhas e nós de texto "Chope / gelado / na / porta".
+// C usa headline fluida: verificar semântica e geometria, sem contar linhas.
+async function assertHeroGeometry(hero: Locator) {
+  const issues = await hero.evaluate((section) => {
+    const heading = section.querySelector('h1')
+    const controls = [...section.querySelectorAll('a, button')]
+    const image = section.querySelector('img')
+    if (!heading || !image) throw new Error('Hero sem heading ou imagem')
+    const clipped: string[] = []
+    const check = (rect: DOMRect, element: Element, label: string) => {
+      let left = 0,
+        right = innerWidth,
+        top = -Infinity,
+        bottom = Infinity
+      for (let parent: Element | null = element; parent; parent = parent.parentElement) {
+        const style = getComputedStyle(parent),
+          bounds = parent.getBoundingClientRect()
+        if (style.overflowX !== 'visible') {
+          left = Math.max(left, bounds.left)
+          right = Math.min(right, bounds.right)
+        }
+        if (style.overflowY !== 'visible') {
+          top = Math.max(top, bounds.top)
+          bottom = Math.min(bottom, bounds.bottom)
+        }
+      }
+      if (
+        rect.left < left - 1 ||
+        rect.right > right + 1 ||
+        rect.top < top - 1 ||
+        rect.bottom > bottom + 1
+      )
+        clipped.push(label)
+    }
+    for (const element of [heading, image, ...controls]) {
+      check(element.getBoundingClientRect(), element.parentElement ?? section, element.tagName)
+      if (element === image) continue
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+      while (walker.nextNode()) {
+        if (!walker.currentNode.textContent?.trim()) continue
+        const range = document.createRange()
+        range.selectNodeContents(walker.currentNode)
+        for (const rect of range.getClientRects())
+          check(rect, walker.currentNode.parentElement ?? element, walker.currentNode.textContent)
+      }
+    }
+    const overlaps: string[] = []
+    const targets = [heading, ...controls, image]
+    for (let i = 0; i < targets.length; i++)
+      for (let j = i + 1; j < targets.length; j++) {
+        const a = targets[i].getBoundingClientRect(),
+          b = targets[j].getBoundingClientRect()
+        if (
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+        )
+          overlaps.push(`${targets[i].tagName}/${targets[j].tagName}`)
+      }
+    return { clipped, overlaps }
+  })
+  expect(issues.clipped, 'texto, controles e imagem inteiros nos ancestrais que recortam').toEqual(
+    [],
+  )
+  expect(issues.overlaps, 'headline, CTAs e imagem não se sobrepõem').toEqual([])
+}
+
+async function assertCommercialHero(page: Page, hero: Locator) {
+  await expect(
+    hero.getByRole('heading', { level: 1, name: /O melhor do chopp.*Direto para o seu evento/i }),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
+  const image = hero.getByRole('img', { name: /Barril de Chopp/i })
+  await expect(image).toBeVisible()
+  await expect(image).toHaveJSProperty('complete', true)
+  expect(await image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(await image.evaluate((img: HTMLImageElement) => img.naturalHeight)).toBeGreaterThan(0)
+  await expect(hero.getByRole('link', { name: 'Explorar Barris 3D' })).toHaveAttribute(
+    'href',
+    '#barris',
+  )
+  await expect(hero.getByRole('link', { name: 'Ver Tabela & Preços' })).toHaveAttribute(
+    'href',
+    '#chopes',
+  )
+  await expect(hero.getByRole('button', { name: 'Pedir no WhatsApp', exact: true })).toBeVisible()
+  await expect(hero.getByText('30L & 50L', { exact: true })).toBeVisible()
+  await expect(hero.getByText('100% Instalação', { exact: true })).toBeVisible()
+  const catalog = (await (await page.request.get('/api/catalog')).json()) as PublicCatalog
+  const category = catalog.categories.find((c) => c.id === 'chopes')
+  if (!category) throw new Error('Categoria comercial ausente')
+  const variants = category.items.flatMap((item) => item.variants)
+  const priced = (volume: number) =>
+    variants.flatMap((v) => (v.volumeMl === volume && v.priceCents !== null ? [v.priceCents] : []))
+  const prices = priced(50000).length ? priced(50000) : priced(30000)
+  const expected = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    Math.min(...prices) / 100,
+  )
+  await expect(hero.getByText(`A partir de ${expected}`, { exact: true })).toBeVisible()
+}
+
+test('Hero C: hierarquia, conteúdo comercial e geometria responsiva', async ({ page }) => {
+  for (const width of [768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
-    const title = page.locator('#hero-title')
-    const lines = await title.evaluate((h1) => {
-      // Cada trecho de texto do título é medido; as linhas são as posições verticais distintas.
-      const walker = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT)
-      const words: string[] = []
-      const tops: Record<string, number> = {}
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const word = (node.textContent ?? '').trim().toLowerCase()
-        if (!word) continue
-        const range = document.createRange()
-        range.selectNodeContents(node)
-        words.push(word)
-        tops[word] = Math.round(range.getClientRects()[0].top)
-      }
-      return { words, tops }
-    })
-    expect(lines.words).toEqual(['chope', 'gelado', 'na', 'porta.'])
-    const t = lines.tops
-    expect(t.chope).toBeLessThan(t.gelado)
-    expect(t.gelado).toBeLessThan(t.na)
-    expect(t.na).toBeLessThan(t['porta.'])
-    // O título cabe na coluna: a palavra mais larga não sai do contêiner.
-    const fits = await title.evaluate((h1) => h1.scrollWidth <= h1.clientWidth)
-    expect(fits).toBe(true)
+    const hero = page.getByRole('region', { name: /O melhor do chopp/i })
+    await assertCommercialHero(page, hero)
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Escolha seu Barril em 3D' }),
+    ).toHaveCount(1)
+    await assertHeroGeometry(hero)
   }
 })
 
-test('título do Hero: "na porta." fica na mesma linha no celular', async ({ page }) => {
-  for (const width of [412, 390]) {
+// Original: "na porta." na mesma linha. C permite wrap; a proteção é conteúdo legível e acionável.
+test('Hero C: mobile mantém imagem, CTAs e headline sem cortes', async ({ page }) => {
+  for (const width of [360, 390, 412]) {
     await page.setViewportSize({ width, height: 844 })
     await openLanding(page)
     await page.evaluate(() => document.fonts.ready)
-    const [na, porta] = await page.locator('#hero-title span').evaluateAll((spans) => {
-      const span = spans[0]
-      const range = document.createRange()
-      range.selectNodeContents(span)
-      return [...range.getClientRects()].map((r) => Math.round(r.top))
-    })
-    expect(na).toBe(porta ?? na)
+    const hero = page.getByRole('region', { name: /O melhor do chopp/i })
+    await assertCommercialHero(page, hero)
+    await assertHeroGeometry(hero)
+    await hero.getByRole('link', { name: 'Explorar Barris 3D' }).click()
+    await expect(page).toHaveURL(/#barris$/)
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Escolha seu Barril em 3D' }),
+    ).toBeInViewport()
   }
 })
 

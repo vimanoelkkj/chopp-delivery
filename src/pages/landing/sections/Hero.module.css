@@ -200,3 +200,13 @@
     padding-block: 4.5rem 5.5rem;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .kegImg {
+    transition: none;
+  }
+
+  .heroVisual:hover .kegImg {
+    transform: none;
+  }
+}
