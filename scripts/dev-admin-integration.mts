@@ -9,6 +9,7 @@ import { build } from 'vite'
 import { bootstrapOwner } from '../server/auth/bootstrap.ts'
 import { childEnv, sanitizeProcessEnv } from './clean-env.mts'
 import { integrationPort } from './integration-port.mts'
+import { localImageWorker } from './local-image-worker.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const wrangler = join(root, 'node_modules/wrangler/bin/wrangler.js')
@@ -34,7 +35,9 @@ export async function startIntegration({
   port = 4185,
   password = randomBytes(24).toString('hex'),
   mode = 'admin-integration',
+  media = false,
 }: {
+  media?: boolean
   port?: number
   password?: string
   mode?: 'admin-integration' | 'production' | 'release'
@@ -119,17 +122,22 @@ export async function startIntegration({
       '--persist-to',
       persist,
     ])
-    runtime = new Miniflare({
-      host: '127.0.0.1',
-      port,
+    const pages = {
+      name: 'pages-local',
       modules: true,
       modulesRoot: worker,
       scriptPath: join(worker, 'index.js'),
       compatibilityDate: '2026-08-06',
       compatibilityFlags: ['nodejs_compat'],
       d1Databases: { DELEGAS_DB: databaseId },
-      d1Persist: join(persist, 'v3', 'd1'),
+      ...(media
+        ? {
+            r2Buckets: { CMS_MEDIA_BUCKET: randomUUID() },
+            serviceBindings: { CMS_MEDIA_PROCESSOR: 'private-media-local' },
+          }
+        : {}),
       bindings: {
+        ...(media ? { CMS_MEDIA_LOCAL: 'disposable-v1' } : {}),
         ADMIN_ORIGIN: origin,
         ADMIN_PASSWORD_PEPPER: pepper,
         ADMIN_ALLOW_INSECURE_LOCAL: '1',
@@ -140,6 +148,26 @@ export async function startIntegration({
         routerConfig: { invoke_user_worker_ahead_of_assets: true, has_user_worker: true },
         assetConfig: { not_found_handling: 'single-page-application' },
       },
+    }
+    runtime = new Miniflare({
+      host: '127.0.0.1',
+      port,
+      r2Persist: false,
+      d1Persist: join(persist, 'v3', 'd1'),
+      workers: [
+        pages,
+        ...(media
+          ? [
+              {
+                name: 'private-media-local',
+                modules: true,
+                compatibilityDate: '2026-08-06',
+                images: { binding: 'IMAGES' },
+                script: localImageWorker,
+              },
+            ]
+          : []),
+      ],
     })
     try {
       await runtime.ready
@@ -159,7 +187,7 @@ export async function startIntegration({
 
 async function main() {
   // Tudo que este processo criar (Wrangler, Miniflare/workerd, build) nasce sem credenciais herdadas.
-  sanitizeProcessEnv(['DELEGAS_INTEGRATION_PORT', 'VITE_WHATSAPP_NUMBER'])
+  sanitizeProcessEnv(['DELEGAS_INTEGRATION_PORT', 'VITE_WHATSAPP_NUMBER', 'DELEGAS_MEDIA_LAB'])
   // Signals wait for finite build/migration commands, then dispose the one owned runtime.
   let stopping = false
   let instance: Awaited<ReturnType<typeof startIntegration>> | undefined
@@ -172,6 +200,7 @@ async function main() {
   try {
     instance = await startIntegration({
       port: integrationPort(),
+      media: process.env.DELEGAS_MEDIA_LAB === '1',
     })
     if (stopping) {
       await instance.close()

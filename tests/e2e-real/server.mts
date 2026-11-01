@@ -3,7 +3,12 @@ import { startIntegration } from '../../scripts/dev-admin-integration.mts'
 import { integrationPort } from '../../scripts/integration-port.mts'
 
 // Antes de qualquer outra coisa: filhos (Wrangler, Miniflare, workerd) herdam só o necessário.
-sanitizeProcessEnv(['DELEGAS_INTEGRATION_MODE', 'DELEGAS_INTEGRATION_PORT', 'VITE_WHATSAPP_NUMBER'])
+sanitizeProcessEnv([
+  'DELEGAS_INTEGRATION_MODE',
+  'DELEGAS_INTEGRATION_PORT',
+  'VITE_WHATSAPP_NUMBER',
+  'DELEGAS_MEDIA_LAB',
+])
 
 // A plain Node child avoids inheriting Playwright's loader into Miniflare's RPC threads.
 let stopping = false
@@ -13,6 +18,7 @@ if (mode !== 'admin-integration' && mode !== 'production' && mode !== 'release')
 const pending = startIntegration({
   port: integrationPort(),
   mode,
+  media: process.env.DELEGAS_MEDIA_LAB === '1',
 })
 async function stop() {
   if (stopping) return
