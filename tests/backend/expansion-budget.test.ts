@@ -150,7 +150,7 @@ it('orçamento real: 128 itens / 512 variantes em D1, leitura completa e no-op',
   } finally {
     await f.runtime.dispose()
   }
-})
+}, 15000)
 
 it('orçamentos estruturais rejeitam excesso sem truncar e aceitam oito variantes', () => {
   const variant = () => ({

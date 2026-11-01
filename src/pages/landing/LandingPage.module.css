@@ -1,6 +1,9 @@
 /* Reserva o espaço da barra fixa de WhatsApp no celular. */
 .page {
+  --color-gold: var(--color-gold-soft);
+  --color-gold-hover: var(--color-amber);
   padding-bottom: 5rem;
+  overflow-x: clip;
 }
 
 @media (min-width: 48rem) {

@@ -7,6 +7,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   background: var(--color-black);
+  overflow-x: clip;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -22,7 +23,7 @@ body {
   font-family: var(--font-body);
   font-size: 1rem;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1,

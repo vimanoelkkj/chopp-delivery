@@ -19,41 +19,50 @@ export function SiteHeader() {
   }, [menuOpen])
 
   return (
-    <header className={styles.header}>
-      <a className={styles.skip} href="#conteudo">
-        Ir para o conteúdo
-      </a>
-      <Container className={styles.bar}>
-        <a href="#topo" className={styles.logo} aria-label="Chopp Delivery Delegas, início">
-          <img src={logo} width="112" height="144" alt="" />
+    <>
+      <aside className={styles.deliveryPill} aria-label="Aviso de entrega">
+        <span className={styles.pillDot} aria-hidden="true" />
+        <span>
+          Operação Exclusiva por Delivery • Entrega e Instalação em São João del-Rei e Região • Sem
+          Retirada
+        </span>
+      </aside>
+      <header className={styles.header}>
+        <a className={styles.skip} href="#conteudo">
+          Ir para o conteúdo
         </a>
+        <Container className={styles.bar}>
+          <a href="#topo" className={styles.logo} aria-label="Chopp Delivery Delegas, início">
+            <img src={logo} width="112" height="144" alt="" />
+          </a>
 
-        <nav className={styles.nav} aria-label="Principal">
-          <button
-            type="button"
-            className={styles.toggle}
-            aria-expanded={menuOpen}
-            aria-controls={menuId}
-            aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <span className={styles.bars} aria-hidden="true" />
-          </button>
-          <ul id={menuId} className={styles.links} data-open={menuOpen}>
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <a href={link.href} className={styles.link} onClick={() => setMenuOpen(false)}>
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <nav className={styles.nav} aria-label="Principal">
+            <button
+              type="button"
+              className={styles.toggle}
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+              aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <span className={styles.bars} aria-hidden="true" />
+            </button>
+            <ul id={menuId} className={styles.links} data-open={menuOpen}>
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <a href={link.href} className={styles.link} onClick={() => setMenuOpen(false)}>
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-        <div className={styles.cta}>
-          <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>
-        </div>
-      </Container>
-    </header>
+          <div className={styles.cta}>
+            <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>
+          </div>
+        </Container>
+      </header>
+    </>
   )
 }

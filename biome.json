@@ -3,7 +3,14 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!ref", "!dist", "!shots", "!worker-configuration.d.ts"]
+    "includes": [
+      "**",
+      "!ref",
+      "!dist",
+      "!shots",
+      "!docs/design/*.html",
+      "!worker-configuration.d.ts"
+    ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": { "enabled": true, "rules": { "preset": "recommended" } },

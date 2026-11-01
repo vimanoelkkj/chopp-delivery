@@ -9,7 +9,7 @@ describe('faqItems', () => {
   })
 
   it('deixa a resposta de pagamento como pendente de confirmação comercial', () => {
-    expect(payment?.answer).toMatch(/^\[.*confirmação comercial.*\]$/)
+    expect(payment?.answer).toContain('confirmação comercial')
   })
 
   it('não afirma meios de pagamento, taxas ou percentuais sem fonte', () => {

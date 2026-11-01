@@ -1,75 +1,71 @@
-import { joinNames, lowestPrice, onlyLargeBarrel } from '@/features/catalog/pricing'
-import type { BarrelSize, Product } from '@/features/catalog/types'
+import { BarrelCarousel3D } from '@/features/catalog/BarrelCarousel3D'
 import type { CatalogState } from '@/features/catalog/useCatalog'
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
-import { formatBRL } from '@/shared/lib/format'
 import { Container } from '@/shared/ui/Container'
-import { DesktopBreak } from '@/shared/ui/DesktopBreak'
-import { PhotoPlaceholder } from '@/shared/ui/PhotoPlaceholder'
-import { SectionHeading } from '@/shared/ui/SectionHeading'
 import styles from './BarrelsSection.module.css'
 
-const usage: Record<BarrelSize, string> = {
-  30: 'Para reuniões e churrascos menores.',
-  50: 'Para festas e eventos.',
-}
-
-function startingAt(products: Product[], size: BarrelSize): string {
-  const price = lowestPrice(products, size)
-  return price === null ? '' : ` A partir de ${formatBRL(price)}.`
-}
-
 export function BarrelsSection({ state }: { state: CatalogState }) {
-  const products = state.status === 'ready' ? state.catalog.products : []
-  const largeOnly = onlyLargeBarrel(products)
-    .filter(
-      (product) =>
-        state.status === 'ready' &&
-        state.catalog.expanded.categories
-          .find((c) => c.id === 'chopes')
-          ?.items.find((i) => i.id === product.id)
-          ?.variants.every((v) => v.priceCents === null || v.volumeMl === 50000),
-    )
-    .map((product) => product.name)
+  const chopes =
+    state.status === 'ready'
+      ? (state.catalog.expanded.categories.find((c) => c.id === 'chopes')?.items ?? [])
+      : []
 
   return (
     <section id="barris" className={styles.section} aria-labelledby="barris-title">
-      <Container className={styles.inner}>
-        <PhotoPlaceholder
-          className={styles.photo}
-          caption="barris de 30 e 50 L lado a lado, aço escovado"
-        />
-        <div className={styles.copy}>
-          <SectionHeading eyebrow="02 · Barris" id="barris-title">
-            Dois
-            <DesktopBreak />
-            tamanhos
-          </SectionHeading>
-          <ul className={styles.sizes}>
-            {([30, 50] as const).map((size) => (
-              <li key={size} className={styles.size}>
-                <span className={styles.liters}>{size} L</span>
-                <span className={styles.usage}>
-                  {usage[size]}
-                  {startingAt(products, size)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {state.status !== 'ready' && (
-            <p className={styles.note}>
-              {state.status === 'loading'
-                ? 'Carregando preços…'
-                : 'Preços indisponíveis no momento.'}
+      <Container>
+        <div className={styles.header}>
+          <p className={styles.eyebrow}>01 • Vitrine Assinatura</p>
+          <h2 id="barris-title" className={styles.title}>
+            Escolha seu Barril em 3D
+          </h2>
+          <p className={styles.lead}>
+            Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as setas
+            para inspecionar detalhes, litragens e valores de cada cervejaria.
+          </p>
+        </div>
+
+        {state.status === 'loading' && (
+          <p role="status" className={styles.statusMessage}>
+            Carregando vitrine de barris…
+          </p>
+        )}
+
+        {state.status === 'error' && (
+          <p className={styles.statusMessage}>Vitrine de barris indisponível no momento.</p>
+        )}
+
+        {state.status === 'ready' &&
+          (chopes.length === 0 ? (
+            <p role="status" className={styles.statusMessage}>
+              Nenhum barril disponível no catálogo no momento.
             </p>
-          )}
-          {largeOnly.length > 0 && (
-            <p className={styles.note}>{joinNames(largeOnly)} só em barril de 50 L.</p>
-          )}
-          <div>
-            <WhatsAppButton message="prices" variant="gold">
-              Consultar valores
-            </WhatsAppButton>
+          ) : (
+            <BarrelCarousel3D items={chopes} />
+          ))}
+
+        <div className={styles.specsGrid}>
+          <div className={styles.specCard}>
+            <span className={styles.specValue}>30 Litros</span>
+            <span className={styles.specLabel}>
+              Rende aprox. 60 copos de 500ml (ou 100 copos de 300ml)
+            </span>
+          </div>
+          <div className={styles.specCard}>
+            <span className={styles.specValue}>50 Litros</span>
+            <span className={styles.specLabel}>
+              Rende aprox. 100 copos de 500ml (ou 160 copos de 300ml)
+            </span>
+          </div>
+          <div className={styles.specCard}>
+            <span className={styles.specValue}>100% Inclusos</span>
+            <span className={styles.specLabel}>
+              Chopeira elétrica profissional 110V/220V e cilindro de CO2 regulado
+            </span>
+          </div>
+          <div className={styles.specCard}>
+            <span className={styles.specValue}>São João del-Rei</span>
+            <span className={styles.specLabel}>
+              Entrega, instalação técnica no local e recolhimento sem taxa oculta
+            </span>
           </div>
         </div>
       </Container>

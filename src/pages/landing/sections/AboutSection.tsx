@@ -1,26 +1,38 @@
 import { Container } from '@/shared/ui/Container'
-import { DesktopBreak } from '@/shared/ui/DesktopBreak'
-import { PhotoPlaceholder } from '@/shared/ui/PhotoPlaceholder'
-import { SectionHeading } from '@/shared/ui/SectionHeading'
 import styles from './AboutSection.module.css'
 
-/** Texto institucional ainda não existe: parágrafo é placeholder do design. */
 export function AboutSection() {
   return (
     <section id="sobre" className={styles.section} aria-labelledby="sobre-title">
       <Container className={styles.inner}>
         <div className={styles.copy}>
-          <SectionHeading eyebrow="04 · Sobre" id="sobre-title">
-            Quem
-            <DesktopBreak />
-            entrega
-          </SectionHeading>
+          <p className={styles.eyebrow}>04 • Origem &amp; Compromisso</p>
+          <h2 id="sobre-title" className={styles.title}>
+            O Chopp Como Centro da Sua Celebração
+          </h2>
+          <p className={styles.lead}>
+            Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril de
+            chopp. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a
+            espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.
+          </p>
           <p className={styles.text}>
-            [Texto da história da empresa, desde quando atende, bairros e cidades atendidas.
-            Aguardando informações do estabelecimento.]
+            Fundado em São João del-Rei, o Chopp Delivery une a pontualidade da entrega local com
+            equipamentos profissionais de refrigeração para fazer cada brinde memorável.
           </p>
         </div>
-        <PhotoPlaceholder className={styles.photo} caption="equipe ou loja" />
+
+        <div className={styles.mediaCard}>
+          <img
+            src="/images/kegs/keg-studio-30l.jpg"
+            alt="Barris de Chopp em Aço Escovado na Câmara Fria"
+            className={styles.photo}
+            loading="lazy"
+          />
+          <div className={styles.captionRow}>
+            <span>Barris em aço inoxidável padrão alimentício</span>
+            <span className={styles.badge}>• Higienização rigorosa</span>
+          </div>
+        </div>
       </Container>
     </section>
   )

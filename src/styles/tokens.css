@@ -14,6 +14,18 @@
   --color-gold: #f4b10b;
   --color-gold-hover: #ffc83a;
 
+  /* Conceito C: Immersive Hybrid & WCAG 2.1 AA Tokens */
+  --bg-dark: #101713;
+  --bg-elevated: #19251d;
+  --surface-card: #253229;
+  --color-gold-soft: #c6a46a;
+  --color-amber: #d88b36;
+  --color-amber-hover: #e89b46;
+  --text-offwhite: #f5f0e6;
+  --text-muted-green: #b4b8af;
+  --border-subtle: #253229;
+  --border-gold-subtle: rgba(198, 164, 106, 0.3);
+
   /* Tipografia */
   --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   --font-body: 'Hanken Grotesk', system-ui, sans-serif;

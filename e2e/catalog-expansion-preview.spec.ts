@@ -65,4 +65,39 @@ test.describe('Catálogo Expansível v2 - Isolamento e Produção Segura', () =>
       page.getByText('Venda proibida para menores de 18 anos. Beba com moderação.').first(),
     ).toBeVisible()
   })
+
+  test('[Vitrine 3D] Navegação por teclado respeita foco e atualiza seleção de variantes', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('#carousel-track').waitFor({ state: 'visible' })
+
+    const statusLocator = page.locator('#barris [aria-live="polite"]')
+    await expect(statusLocator).toContainText('Barril 1 de')
+
+    // 1. Foco fora do carrossel: seta de teclado não navega
+    const headerLink = page.getByRole('link', { name: 'Barris' }).first()
+    if (await headerLink.isVisible()) {
+      await headerLink.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(statusLocator).toContainText('Barril 1 de')
+    }
+
+    // 2. Foco dentro do carrossel: seta de teclado navega
+    const carouselOption = page
+      .locator('#carousel-track article[aria-hidden="false"] button')
+      .first()
+    await carouselOption.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(statusLocator).toContainText('Barril 2 de')
+
+    // 3. Voltar com seta esquerda (foca no novo card ativo ou controle de navegação)
+    const newActiveOption = page
+      .locator('#carousel-track article[aria-hidden="false"] button')
+      .first()
+    await newActiveOption.focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(statusLocator).toContainText('Barril 1 de')
+  })
 })

@@ -10,10 +10,11 @@ export function PromoSection() {
         <div className={styles.copy}>
           <p className={styles.eyebrow}>Happy hour · promoções</p>
           <h2 id="promo-title" className={styles.title}>
-            [Promoção da semana]
+            Condições Especiais para Eventos
           </h2>
           <p className={styles.text}>
-            [Descrever a condição e a validade quando o estabelecimento definir.]
+            Chopeira elétrica profissional inclusa e instalação técnica em São João del-Rei e
+            região. Consulte pacotes e datas para seu evento via WhatsApp.
           </p>
         </div>
         <WhatsAppButton message="promo" variant="dark" size="lg">

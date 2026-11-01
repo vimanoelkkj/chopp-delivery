@@ -1,23 +1,22 @@
 import { Container } from '@/shared/ui/Container'
-import { SectionHeading } from '@/shared/ui/SectionHeading'
 import styles from './HowItWorks.module.css'
 
 const steps = [
   {
-    title: 'Escolha o chope',
-    text: 'Marca e estilo que combinam com a ocasião.',
+    title: 'Escolha o Chopp',
+    text: 'Selecione o estilo e a cervejaria desejada, definindo entre 30L ou 50L conforme o número de convidados.',
   },
   {
-    title: 'Defina o barril',
-    text: '30 ou 50 litros, conforme o número de convidados.',
+    title: 'Dados & Tomada',
+    text: 'Informe data, horário, endereço do evento e se a tomada disponível é 110V ou 220V para a chopeira.',
   },
   {
-    title: 'Combine no WhatsApp',
-    text: 'Data, endereço e forma de pagamento.',
+    title: 'Instalação Inclusa',
+    text: 'Nossa equipe posiciona o barril, liga a chopeira elétrica profissional, calibra o CO2 e deixa tudo pronto.',
   },
   {
-    title: 'Receba e sirva',
-    text: 'Informe se há escadas e se a tomada é 110 V ou 220 V.',
+    title: 'Aproveite o Chopp',
+    text: 'Chopp sempre gelado do primeiro ao último copo. Após o evento, nós recolhemos o equipamento sem complicações.',
   },
 ]
 
@@ -25,17 +24,25 @@ export function HowItWorks() {
   return (
     <section id="como" className={styles.section} aria-labelledby="como-title">
       <Container className={styles.inner}>
-        <SectionHeading eyebrow="03 · Como funciona" id="como-title">
-          Quatro passos
-        </SectionHeading>
-        <ol className={styles.steps}>
+        <div className={styles.header}>
+          <p className={styles.eyebrow}>03 • Sem Complicações</p>
+          <h2 id="como-title" className={styles.title}>
+            Como Funciona a Entrega
+          </h2>
+          <p className={styles.lead}>
+            Operação exclusivamente por delivery. Levamos o barril gelado, conectamos a chopeira
+            elétrica e deixamos pronta para o brinde.
+          </p>
+        </div>
+
+        <ol className={styles.stepsGrid}>
           {steps.map((step, index) => (
-            <li key={step.title} className={styles.step}>
-              <span className={styles.number} aria-hidden="true">
+            <li key={step.title} className={styles.stepCard}>
+              <span className={styles.stepNumber} aria-hidden="true">
                 {String(index + 1).padStart(2, '0')}
               </span>
-              <h3 className={styles.title}>{step.title}</h3>
-              <p className={styles.text}>{step.text}</p>
+              <h3 className={styles.stepTitle}>{step.title}</h3>
+              <p className={styles.stepText}>{step.text}</p>
             </li>
           ))}
         </ol>

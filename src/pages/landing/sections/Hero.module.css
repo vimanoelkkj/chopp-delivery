@@ -1,89 +1,202 @@
 .hero {
-  border-bottom: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at 75% 30%, rgba(216, 139, 54, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 20% 80%, rgba(198, 164, 106, 0.05) 0%, transparent 50%),
+    var(--bg-dark);
+  position: relative;
+  overflow: hidden;
 }
 
 .grid {
   display: grid;
-  gap: 1.75rem;
-  padding-block: 2rem 2.5rem;
+  gap: 2.5rem;
+  padding-block: 2.5rem 3.5rem;
+}
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-gold-subtle);
+  color: var(--color-gold-soft);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-gold);
+}
+
+.eyebrowDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-amber);
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: var(--text-hero);
+  font-size: clamp(2.75rem, 1.8rem + 3.2vw, 4.75rem);
   font-weight: 900;
-  line-height: 0.84;
+  line-height: 0.9;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  color: var(--text-offwhite);
+  margin: 0;
 }
 
-.accent {
-  color: var(--color-gold);
-}
-
-.photo {
-  min-height: 18.75rem;
-}
-
-.lead {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-  max-width: 32.5rem;
+.accentGradient {
+  background: linear-gradient(
+    135deg,
+    var(--color-gold-soft) 0%,
+    #e8d19f 50%,
+    var(--color-amber) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .text {
-  font-size: 1.0625rem;
-  line-height: 1.5;
-  color: var(--color-soft);
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--color-muted);
+  max-width: 36rem;
+  margin: 0;
 }
 
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.heroVisual {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 4 / 5;
+  margin-inline: auto;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border-gold-subtle);
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.kegImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.95));
+  transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.heroVisual:hover .kegImg {
+  transform: scale(1.04);
+}
+
+.floatingPill {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  right: 1.25rem;
+  background: rgba(16, 23, 19, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-card);
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pillLabel {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-gold-soft);
+  font-weight: 700;
+  display: block;
+}
+
+.pillTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-offwhite);
+  margin: 0.125rem 0 0;
+}
+
+.pillSub {
+  font-size: 0.6875rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.pillPrice {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-gold-soft);
+  white-space: nowrap;
+}
+
+.trustBadges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.badgeValue {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-gold-soft);
+  line-height: 1;
+}
+
+.badgeLabel {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-top: 0.25rem;
 }
 
 @media (min-width: 48rem) {
-  .grid {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    grid-template-rows: auto 1fr auto;
-    column-gap: 3rem;
-    row-gap: 3rem;
-    padding-block: 4.5rem 5.5rem;
-    /* 40rem de conteúdo + paddings: a linha 1fr absorve a sobra e empurra o texto para baixo. */
-    min-height: 50rem;
-  }
-
-  .eyebrow {
-    font-size: 0.8125rem;
-  }
-
-  .title {
-    align-self: center;
-  }
-
-  .photo {
-    grid-column: 2;
-    grid-row: 1 / 4;
-    min-height: 0;
-  }
-
-  .text {
-    font-size: 1.25rem;
-  }
-
   .actions {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.75rem;
+  }
+
+  .badgeValue {
+    font-size: 1.75rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 3.5rem;
+    padding-block: 4.5rem 5.5rem;
   }
 }

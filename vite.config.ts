@@ -9,5 +9,13 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  test: { include: ['src/**/*.test.ts', 'shared/**/*.test.ts', 'tests/**/*.test.ts'] },
+  test: {
+    include: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      'shared/**/*.test.ts',
+      'tests/**/*.test.ts',
+      'tests/**/*.test.tsx',
+    ],
+  },
 })

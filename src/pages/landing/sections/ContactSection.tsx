@@ -11,7 +11,6 @@ type ContactSectionProps = {
 }
 
 export function ContactSection({ ctaRef }: ContactSectionProps) {
-  const number = contact.whatsappNumber
   return (
     <section id="contato" className={styles.section} aria-labelledby="contato-title">
       <Container className={styles.inner}>
@@ -26,7 +25,7 @@ export function ContactSection({ ctaRef }: ContactSectionProps) {
               Conte o que precisa e a gente responde com as opções e os valores.
             </p>
             <WhatsAppButton message="contact" size="lg">
-              {number ? 'Chamar no WhatsApp' : `Chamar no WhatsApp · ${placeholders.whatsapp}`}
+              Chamar no WhatsApp
             </WhatsAppButton>
           </div>
         </div>
@@ -34,9 +33,10 @@ export function ContactSection({ ctaRef }: ContactSectionProps) {
           <AgeNotice variant="footer" />
           <p className={styles.meta}>
             <span>
-              {contact.address ?? placeholders.address} · {contact.hours ?? placeholders.hours}
+              {contact.address ?? placeholders.address}
+              {contact.hours ? ` · ${contact.hours}` : ''}
             </span>
-            <span>{contact.instagram ?? placeholders.instagram}</span>
+            {contact.instagram && <span>{contact.instagram}</span>}
             <span>Chopp Delivery Delegas</span>
           </p>
         </footer>

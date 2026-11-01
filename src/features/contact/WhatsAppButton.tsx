@@ -6,7 +6,8 @@ import { type MessageKey, messages } from './messages'
 import styles from './WhatsAppButton.module.css'
 
 type WhatsAppButtonProps = {
-  message: MessageKey
+  message?: MessageKey
+  customText?: string
   variant?: 'gold' | 'outline' | 'dark'
   size?: 'md' | 'lg'
   fullWidth?: boolean
@@ -23,13 +24,15 @@ const NOTICE_MS = 5000
  * Sem número, não finge abrir nada: mostra um aviso honesto ao ser acionado.
  */
 export function WhatsAppButton({
-  message,
+  message = 'order',
+  customText,
   noticePlacement = 'below',
   className,
   children,
   ...style
 }: WhatsAppButtonProps) {
-  const url = buildWhatsAppUrl(contact.whatsappNumber, messages[message])
+  const text = customText ?? messages[message]
+  const url = buildWhatsAppUrl(contact.whatsappNumber, text)
   const noticeId = useId()
   const [showNotice, setShowNotice] = useState(false)
   const timer = useRef<number | undefined>(undefined)

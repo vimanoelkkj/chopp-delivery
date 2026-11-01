@@ -25,13 +25,13 @@ export function LandingPage() {
     <div id="topo" className={styles.page}>
       <SiteHeader />
       <main id="conteudo">
-        <Hero ctaRef={heroCtaRef} />
+        <Hero state={catalogState} ctaRef={heroCtaRef} />
+        <BarrelsSection state={catalogState} />
         <Ticker />
         <CatalogSection state={catalogState} retry={retry} />
-        <BarrelsSection state={catalogState} />
         <HowItWorks />
-        <PromoSection />
         <AboutSection />
+        <PromoSection />
         <FaqSection />
         <ContactSection ctaRef={finalCtaRef} />
       </main>
