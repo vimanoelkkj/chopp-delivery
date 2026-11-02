@@ -1,4 +1,5 @@
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './HowItWorks.module.css'
 
 const steps = [
@@ -20,14 +21,16 @@ const steps = [
   },
 ]
 
-export function HowItWorks() {
+export function HowItWorks({ editorial }: { editorial?: CmsContentsV2['how'] } = {}) {
+  const visibleSteps = editorial?.steps.map(({ title, body }) => ({ title, text: body })) ?? steps
+  const occurrences = new Map<string, number>()
   return (
     <section id="como" className={styles.section} aria-labelledby="como-title">
       <Container className={styles.inner}>
         <div className={styles.header}>
           <p className={styles.eyebrow}>03 • Sem Complicações</p>
           <h2 id="como-title" className={styles.title}>
-            Como Funciona a Entrega
+            {editorial?.heading ?? <>Como Funciona a Entrega</>}
           </h2>
           <p className={styles.lead}>
             Operação exclusivamente por delivery. Levamos o barril gelado, conectamos a chopeira
@@ -36,15 +39,19 @@ export function HowItWorks() {
         </div>
 
         <ol className={styles.stepsGrid}>
-          {steps.map((step, index) => (
-            <li key={step.title} className={styles.stepCard}>
-              <span className={styles.stepNumber} aria-hidden="true">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <h3 className={styles.stepTitle}>{step.title}</h3>
-              <p className={styles.stepText}>{step.text}</p>
-            </li>
-          ))}
+          {visibleSteps.map((step, index) => {
+            const occurrence = (occurrences.get(step.title) ?? 0) + 1
+            occurrences.set(step.title, occurrence)
+            return (
+              <li key={`${step.title}-${occurrence}`} className={styles.stepCard}>
+                <span className={styles.stepNumber} aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <h3 className={styles.stepTitle}>{step.title}</h3>
+                <p className={styles.stepText}>{step.text}</p>
+              </li>
+            )
+          })}
         </ol>
       </Container>
     </section>

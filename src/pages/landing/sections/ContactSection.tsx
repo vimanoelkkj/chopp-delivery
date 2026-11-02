@@ -3,26 +3,34 @@ import { AgeNotice } from '@/features/compliance/AgeNotice'
 import { contact, placeholders } from '@/features/contact/config'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './ContactSection.module.css'
 
 type ContactSectionProps = {
+  editorial?: CmsContentsV2['contact']
   /** Marca o CTA final para a página saber quando ele está na tela. */
   ctaRef?: Ref<HTMLDivElement>
 }
 
-export function ContactSection({ ctaRef }: ContactSectionProps) {
+export function ContactSection({ ctaRef, editorial }: ContactSectionProps) {
   return (
     <section id="contato" className={styles.section} aria-labelledby="contato-title">
       <Container className={styles.inner}>
         <div className={styles.row}>
           <h2 id="contato-title" className={styles.title}>
-            Bora
-            <br />
-            <span className={styles.accent}>pedir?</span>
+            {editorial?.heading ?? (
+              <>
+                Bora
+                <br />
+                <span className={styles.accent}>pedir?</span>
+              </>
+            )}
           </h2>
           <div className={styles.action} ref={ctaRef}>
             <p className={styles.text}>
-              Conte o que precisa e a gente responde com as opções e os valores.
+              {editorial?.body ?? (
+                <>Conte o que precisa e a gente responde com as opções e os valores.</>
+              )}
             </p>
             <WhatsAppButton message="contact" size="lg">
               Chamar no WhatsApp

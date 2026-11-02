@@ -1,20 +1,29 @@
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './PromoSection.module.css'
 
 /** Promoção ainda não definida: título e texto são placeholders do design. */
-export function PromoSection() {
+export function PromoSection({
+  editorial,
+}: {
+  editorial?: Pick<CmsContentsV2['highlight'], 'heading' | 'body'>
+} = {}) {
   return (
     <section className={styles.section} aria-labelledby="promo-title">
       <Container className={styles.inner}>
         <div className={styles.copy}>
           <p className={styles.eyebrow}>Happy hour · promoções</p>
           <h2 id="promo-title" className={styles.title}>
-            Condições Especiais para Eventos
+            {editorial?.heading ?? <>Condições Especiais para Eventos</>}
           </h2>
           <p className={styles.text}>
-            Chopeira elétrica profissional inclusa e instalação técnica em São João del-Rei e
-            região. Consulte pacotes e datas para seu evento via WhatsApp.
+            {editorial?.body ?? (
+              <>
+                Chopeira elétrica profissional inclusa e instalação técnica em São João del-Rei e
+                região. Consulte pacotes e datas para seu evento via WhatsApp.
+              </>
+            )}
           </p>
         </div>
         <WhatsAppButton message="promo" variant="dark" size="lg">

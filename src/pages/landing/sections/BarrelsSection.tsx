@@ -1,9 +1,16 @@
 import { BarrelCarousel3D } from '@/features/catalog/BarrelCarousel3D'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './BarrelsSection.module.css'
 
-export function BarrelsSection({ state }: { state: CatalogState }) {
+export function BarrelsSection({
+  state,
+  editorial,
+}: {
+  state: CatalogState
+  editorial?: Pick<CmsContentsV2['carousel'], 'heading' | 'lead'>
+}) {
   const chopes =
     state.status === 'ready'
       ? (state.catalog.expanded.categories.find((c) => c.id === 'chopes')?.items ?? [])
@@ -15,11 +22,15 @@ export function BarrelsSection({ state }: { state: CatalogState }) {
         <div className={styles.header}>
           <p className={styles.eyebrow}>01 • Vitrine Assinatura</p>
           <h2 id="barris-title" className={styles.title}>
-            Escolha seu Barril em 3D
+            {editorial?.heading ?? <>Escolha seu Barril em 3D</>}
           </h2>
           <p className={styles.lead}>
-            Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as setas
-            para inspecionar detalhes, litragens e valores de cada cervejaria.
+            {editorial?.lead ?? (
+              <>
+                Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as
+                setas para inspecionar detalhes, litragens e valores de cada cervejaria.
+              </>
+            )}
           </p>
         </div>
 

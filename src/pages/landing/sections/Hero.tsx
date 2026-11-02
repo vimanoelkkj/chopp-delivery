@@ -6,14 +6,16 @@ import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/Button'
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './Hero.module.css'
 
 type HeroProps = {
+  editorial?: Pick<CmsContentsV2['hero'], 'heading' | 'summary'>
   state?: CatalogState
   ctaRef?: Ref<HTMLDivElement>
 }
 
-export function Hero({ state, ctaRef }: HeroProps) {
+export function Hero({ state, ctaRef, editorial }: HeroProps) {
   // Deriva o menor preço real da API dinamicamente (A04 / P1-D)
   const products = state?.status === 'ready' ? state.catalog.products : []
   const min50Price = products.length > 0 ? lowestPrice(products, 50) : null
@@ -29,15 +31,23 @@ export function Hero({ state, ctaRef }: HeroProps) {
           </div>
 
           <h1 id="hero-title" className={styles.title}>
-            O melhor do chopp.
-            <br />
-            <span className={styles.accentGradient}>Direto para o seu evento.</span>
+            {editorial?.heading ?? (
+              <>
+                O melhor do chopp.
+                <br />
+                <span className={styles.accentGradient}>Direto para o seu evento.</span>
+              </>
+            )}
           </h1>
 
           <p className={styles.text}>
-            Barris em aço inox escovado das melhores cervejarias artesanais e tradicionais. Receba
-            com chopeira elétrica regulada pronta para servir. Entrega e instalação profissional em
-            São João del-Rei e região.
+            {editorial?.summary ?? (
+              <>
+                Barris em aço inox escovado das melhores cervejarias artesanais e tradicionais.
+                Receba com chopeira elétrica regulada pronta para servir. Entrega e instalação
+                profissional em São João del-Rei e região.
+              </>
+            )}
           </p>
 
           <div className={styles.actions} ref={ctaRef}>

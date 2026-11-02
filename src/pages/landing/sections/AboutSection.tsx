@@ -1,24 +1,36 @@
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './AboutSection.module.css'
 
-export function AboutSection() {
+export function AboutSection({
+  editorial,
+}: {
+  editorial?: Pick<CmsContentsV2['about'], 'heading' | 'body'>
+} = {}) {
   return (
     <section id="sobre" className={styles.section} aria-labelledby="sobre-title">
       <Container className={styles.inner}>
         <div className={styles.copy}>
           <p className={styles.eyebrow}>04 • Origem &amp; Compromisso</p>
           <h2 id="sobre-title" className={styles.title}>
-            O Chopp Como Centro da Sua Celebração
+            {editorial?.heading ?? <>O Chopp Como Centro da Sua Celebração</>}
           </h2>
           <p className={styles.lead}>
-            Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril de
-            chopp. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a
-            espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.
+            {editorial?.body ?? (
+              <>
+                Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril
+                de chopp. Mantemos nossa câmara fria estritamente controlada para que a
+                carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao
+                seu evento.
+              </>
+            )}
           </p>
-          <p className={styles.text}>
-            Fundado em São João del-Rei, o Chopp Delivery une a pontualidade da entrega local com
-            equipamentos profissionais de refrigeração para fazer cada brinde memorável.
-          </p>
+          {editorial === undefined && (
+            <p className={styles.text}>
+              Fundado em São João del-Rei, o Chopp Delivery une a pontualidade da entrega local com
+              equipamentos profissionais de refrigeração para fazer cada brinde memorável.
+            </p>
+          )}
         </div>
 
         <div className={styles.mediaCard}>

@@ -7,9 +7,18 @@ import type { CatalogState } from '@/features/catalog/useCatalog'
 import { VariantCatalog } from '@/features/catalog/VariantCatalog'
 import { Button } from '@/shared/ui/Button'
 import { Container } from '@/shared/ui/Container'
+import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './CatalogSection.module.css'
 
-export function CatalogSection({ state, retry }: { state: CatalogState; retry: () => void }) {
+export function CatalogSection({
+  state,
+  retry,
+  editorial,
+}: {
+  state: CatalogState
+  retry: () => void
+  editorial?: CmsContentsV2['catalog']
+}) {
   const count = state.status === 'ready' ? state.catalog.products.length : null
   const categories = state.status === 'ready' ? state.catalog.expanded.categories : []
   const chopes = categories.find((c) => c.id === 'chopes')?.items ?? []
@@ -22,14 +31,15 @@ export function CatalogSection({ state, retry }: { state: CatalogState; retry: (
           <div className={styles.headerCopy}>
             <p className={styles.eyebrow}>02 • Catálogo Real</p>
             <h2 id="chopes-title" className={styles.title}>
-              Nossos Chopes &amp; Litragens
+              {editorial?.heading ?? <>Nossos Chopes &amp; Litragens</>}
             </h2>
             <p className={styles.note}>
-              {!standard
-                ? 'Consulte os valores e as apresentações disponíveis diretamente da câmara fria.'
-                : count === null
-                  ? 'Consulte os valores dos barris de 30 e de 50 litros.'
-                  : `${count === 8 ? 'Oito' : count} opções de chopp com valores verificados da câmara fria de São João del-Rei. Chopeira profissional inclusa.`}
+              {editorial?.intro ??
+                (!standard
+                  ? 'Consulte os valores e as apresentações disponíveis diretamente da câmara fria.'
+                  : count === null
+                    ? 'Consulte os valores dos barris de 30 e de 50 litros.'
+                    : `${count === 8 ? 'Oito' : count} opções de chopp com valores verificados da câmara fria de São João del-Rei. Chopeira profissional inclusa.`)}
             </p>
           </div>
         </div>
