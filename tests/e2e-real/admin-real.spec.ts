@@ -929,3 +929,146 @@ test('CP3: Pages serves private v2 conversion, immutable receipts and preserves 
     row(integration, 'SELECT published_version_id,published_revision FROM cms_v2_state'),
   ).toEqual({ published_version_id: null, published_revision: null })
 })
+
+// P2: exercise the actual Pages asset handler and authenticated API in both build modes.
+for (const mode of ['production', 'release'] as const) {
+  test.describe(`P2: admin response isolation (${mode})`, () => {
+    test.use({ runtimeMode: mode })
+
+    test('Pages headers, deep SPA assets and CSP protect reserved admin paths', async ({
+      page,
+      context,
+      integration,
+    }) => {
+      const paths = ['/admin', '/admin/preview', '/admin/preview/frame']
+      for (const pathname of paths) {
+        const response = await page.request.get(pathname)
+        expect(response.status()).toBe(200)
+        const headers = response.headers()
+        expect(headers['content-type']).toContain('text/html')
+        expect(headers['cache-control']).toBe('no-store')
+        expect(headers['x-robots-tag']).toBe('noindex, nofollow')
+        expect(headers['referrer-policy']).toBe('no-referrer')
+        expect(headers['x-content-type-options']).toBe('nosniff')
+        const csp = headers['content-security-policy']
+        for (const directive of [
+          "script-src 'self'",
+          "connect-src 'self'",
+          "object-src 'none'",
+          "base-uri 'none'",
+          "frame-ancestors 'self'",
+        ]) {
+          expect(csp.split(';').map((part) => part.trim())).toContain(directive)
+        }
+        const html = await response.text()
+        const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)]
+        expect(scripts.length).toBeGreaterThan(0)
+        for (const script of scripts) {
+          const asset = await page.request.get(new URL(script[1], response.url()).href)
+          expect(asset.status()).toBe(200)
+          expect(asset.headers()['content-type']).toMatch(/javascript/)
+        }
+      }
+      for (const path of ['/api/admin/site', '/api/admin/site/commands/private-operation']) {
+        const response = await page.request.get(path)
+        expect(response.status()).toBe(401)
+        expect(response.headers()['cache-control']).toBe('no-store')
+        expect(await response.text()).not.toMatch(/objectKey|passwordHash|csrfToken|"document"/)
+      }
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.addInitScript(() => {
+        Object.assign(window, { p2Violations: [] as string[], p2InlineExecuted: false })
+        window.document.addEventListener('securitypolicyviolation', (event) => {
+          ;(window as unknown as { p2Violations: string[] }).p2Violations.push(
+            event.effectiveDirective,
+          )
+        })
+      })
+      const privateHeading = 'PRIVATE-P2-DRAFT-NOT-FOR-HTML'
+      const authenticated = await page.request.post('/api/auth/login', {
+        headers: { Origin: integration.origin },
+        data: { username: integration.username, password: integration.password },
+      })
+      expect(authenticated.status()).toBe(200)
+      const snapshot = await (await page.request.get('/api/admin/site')).json()
+      const document = cmsDocument()
+      Object.assign(document.modules[0].content, { heading: privateHeading })
+      const saved = await page.request.put('/api/admin/site/draft', {
+        headers: { Origin: integration.origin, 'If-Match': `"${snapshot.draft.revision}"` },
+        data: {
+          action: 'saveDraft',
+          expectedRevision: snapshot.draft.revision,
+          operationId: crypto.randomUUID(),
+          document,
+        },
+      })
+      expect(saved.status()).toBe(200)
+      expect((await saved.json()).site.draft.document).toEqual(document)
+      await context.clearCookies()
+      expect((await page.request.get('/api/admin/site')).status()).toBe(401)
+      for (const pathname of paths) {
+        const response = await page.goto(pathname)
+        expect(await response?.text()).not.toContain(privateHeading)
+        if (pathname === '/admin' && mode === 'release') {
+          await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
+        } else if (pathname !== '/admin') {
+          // Reserved URLs still render the public fallback: no preview is implemented in P2.
+          await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+        } else {
+          await expect(page.getByRole('heading', { name: 'Painel indisponível' })).toBeVisible()
+        }
+        expect(
+          await page.evaluate(() => (window as unknown as { p2Violations: string[] }).p2Violations),
+        ).toEqual([])
+        expect(new URL(page.url()).search).toBe('')
+        expect(await page.locator('body').innerText()).not.toContain(privateHeading)
+        expect(await page.locator('body').innerText()).not.toMatch(
+          /objectKey|passwordHash|csrfToken/,
+        )
+      }
+      await page.evaluate(() => {
+        const script = window.document.createElement('script')
+        script.textContent = 'window.p2InlineExecuted = true'
+        window.document.body.appendChild(script)
+        const element = window.document.createElement('div')
+        element.id = 'p2-style-check'
+        element.style.width = '37px'
+        window.document.body.appendChild(element)
+      })
+      await expect
+        .poll(() =>
+          page.evaluate(() => (window as unknown as { p2Violations: string[] }).p2Violations),
+        )
+        .toContain('script-src-elem')
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { p2InlineExecuted: boolean }).p2InlineExecuted,
+        ),
+      ).toBe(false)
+      await expect(page.locator('#p2-style-check')).toHaveCSS('width', '37px')
+      // A data URL cannot make a network call, but still exercises connect-src enforcement.
+      expect(
+        await page.evaluate(async () => {
+          try {
+            await fetch('data:text/plain,p2-blocked')
+            return 'allowed'
+          } catch {
+            return 'blocked'
+          }
+        }),
+      ).toBe('blocked')
+      await expect
+        .poll(() =>
+          page.evaluate(() => (window as unknown as { p2Violations: string[] }).p2Violations),
+        )
+        .toContain('connect-src')
+      expect(errors).toEqual([])
+      const publicResponse = await page.request.get('/')
+      expect(publicResponse.status()).toBe(200)
+      expect(await publicResponse.text()).not.toContain(privateHeading)
+      expect(publicResponse.headers()['content-security-policy']).toBeUndefined()
+      expect((await page.request.get('/administrator')).headers()['x-robots-tag']).toBeUndefined()
+    })
+  })
+}

@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
         build: { outDir: 'dist-release' },
       }
     : {}),
-  base: mode === 'release' ? '/' : './',
+  base: '/',
   server: { proxy: { '/api': 'http://127.0.0.1:8788' } },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

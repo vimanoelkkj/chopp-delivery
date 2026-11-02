@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Miniflare } from 'miniflare'
 import { build } from 'vite'
+import { type Unstable_ASSETSBindingsOptions, unstable_generateASSETSBinding } from 'wrangler'
 import { bootstrapOwner } from '../server/auth/bootstrap.ts'
 import { childEnv, sanitizeProcessEnv } from './clean-env.mts'
 import { integrationPort } from './integration-port.mts'
@@ -54,6 +55,7 @@ export async function startIntegration({
   const username = 'delegas-local',
     pepper = randomBytes(32).toString('hex')
   const config = join(directory, 'wrangler.json')
+  const assetsAbort = new AbortController()
   let runtime: Miniflare | undefined
   let closed = false
   let startupFailure: unknown
@@ -68,6 +70,7 @@ export async function startIntegration({
       // Any different disposal failure retains the directory rather than deleting live state.
       if (error !== startupFailure) throw error
     }
+    assetsAbort.abort()
     if ((await realpath(directory)) !== directory) throw new Error('Cleanup path changed')
     if ((await readFile(join(directory, '.owner'), 'utf8')) !== marker)
       throw new Error('Ownership marker changed; cleanup refused')
@@ -122,6 +125,12 @@ export async function startIntegration({
       '--persist-to',
       persist,
     ])
+    // Use the Pages implementation: Workers assets do not interpret _headers/_redirects.
+    const serveAssets = await unstable_generateASSETSBinding({
+      directory: dist,
+      log: console as unknown as Unstable_ASSETSBindingsOptions['log'],
+      signal: assetsAbort.signal,
+    })
     const pages = {
       name: 'pages-local',
       modules: true,
@@ -133,7 +142,6 @@ export async function startIntegration({
       ...(media
         ? {
             r2Buckets: { CMS_MEDIA_BUCKET: randomUUID() },
-            serviceBindings: { CMS_MEDIA_PROCESSOR: 'private-media-local' },
           }
         : {}),
       bindings: {
@@ -142,11 +150,18 @@ export async function startIntegration({
         ADMIN_PASSWORD_PEPPER: pepper,
         ADMIN_ALLOW_INSECURE_LOCAL: '1',
       },
-      assets: {
-        directory: dist,
-        binding: 'ASSETS',
-        routerConfig: { invoke_user_worker_ahead_of_assets: true, has_user_worker: true },
-        assetConfig: { not_found_handling: 'single-page-application' },
+      serviceBindings: {
+        ...(media ? { CMS_MEDIA_PROCESSOR: 'private-media-local' } : {}),
+        ASSETS: async (request: Request) => {
+          const response = await serveAssets(
+            request as unknown as Parameters<typeof serveAssets>[0],
+          )
+          return new Response(response.body as ReadableStream<Uint8Array> | null, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: [...response.headers],
+          })
+        },
       },
     }
     runtime = new Miniflare({
