@@ -33,6 +33,8 @@ export interface BarrelCarousel3DProps {
   items: CarouselItem[]
   onSelectKeg?: (keg: CarouselKeg) => void
   initialSelectedId?: string
+  /** Permite a páginas de demonstração ajustarem a geometria via variáveis CSS (--bc-*). */
+  className?: string
 }
 
 /** Cria handler de navegação por teclado com guarda de foco no carrossel (A08) */
@@ -65,6 +67,7 @@ export function BarrelCarousel3D({
   onSelectKeg,
   initialSelectedId,
   renderItemMedia,
+  className,
 }: BarrelCarousel3DProps) {
   // Constrói os barris a partir dos itens reais do catálogo (sem dados fictícios)
   const kegs: CarouselKeg[] = items.map((item, idx) => {
@@ -275,7 +278,7 @@ export function BarrelCarousel3D({
   const orderMessage = `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${currentKeg.name} (${activePresentationText}).`
 
   return (
-    <div ref={wrapperRef} className={styles.wrapper}>
+    <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(' ')}>
       <section
         className={styles.scene}
         aria-roledescription="carrossel 3d"
@@ -338,45 +341,44 @@ export function BarrelCarousel3D({
                   <p className={styles.desc}>{keg.subtitle}</p>
 
                   <div className={styles.prices}>
-                    {keg.variants.map((v, vIdx) => {
+                    {keg.variants.map((v) => {
                       const isSelected = isCenter && activeVariant?.code === v.code
                       const priceValue = v.price
                       const isAvail = priceValue !== null
                       const priceText = priceValue !== null ? formatBRL(priceValue) : 'Indisp.'
 
                       return (
-                        <span key={v.code} className={styles.variantItem}>
-                          {vIdx > 0 && <span className={styles.priceSep}>|</span>}
-                          <button
-                            type="button"
-                            disabled={!isCenter || !isAvail}
-                            className={`${styles.volumeBtn} ${
-                              isSelected ? styles.priceSelected : ''
-                            }`}
-                            onClick={(e) => {
-                              if (isCenter && isAvail) {
-                                e.stopPropagation()
-                                setSelectedId(keg.id)
-                                setSelectedVariantCode(v.code)
-                                if (v.volumeMl !== null) setPreferredVolumeMl(v.volumeMl)
-                              }
-                            }}
-                            aria-label={
-                              v.volumeMl === 50000
-                                ? `Selecionar volume 50 Litros (${v.displayLabel}) por ${priceText}`
-                                : v.volumeMl === 30000
-                                  ? `Selecionar volume 30 Litros (${v.displayLabel}) por ${priceText}`
-                                  : `Selecionar ${v.displayLabel} por ${priceText}`
+                        <button
+                          key={v.code}
+                          type="button"
+                          disabled={!isCenter || !isAvail}
+                          aria-pressed={isCenter && isAvail ? isSelected : undefined}
+                          className={`${styles.volumeBtn} ${isSelected ? styles.priceSelected : ''}`}
+                          onClick={(e) => {
+                            if (isCenter && isAvail) {
+                              e.stopPropagation()
+                              setSelectedId(keg.id)
+                              setSelectedVariantCode(v.code)
+                              if (v.volumeMl !== null) setPreferredVolumeMl(v.volumeMl)
                             }
-                          >
-                            {v.displayLabel}:{' '}
-                            {priceValue !== null ? (
-                              formatBRL(priceValue)
-                            ) : (
-                              <span className={styles.priceMuted}>Indisp.</span>
-                            )}
-                          </button>
-                        </span>
+                          }}
+                          aria-label={
+                            v.volumeMl === 50000
+                              ? `Selecionar volume 50 Litros (${v.displayLabel}) por ${priceText}`
+                              : v.volumeMl === 30000
+                                ? `Selecionar volume 30 Litros (${v.displayLabel}) por ${priceText}`
+                                : `Selecionar ${v.displayLabel} por ${priceText}`
+                          }
+                        >
+                          <span className={styles.volumeLabel}>{v.displayLabel}</span>
+                          {priceValue !== null ? (
+                            <span className={styles.volumePrice}>{formatBRL(priceValue)}</span>
+                          ) : (
+                            <span className={`${styles.volumePrice} ${styles.priceMuted}`}>
+                              Indisp.
+                            </span>
+                          )}
+                        </button>
                       )
                     })}
                   </div>
@@ -395,7 +397,10 @@ export function BarrelCarousel3D({
             className={styles.navBtn}
             aria-label="Barril Anterior"
           >
-            ← Anterior
+            <span aria-hidden="true" className={styles.navArrow}>
+              ←
+            </span>
+            <span className={styles.navText}>Anterior</span>
           </button>
 
           <div className={styles.status} aria-live="polite">
@@ -409,7 +414,10 @@ export function BarrelCarousel3D({
             className={styles.navBtn}
             aria-label="Próximo Barril"
           >
-            Próximo →
+            <span className={styles.navText}>Próximo</span>
+            <span aria-hidden="true" className={styles.navArrow}>
+              →
+            </span>
           </button>
         </div>
       )}

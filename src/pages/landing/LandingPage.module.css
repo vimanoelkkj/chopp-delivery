@@ -2,7 +2,7 @@
 .page {
   --color-gold: var(--color-gold-soft);
   --color-gold-hover: var(--color-amber);
-  padding-bottom: 5rem;
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
   overflow-x: clip;
 }
 

@@ -37,6 +37,16 @@ const DevMotionPreview = import.meta.env.DEV
     )
   : null
 
+// Protótipos visuais (/__proto/a e /__proto/b): só existem em DEV; o build público os elimina.
+const DevProto = import.meta.env.DEV
+  ? lazy(() => import('@/pages/preview/proto/ProtoRoutes'))
+  : null
+const protoVariant = (): 'a' | 'b' | null => {
+  if (!import.meta.env.DEV) return null
+  const match = /^\/__proto\/([ab])\/?$/.exec(window.location.pathname)
+  return match ? (match[1] as 'a' | 'b') : null
+}
+
 function checkIsPreview(): boolean {
   if (!import.meta.env.DEV || typeof window === 'undefined') return false
   const search = new URLSearchParams(window.location.search)
@@ -71,6 +81,15 @@ export function App() {
     return (
       <Suspense fallback={null}>
         <AdminApp />
+      </Suspense>
+    )
+  }
+
+  const proto = protoVariant()
+  if (import.meta.env.DEV && proto && DevProto) {
+    return (
+      <Suspense fallback={null}>
+        <DevProto variant={proto} />
       </Suspense>
     )
   }

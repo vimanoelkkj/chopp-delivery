@@ -1,0 +1,209 @@
+/* Proposta B: editorial imersivo (protótipo, somente DEV). */
+.page {
+  --color-gold: var(--color-gold-soft);
+  --color-gold-hover: var(--color-amber);
+  overflow-x: clip;
+}
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: end;
+  min-height: min(44rem, calc(100svh - 8.5rem));
+  padding-block: var(--space-4) var(--space-8);
+  overflow: hidden;
+  background:
+    radial-gradient(70% 55% at 62% 38%, rgba(216, 139, 54, 0.22), transparent 70%),
+    linear-gradient(180deg, var(--bg-dark) 0%, #000 100%);
+}
+
+/* Palavra gigante em contorno: textura editorial atrás do produto. */
+.ghost {
+  position: absolute;
+  z-index: -2;
+  top: 0.5rem;
+  left: -0.04em;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(7rem, 37vw, 20rem);
+  line-height: 0.82;
+  text-transform: uppercase;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(198, 164, 106, 0.42);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Foto do barril sangrando para fora da margem, com bordas dissolvidas no fundo. */
+.stage {
+  position: absolute;
+  z-index: -1;
+  top: 3.25rem;
+  right: -18vw;
+  width: 118vw;
+  height: min(26rem, 52svh);
+  -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+}
+
+.keg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 45%;
+}
+
+.copy {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-gold-soft);
+}
+
+.title {
+  margin: 0;
+  display: grid;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(3.25rem, 15vw, 5rem);
+  line-height: 0.88;
+  text-transform: uppercase;
+  color: var(--text-offwhite);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.75);
+}
+
+.accent {
+  font-size: 0.5em;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--color-gold-soft);
+  margin-top: 0.35em;
+}
+
+.arrow {
+  margin-left: 0.5rem;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.price {
+  margin: 0;
+  display: grid;
+  line-height: 1.1;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted-green);
+}
+
+.price strong {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  letter-spacing: 0;
+  color: var(--color-amber);
+}
+
+.barrels {
+  position: relative;
+  padding-block: var(--space-8) var(--space-12);
+  scroll-margin-top: 5.5rem;
+}
+
+.barrelsHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.index {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 3.5rem;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--color-gold-soft);
+}
+
+.h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.5rem, 10vw, 3.75rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--text-offwhite);
+}
+
+.status {
+  color: var(--text-muted-green);
+}
+
+/* Profundidade: laterais mais inclinadas e recuadas; cartão central sem moldura pesada. */
+.carousel {
+  --bc-card-w: min(16rem, 66vw);
+  --bc-card-h: 25.5rem;
+  --bc-offset: min(7.25rem, 27.5vw);
+  --bc-side-scale: 0.78;
+  --bc-side-rot: 38deg;
+  --bc-side-opacity: 0.9;
+  --bc-side-brightness: 0.78;
+  --bc-img-h: 13rem;
+  --bc-perspective: 800px;
+}
+
+@media (min-width: 48rem) {
+  .hero {
+    align-content: center;
+    min-height: 40rem;
+  }
+
+  .ghost {
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: clamp(14rem, 30vw, 28rem);
+  }
+
+  .stage {
+    top: 50%;
+    right: -6vw;
+    width: 66vw;
+    height: min(34rem, 80%);
+    transform: translateY(-50%);
+  }
+
+  .copy {
+    width: 100%;
+  }
+
+  .copy > * {
+    max-width: 42%;
+  }
+
+  .title {
+    font-size: clamp(4.5rem, 8vw, 8rem);
+  }
+
+  .carousel {
+    --bc-card-w: 23rem;
+    --bc-card-h: 28rem;
+    --bc-offset: 17rem;
+    --bc-side-rot: 34deg;
+    --bc-img-h: 14.5rem;
+    --bc-perspective: 1100px;
+  }
+}

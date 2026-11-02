@@ -1,0 +1,214 @@
+/* Proposta A: Conceito C refinado (protótipo, somente DEV). */
+.page {
+  --color-gold: var(--color-gold-soft);
+  --color-gold-hover: var(--color-amber);
+  padding-bottom: 5rem;
+  overflow-x: clip;
+}
+
+.hero {
+  padding-block: var(--space-4) var(--space-8);
+  background: radial-gradient(60% 50% at 80% 10%, rgba(198, 164, 106, 0.12), transparent 70%);
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gold-soft);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.5rem, 11vw, 3.5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--text-offwhite);
+}
+
+.accent {
+  color: var(--color-gold-soft);
+}
+
+.lead {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--text-muted-green);
+}
+
+.visual {
+  position: relative;
+  height: clamp(190px, 30svh, 300px);
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border-gold-subtle);
+  background: #000;
+}
+
+.keg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 42%;
+}
+
+.pill {
+  position: absolute;
+  inset: auto 0.625rem 0.625rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(16, 23, 19, 0.86);
+  border: 1px solid var(--border-gold-subtle);
+  font-size: 0.8125rem;
+  color: var(--text-muted-green);
+}
+
+.pill strong {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--color-amber);
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+}
+
+.actions > * {
+  width: 100%;
+}
+
+.textLink {
+  width: auto;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-offwhite);
+  text-decoration: underline;
+  text-decoration-color: var(--border-gold-subtle);
+  text-underline-offset: 0.3em;
+}
+
+.barrels {
+  padding-block: var(--space-6) var(--space-8);
+  scroll-margin-top: 5.5rem;
+}
+
+.barrelsHead {
+  display: grid;
+  gap: var(--space-1);
+  text-align: center;
+  margin-bottom: var(--space-2);
+}
+
+.h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.25rem, 9vw, 3.25rem);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text-offwhite);
+}
+
+.status {
+  text-align: center;
+  color: var(--text-muted-green);
+}
+
+/* Geometria do carrossel: card central dominante, ~30% dos laterais visíveis (mobile). */
+.carousel {
+  --bc-card-w: min(16.25rem, 64vw);
+  --bc-card-h: 24.5rem;
+  --bc-offset: min(6.5rem, 24vw);
+  --bc-side-scale: 0.86;
+  --bc-side-rot: 24deg;
+  --bc-side-opacity: 0.85;
+  --bc-side-brightness: 0.8;
+  --bc-img-h: 11rem;
+  --bc-perspective: 1000px;
+}
+
+@media (min-width: 48rem) {
+  .hero {
+    padding-block: var(--space-8);
+  }
+
+  .grid {
+    grid-template-columns: 1.05fr 1fr;
+    grid-template-areas:
+      'copy visual'
+      'actions visual';
+    align-items: center;
+    column-gap: var(--space-12);
+  }
+
+  .copy {
+    grid-area: copy;
+    align-self: end;
+  }
+
+  .visual {
+    grid-area: visual;
+    height: clamp(320px, 46vw, 460px);
+  }
+
+  .actions {
+    grid-area: actions;
+    justify-items: start;
+    grid-template-columns: auto auto;
+    align-items: center;
+    align-self: start;
+  }
+
+  .actions > * {
+    width: auto;
+  }
+
+  .title {
+    font-size: clamp(3.5rem, 6vw, 5.5rem);
+  }
+
+  .accent {
+    display: block;
+  }
+
+  .lead {
+    font-size: 1.0625rem;
+  }
+
+  .carousel {
+    --bc-card-w: 22rem;
+    --bc-card-h: 27rem;
+    --bc-offset: 18rem;
+    --bc-side-scale: 0.84;
+    --bc-side-rot: 22deg;
+    --bc-img-h: 13rem;
+  }
+}

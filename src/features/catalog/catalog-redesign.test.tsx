@@ -5,7 +5,7 @@ import {
   createKeyboardNavHandler,
   isHorizontalSwipeIntent,
 } from '@/features/catalog/BarrelCarousel3D'
-import { CachacaBanner } from '@/features/catalog/CachacaBanner'
+import { CachacaBanner, cachacaProductName } from '@/features/catalog/CachacaBanner'
 import { KegCardsGrid } from '@/features/catalog/KegCardsGrid'
 import type { Product } from '@/features/catalog/types'
 import type { CatalogState } from '@/features/catalog/useCatalog'
@@ -219,6 +219,59 @@ describe('Fase 6.2: Validação Estrutural e Regressões do Redesign Chopp Deliv
       } finally {
         contact.whatsappNumber = prev
       }
+    })
+  })
+
+  describe('Carrossel refinado: controles acessíveis e geometria por variáveis', () => {
+    it('expõe o volume ativo com aria-pressed e mantém rótulo e preço reais', () => {
+      const html = renderToString(<BarrelCarousel3D items={mockChopeItems} />)
+      expect(html).toContain('aria-pressed="true"')
+      expect(html).toMatch(
+        /<span class="[^"]*">30L<\/span><span class="[^"]*">R\$\s*510,00<\/span>/,
+      )
+      expect(html).toMatch(
+        /<span class="[^"]*">50L<\/span><span class="[^"]*">R\$\s*650,00<\/span>/,
+      )
+    })
+
+    it('mantém os nomes acessíveis dos botões de navegação mesmo sem o texto visível', () => {
+      const html = renderToString(<BarrelCarousel3D items={mockChopeItems} />)
+      expect(html).toContain('aria-label="Barril Anterior"')
+      expect(html).toContain('aria-label="Próximo Barril"')
+    })
+
+    it('aceita className para ajustar a geometria sem depender de nomes gerados do CSS Module', () => {
+      const html = renderToString(<BarrelCarousel3D items={mockChopeItems} className="demo-geo" />)
+      expect(html).toMatch(/<div class="[^"]*[ "]demo-geo[ "]/)
+    })
+  })
+
+  describe('Texto da cachaça na mensagem de WhatsApp', () => {
+    it('não repete a chamada "Temos" do catálogo como se fosse o nome do produto', () => {
+      const prev = contact.whatsappNumber
+      try {
+        contact.whatsappNumber = '5532999999999'
+        const html = renderToString(
+          <CachacaBanner
+            item={{
+              title: 'Temos cachaça',
+              description: 'Conservada em barril de umburana com jequitibá rosa',
+              variants: [{ code: 'bottle', label: 'Garrafa', volumeMl: 700, priceCents: 3000 }],
+            }}
+          />,
+        )
+        const decoded = decodeURIComponent(html).replace(/ /g, ' ')
+        expect(decoded).not.toContain('adicionar a Temos cachaça')
+        expect(decoded).toContain('adicionar a cachaça (Garrafa - 700ml por R$ 30,00)')
+      } finally {
+        contact.whatsappNumber = prev
+      }
+    })
+
+    it('mantém o nome de cachaças que não usam a chamada "Temos"', () => {
+      expect(cachacaProductName('Cachaça Ouro')).toBe('Cachaça Ouro')
+      expect(cachacaProductName('Temos cachaça')).toBe('cachaça')
+      expect(cachacaProductName('  temos Cachaça Prata ')).toBe('Cachaça Prata')
     })
   })
 

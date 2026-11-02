@@ -9,7 +9,13 @@ type ExpandedBottle = Pick<Cachaca, 'title' | 'description'> & {
   variants: PublicCatalog['categories'][number]['items'][number]['variants']
 }
 
+/** O catálogo nomeia a vitrine como "Temos cachaça"; na mensagem do pedido isso vira só o produto. */
+export function cachacaProductName(title: string): string {
+  return title.trim().replace(/^temos\s+/i, '')
+}
+
 export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
+  const productName = cachacaProductName(item.title)
   return (
     <aside className={styles.banner} aria-label={item.title}>
       <div className={styles.copy}>
@@ -24,7 +30,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
             const isAvail = v.priceCents !== null
             const priceText =
               v.priceCents !== null ? formatBRL(centsToReais(v.priceCents)) : 'Indisponível'
-            const message = `Olá! Gostaria de adicionar a ${item.title} (${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''} por ${priceText}) ao meu pedido.`
+            const message = `Olá! Gostaria de adicionar a ${productName} (${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''} por ${priceText}) ao meu pedido.`
             return (
               <div key={v.code} className={styles.variantCard}>
                 <div className={styles.priceBlock}>
@@ -54,7 +60,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
               </span>
             </div>
             <WhatsAppButton
-              customText={`Olá! Gostaria de adicionar a ${item.title} (Garrafa ${item.bottleMl}ml por ${formatBRL(item.price)}) ao meu pedido.`}
+              customText={`Olá! Gostaria de adicionar a ${productName} (Garrafa ${item.bottleMl}ml por ${formatBRL(item.price)}) ao meu pedido.`}
               variant="outline"
               size="md"
             >

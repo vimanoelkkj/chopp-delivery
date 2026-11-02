@@ -8,16 +8,20 @@
   overflow: hidden;
 }
 
+/*
+ * Mobile: título, barril e ação principal cabem na primeira tela (375 x 667).
+ * O texto de apoio e os selos vêm depois do CTA; no desktop voltam para a coluna da esquerda.
+ */
 .grid {
   display: grid;
-  gap: 2.5rem;
-  padding-block: 2.5rem 3.5rem;
+  gap: 1rem;
+  padding-block: 1rem 2.5rem;
 }
 
-.leftCol {
+.copy {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.625rem;
 }
 
 .eyebrow {
@@ -25,30 +29,33 @@
   align-items: center;
   gap: 0.5rem;
   width: fit-content;
-  padding: 0.35rem 0.85rem;
+  max-width: 100%;
+  padding: 0.25rem 0.7rem;
   border-radius: var(--radius-pill);
   background: var(--bg-elevated);
   border: 1px solid var(--border-gold-subtle);
   color: var(--color-gold-soft);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .eyebrowDot {
   width: 0.5rem;
   height: 0.5rem;
+  flex: none;
   border-radius: 50%;
   background: var(--color-amber);
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 1.8rem + 3.2vw, 4.75rem);
+  font-size: clamp(2.5rem, 11vw, 3.5rem);
   font-weight: 900;
-  line-height: 0.9;
+  line-height: 0.92;
   letter-spacing: 0.01em;
   text-transform: uppercase;
   color: var(--text-offwhite);
@@ -67,94 +74,96 @@
 }
 
 .text {
-  font-size: 1.125rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.55;
   color: var(--color-muted);
   max-width: 36rem;
   margin: 0;
 }
 
 .actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
 }
 
+.actions > :first-child {
+  width: 100%;
+}
+
+.secondaryLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 1.25rem;
+}
+
+.textLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-offwhite);
+  text-decoration: underline;
+  text-decoration-color: var(--border-gold-subtle);
+  text-underline-offset: 0.3em;
+}
+
+.textLink:hover {
+  color: var(--color-gold-soft);
+  text-decoration-color: currentColor;
+}
+
+/* Barril em destaque: a foto preenche o quadro e o preço real do catálogo fica sobre ela. */
 .heroVisual {
   position: relative;
   width: 100%;
-  max-width: 440px;
-  aspect-ratio: 4 / 5;
-  margin-inline: auto;
-  border-radius: 1.5rem;
+  height: clamp(12rem, 32svh, 18.75rem);
+  border-radius: 1.25rem;
   overflow: hidden;
   border: 1px solid var(--border-gold-subtle);
-  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
+  background: #000;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
 }
 
 .kegImg {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.95));
-  transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1);
-}
-
-.heroVisual:hover .kegImg {
-  transform: scale(1.04);
+  object-fit: cover;
+  object-position: 50% 42%;
 }
 
 .floatingPill {
   position: absolute;
-  bottom: 1.25rem;
-  left: 1.25rem;
-  right: 1.25rem;
-  background: rgba(16, 23, 19, 0.92);
+  inset: auto 0.625rem 0.625rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(16, 23, 19, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--surface-card);
-  padding: 0.875rem 1rem;
-  border-radius: 0.875rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  border: 1px solid var(--border-gold-subtle);
 }
 
 .pillLabel {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-gold-soft);
-  font-weight: 700;
-  display: block;
-}
-
-.pillTitle {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-offwhite);
-  margin: 0.125rem 0 0;
-}
-
-.pillSub {
   font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
   color: var(--color-muted);
-  margin: 0;
 }
 
 .pillPrice {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-gold-soft);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-amber);
   white-space: nowrap;
 }
 
@@ -162,13 +171,13 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  padding-top: 1.5rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--border-subtle);
 }
 
 .badgeValue {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--color-gold-soft);
   line-height: 1;
@@ -181,32 +190,81 @@
 }
 
 @media (min-width: 48rem) {
+  .grid {
+    gap: 1.5rem;
+    padding-block: 2.5rem 3.5rem;
+  }
+
+  .text {
+    font-size: 1.0625rem;
+  }
+
+  .heroVisual {
+    height: clamp(18rem, 36vw, 24rem);
+  }
+
   .actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    justify-items: start;
+  }
+
+  .actions > :first-child {
+    width: auto;
+  }
+
+  .secondaryLinks {
+    justify-content: flex-start;
+  }
+
+  .title {
+    font-size: clamp(3rem, 1.8rem + 3.2vw, 4.5rem);
+    line-height: 0.9;
   }
 
   .badgeValue {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
 }
 
 @media (min-width: 64rem) {
   .grid {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    align-items: center;
+    grid-template-areas:
+      'copy visual'
+      'text visual'
+      'actions visual'
+      'badges visual'
+      'age visual';
+    grid-template-rows: auto auto auto auto 1fr;
+    align-items: start;
     column-gap: 3.5rem;
-    padding-block: 4.5rem 5.5rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .kegImg {
-    transition: none;
+    row-gap: 1.5rem;
+    padding-block: 4rem 4.5rem;
   }
 
-  .heroVisual:hover .kegImg {
-    transform: none;
+  .copy {
+    grid-area: copy;
+    gap: 1.25rem;
+  }
+
+  .text {
+    grid-area: text;
+  }
+
+  .heroVisual {
+    grid-area: visual;
+    align-self: center;
+    height: clamp(20rem, 32vw, 28.75rem);
+  }
+
+  .actions {
+    grid-area: actions;
+  }
+
+  .trustBadges {
+    grid-area: badges;
+  }
+
+  .age {
+    grid-area: age;
   }
 }
