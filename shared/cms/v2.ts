@@ -95,3 +95,12 @@ export type CmsConversionMapping = {
   from: Pick<CmsModule, 'id' | 'template'>
   to: Pick<CmsModuleV2, 'id' | 'template'>
 }
+
+export type CmsConversionRequest = {
+  expectedRevision: string
+  operationId: string
+  acknowledge?: string[]
+} & (
+  | { action: 'previewConversion' | 'convertToV2'; document?: never }
+  | { action: 'startV2'; document: CmsDocumentV2 }
+)

@@ -862,3 +862,70 @@ test.describe('F4A.2A: disposable private media library', () => {
     ).toBeNull()
   })
 })
+
+test('CP3: Pages serves private v2 conversion, immutable receipts and preserves catalog', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const before = await (await page.request.get('/api/catalog')).json()
+  const initial = await (await page.request.get('/api/admin/site')).json()
+  expect(initial.schema).toBeNull()
+  const v1 = {
+    action: 'saveDraft',
+    expectedRevision: initial.draft.revision,
+    operationId: crypto.randomUUID(),
+    document: cmsDocument(),
+  }
+  const first = await page.request.put('/api/admin/site/draft', {
+    headers: { Origin: integration.origin, 'If-Match': `"${v1.expectedRevision}"` },
+    data: v1,
+  })
+  expect(first.status()).toBe(200)
+  const saved = await first.json()
+  const input = {
+    action: 'convertToV2',
+    expectedRevision: saved.command.revision,
+    operationId: crypto.randomUUID(),
+  }
+  const headers = { Origin: integration.origin, 'If-Match': `"${input.expectedRevision}"` }
+  const preview = await page.request.post('/api/admin/site/convert', {
+    headers,
+    data: { ...input, action: 'previewConversion' },
+  })
+  expect(preview.status()).toBe(200)
+  const proposed = await preview.json()
+  const converted = await page.request.post('/api/admin/site/convert', { headers, data: input })
+  expect(converted.status()).toBe(200)
+  const receipt = await converted.json()
+  expect(receipt.site.schema).toBe(2)
+  expect(receipt.site.draft.document).toEqual(proposed.preview.document)
+  const next = {
+    action: 'saveDraft',
+    expectedRevision: receipt.command.revision,
+    operationId: crypto.randomUUID(),
+    document: structuredClone(receipt.site.draft.document),
+  }
+  next.document.modules[0].content.heading = 'Private CP3 edit'
+  expect(
+    (
+      await page.request.put('/api/admin/site/draft', {
+        headers: { Origin: integration.origin, 'If-Match': `"${next.expectedRevision}"` },
+        data: next,
+      })
+    ).status(),
+  ).toBe(200)
+  expect(
+    await (await page.request.post('/api/admin/site/convert', { headers, data: input })).json(),
+  ).toEqual(receipt)
+  expect(
+    await (await page.request.get(`/api/admin/site/commands/${input.operationId}`)).json(),
+  ).toEqual(receipt)
+  expect(
+    await (await page.request.get(`/api/admin/site/commands/${v1.operationId}`)).json(),
+  ).toEqual(saved)
+  expect(await (await page.request.get('/api/catalog')).json()).toEqual(before)
+  expect(
+    row(integration, 'SELECT published_version_id,published_revision FROM cms_v2_state'),
+  ).toEqual({ published_version_id: null, published_revision: null })
+})

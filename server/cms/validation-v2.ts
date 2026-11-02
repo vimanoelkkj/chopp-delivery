@@ -10,7 +10,7 @@ import {
   type PublicCmsV2,
 } from '../../shared/cms'
 import { cmsRevision, cmsUuid, content, exact, materialize, media, text } from './primitives'
-import { CMS_REQUEST_BYTES, validateCmsDocument, validateCmsMutation } from './validation-v1'
+import { CMS_REQUEST_BYTES, validateCmsDocument } from './validation-v1'
 
 type Mode = 'draft' | 'publish' | 'start'
 type Result<T> =
@@ -134,15 +134,14 @@ export function parseCmsMutation(input: unknown): Result<CmsMutation | CmsMutati
     return failure('mutation')
   const document = parseCmsDocument(m.document, m.action === 'publish' ? 'publish' : 'draft')
   if (!document.value) return document
-  if (document.value.schemaVersion === 1) return validateCmsMutation(m)
-  return {
-    value: {
-      action: m.action as 'saveDraft' | 'publish',
-      expectedRevision: m.expectedRevision,
-      operationId: m.operationId,
-      document: document.value,
-    },
+  const base = {
+    action: m.action as 'saveDraft' | 'publish',
+    expectedRevision: m.expectedRevision,
+    operationId: m.operationId,
   }
+  return document.value.schemaVersion === 1
+    ? { value: { ...base, document: document.value } }
+    : { value: { ...base, document: document.value } }
 }
 export function projectPublicCmsV2(input: unknown): PublicCmsV2 {
   const parsed = parseCmsDocument(input, 'publish'),

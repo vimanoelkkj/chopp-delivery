@@ -1,135 +1,438 @@
-import type { CmsAdminSnapshot, CmsCommandResult, CmsMutation } from '../../shared/cms'
+import type {
+  CmsAdminSnapshot,
+  CmsCommandResult,
+  CmsConversionRequest,
+  CmsDocumentV2,
+  CmsMutation,
+  CmsMutationV2,
+  CmsVersionedAdminSnapshot,
+  CmsVersionedCommandResult,
+} from '../../shared/cms'
 import type { AuthConfig } from '../auth/http'
 import { type AdminPrincipal, adminWriteProof } from '../auth/session'
-import { cmsRevision, cmsUuid, validateCmsDocument, validateCmsMutation } from './validation'
+import { canonical, commandHash } from './canonical'
+import { parseCmsConversion } from './commands'
+import { convertCmsV1ToV2 } from './convert'
+import { collectMediaRefs } from './media-refs'
+import { cmsRevision, cmsUuid } from './primitives'
+import { cmsV1Repository } from './repository-v1'
+import { parseCmsDocument, parseCmsMutation } from './validation-v2'
 
 type Authorization = { principal: AdminPrincipal; config: AuthConfig }
-type Row = Record<string, unknown>
-// Stable key order for semantically identical JSON; array order remains significant.
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
-  if (value !== null && typeof value === 'object')
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
-      .join(',')}}`
-  return JSON.stringify(value)
+type Row = {
+  version_id: string
+  operation_id: string
+  expected_revision: string
+  resulting_revision: string
+  document_json: string
+  command_hash: string
+  actor_id: string
+  kind: string
+  origin_kind?: 'save' | 'convert' | 'start'
+  source_version_id: string | null
 }
-function document(json: unknown) {
-  if (typeof json !== 'string') throw new Error('CMS_STATE_INVALID')
-  const parsed = validateCmsDocument(JSON.parse(json), 'draft')
-  if (!parsed.value) throw new Error('CMS_STATE_INVALID')
-  return parsed.value
-}
+type Head =
+  | { schema: 2; revision: string; versionId: string; document: CmsDocumentV2 }
+  | {
+      schema: 1 | null
+      revision: string
+      versionId: string | null
+      document: CmsAdminSnapshot['draft']['document']
+    }
 export function cmsRepository(db: D1Database, authorization: Authorization) {
-  const proof = adminWriteProof(authorization.principal, authorization.config)
+  const legacy = cmsV1Repository(db, authorization),
+    proof = adminWriteProof(authorization.principal, authorization.config)
   const authorized = () =>
     db
-      .prepare(`SELECT ${proof.sql} AS authorized, EXISTS(SELECT 1 FROM cms_ready) AS ready`)
+      .prepare(`SELECT ${proof.sql} AS authorized,EXISTS(SELECT 1 FROM cms_ready) AS ready`)
       .bind(...proof.values)
-  const assertAccess = (row: Row | undefined) => {
-    if (row?.authorized !== 1) throw new Error('CMS_UNAUTHORIZED')
-    if (row.ready !== 1) throw new Error('CMS_SCHEMA_UNAVAILABLE')
+  const assertAccess = (r: unknown) => {
+    if (typeof r !== 'object' || r === null || !('authorized' in r) || r.authorized !== 1)
+      throw Error('CMS_UNAUTHORIZED')
+    if (!('ready' in r) || r.ready !== 1) throw Error('CMS_SCHEMA_UNAVAILABLE')
   }
-  const receipt = (row: Row): CmsCommandResult => {
+  const access = async () => assertAccess(await authorized().first())
+  const available = async () => {
     if (
-      !cmsUuid(row.operation_id) ||
-      !cmsRevision(row.expected_revision) ||
-      !cmsRevision(row.resulting_revision) ||
-      typeof row.version_id !== 'string' ||
-      !row.version_id.startsWith('version_') ||
-      !cmsUuid(row.version_id.slice(8)) ||
-      row.kind !== 'draft'
+      !(await db
+        .prepare("SELECT 1 FROM sqlite_schema WHERE type='view' AND name='cms_ready_v2'")
+        .first())
     )
-      throw new Error('CMS_STATE_INVALID')
+      return false
+    return Boolean(await db.prepare('SELECT 1 FROM cms_ready_v2').first())
+  }
+  const requireV2 = async () => {
+    await access()
+    if (!(await available())) throw Error('CMS_SCHEMA_UNAVAILABLE')
+  }
+  const document2 = (json: string) => {
+    const r = parseCmsDocument(JSON.parse(json), 'draft')
+    if (r.value?.schemaVersion !== 2) throw Error('CMS_STATE_INVALID')
+    return r.value
+  }
+  const validateRow = (r: Row) => {
+    if (
+      !cmsUuid(r.operation_id) ||
+      !cmsUuid(r.version_id?.slice(8)) ||
+      !r.version_id.startsWith('version_') ||
+      !cmsRevision(r.expected_revision) ||
+      !cmsRevision(r.resulting_revision) ||
+      !r.resulting_revision.startsWith('c2_') ||
+      r.kind !== 'draft' ||
+      !['save', 'convert', 'start'].includes(r.origin_kind ?? '')
+    )
+      throw Error('CMS_STATE_INVALID')
+  }
+  const receipt = (r: Row): CmsVersionedCommandResult => {
+    validateRow(r)
     return {
       command: {
-        operationId: row.operation_id,
-        action: 'saveDraft',
-        expectedRevision: row.expected_revision,
-        revision: row.resulting_revision,
-        versionId: row.version_id,
+        operationId: r.operation_id,
+        action:
+          r.origin_kind === 'convert'
+            ? 'convertToV2'
+            : r.origin_kind === 'start'
+              ? 'startV2'
+              : 'saveDraft',
+        expectedRevision: r.expected_revision,
+        revision: r.resulting_revision,
+        versionId: r.version_id,
       },
       site: {
-        draft: { revision: row.resulting_revision, document: document(row.document_json) },
+        schema: 2,
+        draft: { revision: r.resulting_revision, document: document2(r.document_json) },
         published: null,
       },
     }
   }
-  const commandQuery = (id: string) =>
-    db
-      .prepare('SELECT * FROM cms_versions WHERE operation_id = ? AND actor_id = ?')
-      .bind(id, authorization.principal.user.id)
-  return {
-    async load(): Promise<CmsAdminSnapshot> {
-      const [access, state] = await db.batch<Row>([
+  const lookup = async (id: string) => {
+    await access()
+    const old = await db
+      .prepare('SELECT * FROM cms_versions WHERE operation_id=?')
+      .bind(id)
+      .first<Row>()
+    if (old) return { schema: 1 as const, row: old }
+    if (await available()) {
+      const row = await db
+        .prepare('SELECT * FROM cms_v2_versions WHERE operation_id=?')
+        .bind(id)
+        .first<Row>()
+      if (row) return { schema: 2 as const, row }
+    }
+    return null
+  }
+  const head = async (): Promise<Head> => {
+    await access()
+    if (await available()) {
+      const [auth, result] = await db.batch([
         authorized(),
         db.prepare(
-          `SELECT s.*,v.document_json,v.resulting_revision FROM cms_state s LEFT JOIN cms_versions v ON v.version_id = s.draft_version_id WHERE s.singleton = 1`,
+          'SELECT v.*,s.draft_revision,s.published_version_id,s.published_revision FROM cms_v2_state s LEFT JOIN cms_v2_versions v ON v.version_id=s.draft_version_id WHERE s.singleton=1',
         ),
       ])
-      assertAccess(access.results[0])
-      if (state.results.length !== 1) throw new Error('CMS_STATE_INVALID')
-      const row = state.results[0]
-      if (
-        !cmsRevision(row.draft_revision) ||
-        row.published_version_id !== null ||
-        row.published_revision !== null ||
-        (row.draft_version_id !== null && row.resulting_revision !== row.draft_revision)
-      )
-        throw new Error('CMS_STATE_INVALID')
-      return {
-        draft: {
-          revision: row.draft_revision,
-          document: row.draft_version_id === null ? null : document(row.document_json),
-        },
-        published: null,
+      assertAccess(auth.results[0])
+      if (result.results.length) {
+        if (result.results.length !== 1) throw Error('CMS_STATE_INVALID')
+        const row = result.results[0] as unknown as Row & {
+          draft_revision: string
+          published_version_id: unknown
+          published_revision: unknown
+        }
+        validateRow(row)
+        if (
+          row.draft_revision !== row.resulting_revision ||
+          row.published_version_id !== null ||
+          row.published_revision !== null
+        )
+          throw Error('CMS_STATE_INVALID')
+        return {
+          schema: 2,
+          revision: row.resulting_revision,
+          versionId: row.version_id,
+          document: document2(row.document_json),
+        }
       }
-    },
-    async command(id: string): Promise<CmsCommandResult | null> {
-      const [access, result] = await db.batch<Row>([authorized(), commandQuery(id)])
-      assertAccess(access.results[0])
-      return result.results.length === 1 ? receipt(result.results[0]) : null
-    },
-    async save(input: CmsMutation): Promise<CmsCommandResult> {
-      const parsed = validateCmsMutation(input)
-      if (parsed.value?.action !== 'saveDraft') throw new Error('CMS_INVALID_COMMAND')
-      const command = parsed.value
-      const documentJson = canonical(command.document)
-      const hash = [
-        ...new Uint8Array(
-          await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical(command))),
-        ),
-      ]
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
-      const version = `version_${crypto.randomUUID()}`,
-        revision = `c1_${crypto.randomUUID()}`
-      const [write, access, result] = await db.batch<Row>([
-        db
+    }
+    const old = await legacy.load()
+    const row = old.draft.document
+      ? await db
+          .prepare('SELECT version_id FROM cms_versions WHERE resulting_revision=?')
+          .bind(old.draft.revision)
+          .first<{ version_id: string }>()
+      : null
+    if (old.draft.document && !row) throw Error('CMS_STATE_INVALID')
+    return {
+      schema: old.draft.document ? 1 : null,
+      revision: old.draft.revision,
+      versionId: row?.version_id ?? null,
+      document: old.draft.document,
+    }
+  }
+  const warnings = async (doc: CmsDocumentV2) => {
+    const result = new Set<string>(),
+      items = doc.modules.flatMap((m) =>
+        m.template === 'carousel' ? m.content.entries.map((e) => e.itemId) : [],
+      ),
+      ids = collectMediaRefs(doc)
+    if (!doc.modules.some((m) => m.template === 'carousel'))
+      result.add('COMPOSITION_WITHOUT_CAROUSEL')
+    if (items.length) {
+      const found = (
+        await db
           .prepare(
-            `UPDATE cms_draft_write SET version_id=?, operation_id=?, expected_revision=?, resulting_revision=?, document_json=?, command_hash=?, actor_id=?, session_hash=?, origin=? WHERE singleton=1 AND ${proof.sql}`,
+            `SELECT id,visible FROM catalog_items WHERE category_id='chopes' AND id IN (${items.map(() => '?').join(',')})`,
           )
-          .bind(
-            version,
-            command.operationId,
-            command.expectedRevision,
-            revision,
-            documentJson,
-            hash,
-            authorization.principal.user.id,
-            authorization.principal.sessionHash,
-            authorization.config.origin,
-            ...proof.values,
-          ),
-        authorized(),
-        commandQuery(command.operationId),
-      ])
-      if (!write.success) throw new Error('CMS_UNAVAILABLE')
-      assertAccess(access.results[0])
-      if (result.results.length !== 1 || result.results[0].command_hash !== hash)
-        throw new Error('CMS_WRITE_INCOMPLETE')
-      return receipt(result.results[0])
+          .bind(...items)
+          .all<{ id: string; visible: number }>()
+      ).results
+      for (const id of items) {
+        const item = found.find((i) => i.id === id)
+        if (!item) result.add('ITEM_MISSING')
+        else if (item.visible !== 1) result.add('ITEM_HIDDEN')
+      }
+    }
+    if (ids.length) {
+      const found = (
+        await db
+          .prepare(
+            `SELECT media_id,state FROM cms_media WHERE media_id IN (${ids.map(() => '?').join(',')})`,
+          )
+          .bind(...ids)
+          .all<{ media_id: string; state: string }>()
+      ).results
+      if (ids.some((id) => found.find((m) => m.media_id === id)?.state !== 'ready'))
+        result.add('MEDIA_NOT_READY')
+    }
+    await access()
+    return [...result].sort()
+  }
+  const normalized = (c: CmsConversionRequest) => ({
+    action: c.action,
+    schemaVersion: 2,
+    expectedRevision: c.expectedRevision,
+    operationId: c.operationId,
+    acknowledge: [...(c.acknowledge ?? [])].sort(),
+    ...(c.action === 'startV2' ? { document: c.document } : {}),
+  })
+  const v2Command = async (row: Row) => {
+    const result = receipt(row)
+    if (row.origin_kind === 'convert') {
+      const source = await db
+        .prepare('SELECT document_json FROM cms_versions WHERE version_id=?')
+        .bind(row.source_version_id)
+        .first<{ document_json: string }>()
+      if (!source) throw Error('CMS_WRITE_INCOMPLETE')
+      const parsed = parseCmsDocument(JSON.parse(source.document_json))
+      if (
+        parsed.value?.schemaVersion !== 1 ||
+        canonical(convertCmsV1ToV2(parsed.value).document) !== canonical(result.site.draft.document)
+      )
+        throw Error('CMS_WRITE_INCOMPLETE')
+    }
+    await access()
+    return result
+  }
+  const replay = async (operation: string, hash: string, origin: 'save' | 'convert' | 'start') => {
+    const found = await lookup(operation)
+    if (!found) return null
+    if (
+      found.schema !== 2 ||
+      found.row.actor_id !== authorization.principal.user.id ||
+      found.row.command_hash !== hash ||
+      found.row.origin_kind !== origin
+    )
+      throw Error('CMS_OPERATION_CONFLICT')
+    return v2Command(found.row)
+  }
+  const execute = async (
+    doc: CmsDocumentV2,
+    expected: string,
+    operation: string,
+    hash: string,
+    origin: 'save' | 'convert' | 'start',
+    source: string | null,
+  ) => {
+    const version = `version_${crypto.randomUUID()}`,
+      revision = `c2_${crypto.randomUUID()}`,
+      documentJson = canonical(doc)
+    const [write, auth, result] = await db.batch([
+      db
+        .prepare(
+          `UPDATE cms_v2_write SET version_id=?,operation_id=?,expected_revision=?,resulting_revision=?,document_json=?,command_hash=?,actor_id=?,session_hash=?,origin=?,origin_kind=?,source_version_id=? WHERE singleton=1 AND ${proof.sql}`,
+        )
+        .bind(
+          version,
+          operation,
+          expected,
+          revision,
+          documentJson,
+          hash,
+          authorization.principal.user.id,
+          authorization.principal.sessionHash,
+          authorization.config.origin,
+          origin,
+          source,
+          ...proof.values,
+        ),
+      authorized(),
+      db
+        .prepare('SELECT * FROM cms_v2_versions WHERE operation_id=? AND actor_id=?')
+        .bind(operation, authorization.principal.user.id),
+    ])
+    assertAccess(auth.results[0])
+    if (!write.success || result.results.length !== 1) throw Error('CMS_WRITE_INCOMPLETE')
+    const row = result.results[0] as unknown as Row
+    if (
+      row.command_hash !== hash ||
+      row.document_json !== documentJson ||
+      row.expected_revision !== expected ||
+      row.origin_kind !== origin ||
+      row.source_version_id !== source
+    )
+      throw Error('CMS_WRITE_INCOMPLETE')
+    return v2Command(row)
+  }
+  const saveV2 = async (input: unknown): Promise<CmsVersionedCommandResult> => {
+    const parsed = parseCmsMutation(input)
+    if (parsed.value?.action !== 'saveDraft' || parsed.value.document.schemaVersion !== 2)
+      throw Error('CMS_INVALID_COMMAND')
+    const c = parsed.value as CmsMutationV2
+    await requireV2()
+    const hash = await commandHash({
+        action: c.action,
+        schemaVersion: 2,
+        expectedRevision: c.expectedRevision,
+        operationId: c.operationId,
+        document: c.document,
+      }),
+      prior = await replay(c.operationId, hash, 'save')
+    if (prior) return prior
+    const active = await head()
+    if (active.schema !== 2 || active.revision !== c.expectedRevision) {
+      // Another request may have committed this operation after the first lookup.
+      const raced = await replay(c.operationId, hash, 'save')
+      if (raced) return raced
+      throw Error(active.schema !== 2 ? 'CMS_SCHEMA_MISMATCH' : 'CMS_REVISION_CONFLICT')
+    }
+    return execute(c.document, c.expectedRevision, c.operationId, hash, 'save', null)
+  }
+  type PreviewResult = {
+    preview: { from: { versionId: string; revision: string } } & ReturnType<typeof convertCmsV1ToV2>
+  }
+  async function conversion(input: unknown, action: 'previewConversion'): Promise<PreviewResult>
+  async function conversion(
+    input: unknown,
+    action: 'convertToV2' | 'startV2',
+  ): Promise<CmsVersionedCommandResult>
+  async function conversion(
+    input: unknown,
+    action: 'previewConversion' | 'convertToV2' | 'startV2',
+  ): Promise<PreviewResult | CmsVersionedCommandResult> {
+    const parsed = parseCmsConversion(input)
+    if (!parsed.value || parsed.value.action !== action) throw Error('CMS_INVALID_COMMAND')
+    const c = parsed.value
+    await requireV2()
+    const hash = await commandHash(normalized(c))
+    if (action !== 'previewConversion') {
+      const prior = await replay(c.operationId, hash, action === 'startV2' ? 'start' : 'convert')
+      if (prior) return prior
+    }
+    const active = await head()
+    if (active.schema === 2 || active.revision !== c.expectedRevision) {
+      if (action !== 'previewConversion') {
+        const raced = await replay(c.operationId, hash, action === 'startV2' ? 'start' : 'convert')
+        if (raced) return raced
+      }
+      throw Error(active.schema === 2 ? 'CMS_ALREADY_V2' : 'CMS_REVISION_CONFLICT')
+    }
+    if (c.action === 'startV2') {
+      if (active.document) throw Error('CMS_SCHEMA_MISMATCH')
+      return execute(c.document, c.expectedRevision, c.operationId, hash, 'start', null)
+    }
+    if (!active.document || !active.versionId) throw Error('CMS_SCHEMA_MISMATCH')
+    const converted = convertCmsV1ToV2(active.document)
+    if (action === 'previewConversion') {
+      await access()
+      return {
+        preview: { from: { versionId: active.versionId, revision: active.revision }, ...converted },
+      }
+    }
+    if (converted.losses.some((loss) => !c.acknowledge?.includes(loss)))
+      throw Error('CMS_ACKNOWLEDGEMENT_REQUIRED')
+    return execute(
+      converted.document,
+      c.expectedRevision,
+      c.operationId,
+      hash,
+      'convert',
+      active.versionId,
+    )
+  }
+  async function save(input: CmsMutation): Promise<CmsCommandResult>
+  async function save(input: CmsMutationV2): Promise<CmsVersionedCommandResult>
+  async function save(
+    input: CmsMutation | CmsMutationV2,
+  ): Promise<CmsCommandResult | CmsVersionedCommandResult>
+  async function save(
+    input: CmsMutation | CmsMutationV2,
+  ): Promise<CmsCommandResult | CmsVersionedCommandResult> {
+    const parsed = parseCmsMutation(input)
+    if (parsed.value?.action !== 'saveDraft') throw Error('CMS_INVALID_COMMAND')
+    if (parsed.value.document.schemaVersion === 2) return saveV2(parsed.value)
+    const c = parsed.value as CmsMutation,
+      old = await lookup(c.operationId)
+    if (old) {
+      if (
+        old.schema !== 1 ||
+        old.row.actor_id !== authorization.principal.user.id ||
+        old.row.command_hash !== (await commandHash(c))
+      )
+        throw Error('CMS_OPERATION_CONFLICT')
+      const r = await legacy.command(c.operationId)
+      if (!r) throw Error('CMS_WRITE_INCOMPLETE')
+      return r
+    }
+    const active = await head()
+    if (active.schema === 2) throw Error('CMS_SCHEMA_SUPERSEDED')
+    if (!c.expectedRevision.startsWith('c1_')) throw Error('CMS_REVISION_CONFLICT')
+    return legacy.save(c)
+  }
+  return {
+    async load(): Promise<CmsVersionedAdminSnapshot> {
+      const active = await head()
+      if (active.schema === 2)
+        return {
+          schema: 2,
+          draft: { revision: active.revision, document: active.document },
+          published: null,
+          warnings: await warnings(active.document),
+        }
+      return active.document
+        ? {
+            schema: 1,
+            draft: { revision: active.revision, document: active.document },
+            published: null,
+            warnings: [],
+          }
+        : {
+            schema: null,
+            draft: { revision: active.revision, document: null },
+            published: null,
+            warnings: [],
+          }
     },
+    async command(id: string) {
+      const found = await lookup(id)
+      if (!found || found.row.actor_id !== authorization.principal.user.id) {
+        await access()
+        return null
+      }
+      return found.schema === 1 ? legacy.command(id) : v2Command(found.row)
+    },
+    save,
+    saveV2,
+    previewConversion: (input: CmsConversionRequest) => conversion(input, 'previewConversion'),
+    convertToV2: (input: CmsConversionRequest) => conversion(input, 'convertToV2'),
+    startV2: (input: CmsConversionRequest) => conversion(input, 'startV2'),
   }
 }
