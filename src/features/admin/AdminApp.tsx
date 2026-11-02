@@ -6,6 +6,7 @@ import { createHttpGateway } from './catalog/httpGateway'
 import { createMockGateway, readMockMode } from './catalog/mockGateway'
 import type { Rescue } from './catalog/saveFlow'
 import { LoginScreen } from './login/LoginScreen'
+import { PreviewShell } from './preview/PreviewShell'
 import { useAdminSession } from './session/useAdminSession'
 import { AdminButton } from './ui/AdminButton'
 import { BootSplash } from './ui/BootSplash'
@@ -65,14 +66,18 @@ export default function AdminApp() {
         <LoginScreen notice={state.notice} onSignedIn={signedIn} />
       ) : null}
       {state.status === 'authenticated' ? (
-        <AdminShell
-          user={state.user}
-          gateway={gateway}
-          onSignOut={signOut}
-          onExpired={onExpired}
-          rescue={rescue.current}
-          onRescueHandled={onRescueHandled}
-        />
+        /^\/admin\/preview\/?$/.test(window.location.pathname) ? (
+          <PreviewShell username={state.user.username} onSignOut={signOut} onExpired={onExpired} />
+        ) : (
+          <AdminShell
+            user={state.user}
+            gateway={gateway}
+            onSignOut={signOut}
+            onExpired={onExpired}
+            rescue={rescue.current}
+            onRescueHandled={onRescueHandled}
+          />
+        )
       ) : null}
     </div>
   )

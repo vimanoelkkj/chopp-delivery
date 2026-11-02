@@ -19,7 +19,13 @@ const AdminApp = lazy(
 )
 
 /** O Pages entrega index.html para /admin (fallback de SPA); só esta rota abre o painel. */
-const isAdminRoute = () => /^\/admin\/?$/.test(window.location.pathname)
+const isAdminRoute = () => /^\/admin(?:\/preview)?\/?$/.test(window.location.pathname)
+const isPreviewFrame = () => /^\/admin\/preview\/frame\/?$/.test(window.location.pathname)
+const PreviewFrame = lazy(
+  ADMIN_ENABLED
+    ? () => import('@/features/admin/preview/PreviewFrame')
+    : () => import('@/features/admin/AdminDisabled'),
+)
 
 // Em produção, import.meta.env.DEV é substituído estaticamente por `false`,
 // permitindo que o Rollup elimine completamente o módulo e seu CSS via dead-code elimination.
@@ -53,6 +59,13 @@ export function App() {
       window.removeEventListener('hashchange', onLocationChange)
     }
   }, [])
+
+  if (isPreviewFrame())
+    return (
+      <Suspense fallback={null}>
+        <PreviewFrame />
+      </Suspense>
+    )
 
   if (isAdminRoute()) {
     return (

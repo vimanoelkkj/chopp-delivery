@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { lowestPrice } from '@/features/catalog/pricing'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { AgeNotice } from '@/features/compliance/AgeNotice'
@@ -10,12 +10,20 @@ import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './Hero.module.css'
 
 type HeroProps = {
+  carouselHref?: string | null
+  mediaFallback?: ReactNode
   editorial?: Pick<CmsContentsV2['hero'], 'heading' | 'summary'>
   state?: CatalogState
   ctaRef?: Ref<HTMLDivElement>
 }
 
-export function Hero({ state, ctaRef, editorial }: HeroProps) {
+export function Hero({
+  state,
+  ctaRef,
+  editorial,
+  carouselHref = '#barris',
+  mediaFallback,
+}: HeroProps) {
   // Deriva o menor preço real da API dinamicamente (A04 / P1-D)
   const products = state?.status === 'ready' ? state.catalog.products : []
   const min50Price = products.length > 0 ? lowestPrice(products, 50) : null
@@ -52,9 +60,11 @@ export function Hero({ state, ctaRef, editorial }: HeroProps) {
 
           <div className={styles.actions} ref={ctaRef}>
             <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>
-            <Button href="#barris" variant="outline">
-              Explorar Barris 3D
-            </Button>
+            {carouselHref !== null && (
+              <Button href={carouselHref} variant="outline">
+                Explorar Barris 3D
+              </Button>
+            )}
             <Button href="#chopes" variant="outline">
               Ver Tabela & Preços
             </Button>
@@ -79,12 +89,14 @@ export function Hero({ state, ctaRef, editorial }: HeroProps) {
         </div>
 
         <div className={styles.heroVisual}>
-          <img
-            src="/images/kegs/keg-hero-50l.jpg"
-            alt="Barril de Chopp de Inox Escovado 50 Litros com Iluminação Cinematográfica"
-            className={styles.kegImg}
-            loading="eager"
-          />
+          {mediaFallback ?? (
+            <img
+              src="/images/kegs/keg-hero-50l.jpg"
+              alt="Barril de Chopp de Inox Escovado 50 Litros com Iluminação Cinematográfica"
+              className={styles.kegImg}
+              loading="eager"
+            />
+          )}
 
           <div className={styles.floatingPill}>
             <div>

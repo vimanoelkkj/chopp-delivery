@@ -14,9 +14,11 @@ export function CatalogSection({
   state,
   retry,
   editorial,
+  sectionNumber,
 }: {
   state: CatalogState
   retry: () => void
+  sectionNumber?: string
   editorial?: CmsContentsV2['catalog']
 }) {
   const count = state.status === 'ready' ? state.catalog.products.length : null
@@ -29,7 +31,7 @@ export function CatalogSection({
       <Container className={styles.inner}>
         <div className={styles.top}>
           <div className={styles.headerCopy}>
-            <p className={styles.eyebrow}>02 • Catálogo Real</p>
+            <p className={styles.eyebrow}>{sectionNumber ?? '02'} • Catálogo Real</p>
             <h2 id="chopes-title" className={styles.title}>
               {editorial?.heading ?? <>Nossos Chopes &amp; Litragens</>}
             </h2>

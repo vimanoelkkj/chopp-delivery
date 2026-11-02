@@ -7,6 +7,7 @@ import { test as base, expect, type Locator, type Page } from '@playwright/test'
 import { childEnv, SENSITIVE_NAME } from '../../scripts/clean-env.mts'
 import { integrationPort } from '../../scripts/integration-port.mts'
 import { cmsDocument } from '../backend/cms-document-fixture'
+import { previewFixture } from './preview-fixture'
 
 type Ready = {
   origin: string
@@ -943,7 +944,7 @@ for (const mode of ['production', 'release'] as const) {
       const paths = ['/admin', '/admin/preview', '/admin/preview/frame']
       for (const pathname of paths) {
         const response = await page.request.get(pathname)
-        expect(response.status()).toBe(200)
+        expect(response.status()).toBe(pathname === '/admin' ? 200 : 401)
         const headers = response.headers()
         expect(headers['content-type']).toContain('text/html')
         expect(headers['cache-control']).toBe('no-store')
@@ -956,13 +957,17 @@ for (const mode of ['production', 'release'] as const) {
           "connect-src 'self'",
           "object-src 'none'",
           "base-uri 'none'",
-          "frame-ancestors 'self'",
+          pathname === '/admin/preview' ? "frame-ancestors 'none'" : "frame-ancestors 'self'",
         ]) {
           expect(csp.split(';').map((part) => part.trim())).toContain(directive)
         }
         const html = await response.text()
         const scripts = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)]
-        expect(scripts.length).toBeGreaterThan(0)
+        if (pathname === '/admin') expect(scripts.length).toBeGreaterThan(0)
+        else {
+          expect(scripts).toHaveLength(0)
+          expect(html).toContain('Sessão necessária')
+        }
         for (const script of scripts) {
           const asset = await page.request.get(new URL(script[1], response.url()).href)
           expect(asset.status()).toBe(200)
@@ -1013,8 +1018,9 @@ for (const mode of ['production', 'release'] as const) {
         if (pathname === '/admin' && mode === 'release') {
           await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
         } else if (pathname !== '/admin') {
-          // Reserved URLs still render the public fallback: no preview is implemented in P2.
-          await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+          // P4 adds a server-authenticated shell on these previously reserved paths.
+          expect(response?.status()).toBe(401)
+          await expect(page.getByRole('heading', { name: 'Sessão necessária' })).toBeVisible()
         } else {
           await expect(page.getByRole('heading', { name: 'Painel indisponível' })).toBeVisible()
         }
@@ -1072,3 +1078,333 @@ for (const mode of ['production', 'release'] as const) {
     })
   })
 }
+
+async function seedPreview(page: Page, instance: Integration) {
+  await login(page, instance)
+  const initial = await (await page.request.get('/api/admin/site')).json()
+  const response = await page.request.post('/api/admin/site/convert', {
+    headers: { Origin: instance.origin, 'If-Match': `"${initial.draft.revision}"` },
+    data: {
+      action: 'startV2',
+      operationId: crypto.randomUUID(),
+      expectedRevision: initial.draft.revision,
+      document: previewFixture(),
+    },
+  })
+  expect(response.status()).toBe(200)
+  return response.json()
+}
+
+test('P4: server-authenticated shell and frame reject anonymous access and token URLs', async ({
+  page,
+  integration,
+}) => {
+  for (const path of [
+    '/admin/preview',
+    '/admin/preview/',
+    '/admin/preview/frame',
+    '/admin/preview/frame/',
+    '/admin/preview/frame?token=not-a-session',
+  ]) {
+    const response = await page.goto(path)
+    expect(response?.status()).toBe(401)
+    expect(response?.headers()['cache-control']).toBe('no-store')
+    expect(response?.headers()['x-robots-tag']).toBe('noindex, nofollow')
+    await expect(page.getByRole('link', { name: 'Entrar no painel' })).toBeVisible()
+    expect(await response?.text()).not.toContain('Rascunho privado P4')
+    expect(await response?.text()).not.toContain('<script')
+  }
+  await page
+    .context()
+    .addCookies([
+      { name: 'delegas_admin_local_session', value: 'invalid', url: integration.origin },
+    ])
+  expect((await page.request.get('/admin/preview/frame')).status()).toBe(401)
+  const head = await page.request.head('/admin/preview/frame')
+  expect(head.status()).toBe(401)
+  expect(await head.text()).toBe('')
+  expect((await page.request.post('/admin/preview')).status()).toBe(405)
+})
+
+test('P4: no v2 document instructs without conversion or editorial writes', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const before = await (await page.request.get('/api/admin/site')).json()
+  const writes: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/api/admin/site') && request.method() !== 'GET')
+      writes.push(request.method())
+  })
+  let release: () => void = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/api/admin/site', async (route) => {
+    await gate
+    await route.continue()
+  })
+  await page.goto('/admin/preview')
+  await expect(page.getByText('Carregando rascunho autenticado…')).toBeVisible()
+  release()
+  await expect(page.getByRole('heading', { name: 'Documento CMS v2 necessário' })).toBeVisible()
+  await expect(page.locator('iframe')).toHaveCount(0)
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
+  expect(writes).toEqual([])
+  const saved = await page.request.put('/api/admin/site/draft', {
+    headers: { Origin: integration.origin, 'If-Match': `"${before.draft.revision}"` },
+    data: {
+      action: 'saveDraft',
+      expectedRevision: before.draft.revision,
+      operationId: crypto.randomUUID(),
+      document: cmsDocument(),
+    },
+  })
+  expect(saved.status()).toBe(200)
+  const v1 = await (await page.request.get('/api/admin/site')).json()
+  expect(v1.schema).toBe(1)
+  await page.getByRole('button', { name: 'Atualizar prévia' }).click()
+  await expect(page.getByRole('heading', { name: 'Documento CMS v2 necessário' })).toBeVisible()
+  await expect(page.locator('iframe')).toHaveCount(0)
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(v1)
+  expect(writes).toEqual([])
+})
+
+test.describe('P4: configured commercial actions remain inert', () => {
+  test.use({ whatsappNumber: '5532999999999' })
+  test('P4: valid v2 iframe has real desktop/mobile viewports, derived navigation and inert commerce', async ({
+    page,
+    integration,
+  }, testInfo) => {
+    await seedPreview(page, integration)
+    const writes: string[] = [],
+      errors: string[] = []
+    page.on('request', (request) => {
+      if (request.url().includes('/api/admin/site') && request.method() !== 'GET')
+        writes.push(request.method())
+    })
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.setViewportSize({ width: 1600, height: 1100 })
+    const response = await page.goto('/admin/preview')
+    expect(response?.headers()['content-security-policy']).toContain(
+      `${integration.origin}/admin/preview/frame`,
+    )
+    expect(await response?.text()).not.toContain('Rascunho privado P4')
+    await expect(
+      page.getByText('Rascunho não publicado · Somente leitura', { exact: false }),
+    ).toBeVisible()
+    const frame = page.frameLocator('iframe[title="Rascunho CMS v2"]')
+    await expect(
+      frame.getByRole('heading', { level: 1, name: 'Rascunho privado P4' }),
+    ).toBeVisible()
+    expect(await frame.locator('body').evaluate(() => innerWidth)).toBe(1440)
+    await expect(page.locator('iframe')).toHaveAttribute(
+      'sandbox',
+      'allow-scripts allow-same-origin',
+    )
+    expect(
+      await frame
+        .locator('[data-cms-template]')
+        .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-cms-template'))),
+    ).toEqual([
+      'hero',
+      'carousel',
+      'ticker',
+      'catalog',
+      'faq',
+      'about',
+      'how',
+      'highlight',
+      'highlight',
+      'contact',
+    ])
+    const ids = await frame.locator('[id]').evaluateAll((nodes) => nodes.map((n) => n.id))
+    expect(new Set(ids).size).toBe(ids.length)
+    await expect(frame.locator('a[href*="wa.me"]')).toHaveCount(0)
+    const orderButtons = frame.getByRole('button', { name: 'Pedir no WhatsApp', exact: true })
+    await expect(orderButtons).toHaveCount(2)
+    for (const button of await orderButtons.all()) await expect(button).toBeDisabled()
+    await expect(
+      frame.getByRole('button', { name: 'Pedir Barril Dronken no WhatsApp' }),
+    ).toBeDisabled()
+    const rawFrame = page.frames().find((f) => new URL(f.url()).pathname === '/admin/preview/frame')
+    expect(rawFrame).toBeDefined()
+    await rawFrame?.evaluate(() => document.fonts.ready)
+    await testInfo.attach('preview-desktop', {
+      body: await page.locator('iframe').screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+    await testInfo.attach('preview-shell', {
+      body: await page.screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+    await page.getByRole('button', { name: 'Mobile · 390px' }).click()
+    expect(await frame.locator('body').evaluate(() => innerWidth)).toBe(390)
+    await testInfo.attach('preview-mobile', {
+      body: await page.locator('iframe').screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+    await frame.getByRole('button', { name: 'Abrir menu' }).click()
+    await frame
+      .getByRole('navigation', { name: 'Principal' })
+      .getByRole('link', { name: 'Barris 3D' })
+      .click()
+    await expect(frame.locator('#barris')).toBeInViewport()
+    await frame.getByRole('button', { name: 'Próximo Barril' }).click()
+    await expect(
+      frame.locator('[aria-live="polite"]').filter({ hasText: 'Heineken' }),
+    ).toBeVisible()
+    await expect(
+      frame.getByRole('button', { name: 'Pedir Barril Heineken no WhatsApp' }),
+    ).toBeDisabled()
+    if (!rawFrame) throw new Error('Frame required')
+    await rawFrame.evaluate(() => {
+      Object.assign(window, { p4Blocked: [] as string[] })
+      window.document.addEventListener('securitypolicyviolation', (event) => {
+        ;(window as unknown as { p4Blocked: string[] }).p4Blocked.push(event.effectiveDirective)
+      })
+      const nested = window.document.createElement('iframe')
+      nested.src = '/'
+      window.document.body.appendChild(nested)
+    })
+    await expect
+      .poll(() => rawFrame.evaluate(() => (window as unknown as { p4Blocked: string[] }).p4Blocked))
+      .toContain('frame-src')
+    await page.evaluate(() => {
+      Object.assign(window, { p4ParentBlocked: [] as string[] })
+      window.document.addEventListener('securitypolicyviolation', (event) => {
+        ;(window as unknown as { p4ParentBlocked: string[] }).p4ParentBlocked.push(
+          event.effectiveDirective,
+        )
+      })
+      const forbidden = window.document.createElement('iframe')
+      forbidden.id = 'p4-forbidden-frame'
+      forbidden.src = '/admin'
+      window.document.body.appendChild(forbidden)
+    })
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as unknown as { p4ParentBlocked: string[] }).p4ParentBlocked),
+      )
+      .toContain('frame-src')
+    await page.locator('#p4-forbidden-frame').evaluate((node) => node.remove())
+    expect(writes).toEqual([])
+    expect(errors).toEqual([])
+    const publicPage = await page.request.get('/')
+    expect(await publicPage.text()).not.toContain('Rascunho privado P4')
+    expect(new URL(page.url()).search).toBe('')
+  })
+})
+
+test('P4: errors and malformed authenticated drafts fail closed; logout removes rendered content', async ({
+  page,
+  integration,
+}) => {
+  await seedPreview(page, integration)
+  await page.route('**/api/admin/site', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }),
+  )
+  await page.goto('/admin/preview')
+  await expect(page.getByRole('heading', { name: 'Prévia indisponível' })).toBeVisible()
+  await expect(page.locator('iframe')).toHaveCount(0)
+  await page.unroute('**/api/admin/site')
+  await page.route('**/api/admin/site', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    body.draft.document.modules[0].content.priceCents = 1
+    await route.fulfill({ response, json: body })
+  })
+  await page.getByRole('button', { name: 'Tentar novamente' }).click()
+  await expect(page.getByRole('heading', { name: 'Prévia indisponível' })).toBeVisible()
+  await expect(page.locator('iframe')).toHaveCount(0)
+  await page.unroute('**/api/admin/site')
+  await page.getByRole('button', { name: 'Tentar novamente' }).click()
+  await expect(
+    page.frameLocator('iframe').getByRole('heading', { name: 'Rascunho privado P4' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Sair', exact: true }).click()
+  await expect(page.locator('iframe')).toHaveCount(0)
+  expect((await page.request.get('/admin/preview/frame')).status()).toBe(401)
+  expect((await page.request.get('/api/admin/site')).status()).toBe(401)
+})
+
+test('P4: frame API corruption clears private DOM and missing/hidden products are diagnosed', async ({
+  page,
+  integration,
+}) => {
+  await seedPreview(page, integration)
+  await page.route('**/api/catalog', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    for (const category of body.categories)
+      category.items = category.items.filter((item: { id: string }) => item.id !== 'heineken')
+    const item = body.categories
+      .find((category: { id: string }) => category.id === 'chopes')
+      ?.items.find((item: { id: string }) => item.id === 'dronken')
+    if (item)
+      item.variants = [
+        { code: 'p4-fraction', label: '1,5 L', volumeMl: 1500, priceCents: 12345 },
+        { code: 'p4-30', label: '30 L', volumeMl: 30000, priceCents: 51000 },
+      ]
+    await route.fulfill({ response, json: body })
+  })
+  const mediaRequests: string[] = []
+  page.on('request', (request) => {
+    if (/\/api\/admin\/media|media_12345678/.test(request.url())) mediaRequests.push(request.url())
+  })
+  await page.route('**/api/admin/site', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    const media = {
+      id: 'media_12345678-1234-4123-8123-123456789012',
+      alt: 'Imagem privada de laboratório',
+    }
+    body.draft.document.modules.find(
+      (m: { template: string }) => m.template === 'hero',
+    ).content.media = media
+    body.draft.document.modules.find(
+      (m: { template: string }) => m.template === 'about',
+    ).content.media = media
+    body.draft.document.modules.find(
+      (m: { template: string }) => m.template === 'carousel',
+    ).content.entries[0].media = media
+    await route.fulfill({ response, json: body })
+  })
+  await page.goto('/admin/preview')
+  const frame = page.frameLocator('iframe')
+  await expect(frame.getByRole('heading', { name: 'Rascunho privado P4' })).toBeVisible()
+  await expect(frame.getByText('Itens ausentes ou ocultos no catálogo: heineken')).toBeVisible()
+  await expect(
+    frame.getByRole('button', { name: 'Pedir Barril Dronken no WhatsApp' }),
+  ).toBeDisabled()
+  await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(3)
+  expect(mediaRequests).toEqual([])
+  const fraction = frame.getByRole('button', { name: /Selecionar.*1,5.*123,45/ })
+  await expect(fraction).not.toHaveClass(/priceSelected/)
+  await fraction.click()
+  await expect(fraction).toHaveClass(/priceSelected/)
+  await page.route('**/api/admin/site', (route) => {
+    if (new URL(route.request().frame().url()).pathname !== '/admin/preview/frame')
+      return route.continue()
+    return route.fulfill({
+      status: 200,
+      json: { schema: 2, draft: { revision: 'invalid', document: {} }, published: null },
+    })
+  })
+  const child = page.frames().find((f) => new URL(f.url()).pathname === '/admin/preview/frame')
+  await child?.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(frame.getByRole('heading', { name: 'Prévia indisponível' })).toBeVisible()
+  await expect(frame.getByRole('heading', { name: 'Rascunho privado P4' })).toHaveCount(0)
+  await page.unroute('**/api/admin/site')
+  expect(
+    (
+      await page.request.post('/api/auth/logout', { headers: { Origin: integration.origin } })
+    ).status(),
+  ).toBe(200)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('iframe')).toHaveCount(0)
+  await expect(
+    page.getByText('Sua sessão expirou. Entre novamente.', { exact: true }),
+  ).toBeVisible()
+})

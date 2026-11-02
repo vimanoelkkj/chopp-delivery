@@ -21,14 +21,20 @@ const steps = [
   },
 ]
 
-export function HowItWorks({ editorial }: { editorial?: CmsContentsV2['how'] } = {}) {
+export function HowItWorks({
+  editorial,
+  sectionNumber,
+}: {
+  editorial?: CmsContentsV2['how']
+  sectionNumber?: string
+} = {}) {
   const visibleSteps = editorial?.steps.map(({ title, body }) => ({ title, text: body })) ?? steps
   const occurrences = new Map<string, number>()
   return (
     <section id="como" className={styles.section} aria-labelledby="como-title">
       <Container className={styles.inner}>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>03 • Sem Complicações</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '03'} • Sem Complicações</p>
           <h2 id="como-title" className={styles.title}>
             {editorial?.heading ?? <>Como Funciona a Entrega</>}
           </h2>

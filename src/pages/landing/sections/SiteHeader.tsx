@@ -5,7 +5,11 @@ import { Container } from '@/shared/ui/Container'
 import { navLinks } from '../nav-links'
 import styles from './SiteHeader.module.css'
 
-export function SiteHeader() {
+export function SiteHeader({
+  links = navLinks,
+}: {
+  links?: readonly { href: string; label: string }[]
+} = {}) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuId = useId()
 
@@ -48,7 +52,7 @@ export function SiteHeader() {
               <span className={styles.bars} aria-hidden="true" />
             </button>
             <ul id={menuId} className={styles.links} data-open={menuOpen}>
-              {navLinks.map((link) => (
+              {links.map((link) => (
                 <li key={link.href}>
                   <a href={link.href} className={styles.link} onClick={() => setMenuOpen(false)}>
                     {link.label}

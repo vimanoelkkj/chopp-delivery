@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import type { PublicCatalog } from '../../../shared/catalog'
@@ -29,6 +29,7 @@ export interface CarouselKeg {
 }
 
 export interface BarrelCarousel3DProps {
+  renderItemMedia?: (itemId: string) => ReactNode
   items: CarouselItem[]
   onSelectKeg?: (keg: CarouselKeg) => void
   initialSelectedId?: string
@@ -59,7 +60,12 @@ export function isHorizontalSwipeIntent(diffX: number, diffY: number): boolean {
   return Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5
 }
 
-export function BarrelCarousel3D({ items, onSelectKeg, initialSelectedId }: BarrelCarousel3DProps) {
+export function BarrelCarousel3D({
+  items,
+  onSelectKeg,
+  initialSelectedId,
+  renderItemMedia,
+}: BarrelCarousel3DProps) {
   // Constrói os barris a partir dos itens reais do catálogo (sem dados fictícios)
   const kegs: CarouselKeg[] = items.map((item, idx) => {
     const rawVariants = item.variants.map((v) => ({
@@ -313,7 +319,9 @@ export function BarrelCarousel3D({ items, onSelectKeg, initialSelectedId }: Barr
                 aria-hidden={!isCenter}
               >
                 <div className={styles.imageWrap}>
-                  <img src={keg.image} alt={keg.alt} className={styles.kegImg} loading="eager" />
+                  {renderItemMedia?.(keg.id) ?? (
+                    <img src={keg.image} alt={keg.alt} className={styles.kegImg} loading="eager" />
+                  )}
                   {keg.badgeText && (
                     <span
                       className={`${styles.badge} ${

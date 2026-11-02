@@ -1,17 +1,22 @@
+import type { ReactNode } from 'react'
 import { Container } from '@/shared/ui/Container'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './AboutSection.module.css'
 
 export function AboutSection({
   editorial,
+  mediaFallback,
+  sectionNumber,
 }: {
+  sectionNumber?: string
+  mediaFallback?: ReactNode
   editorial?: Pick<CmsContentsV2['about'], 'heading' | 'body'>
 } = {}) {
   return (
     <section id="sobre" className={styles.section} aria-labelledby="sobre-title">
       <Container className={styles.inner}>
         <div className={styles.copy}>
-          <p className={styles.eyebrow}>04 • Origem &amp; Compromisso</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '04'} • Origem &amp; Compromisso</p>
           <h2 id="sobre-title" className={styles.title}>
             {editorial?.heading ?? <>O Chopp Como Centro da Sua Celebração</>}
           </h2>
@@ -34,12 +39,14 @@ export function AboutSection({
         </div>
 
         <div className={styles.mediaCard}>
-          <img
-            src="/images/kegs/keg-studio-30l.jpg"
-            alt="Barris de Chopp em Aço Escovado na Câmara Fria"
-            className={styles.photo}
-            loading="lazy"
-          />
+          {mediaFallback ?? (
+            <img
+              src="/images/kegs/keg-studio-30l.jpg"
+              alt="Barris de Chopp em Aço Escovado na Câmara Fria"
+              className={styles.photo}
+              loading="lazy"
+            />
+          )}
           <div className={styles.captionRow}>
             <span>Barris em aço inoxidável padrão alimentício</span>
             <span className={styles.badge}>• Higienização rigorosa</span>

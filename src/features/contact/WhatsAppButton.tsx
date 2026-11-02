@@ -1,6 +1,7 @@
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { type ReactNode, useContext, useEffect, useId, useRef, useState } from 'react'
 import { buildWhatsAppUrl } from '@/shared/lib/whatsapp'
 import { Button, type ButtonProps } from '@/shared/ui/Button'
+import { CommercialPreviewContext } from './CommercialPreviewContext'
 import { contact } from './config'
 import { type MessageKey, messages } from './messages'
 import styles from './WhatsAppButton.module.css'
@@ -31,6 +32,7 @@ export function WhatsAppButton({
   children,
   ...style
 }: WhatsAppButtonProps) {
+  const preview = useContext(CommercialPreviewContext)
   const text = customText ?? messages[message]
   const url = buildWhatsAppUrl(contact.whatsappNumber, text)
   const noticeId = useId()
@@ -39,6 +41,18 @@ export function WhatsAppButton({
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
+  if (preview)
+    return (
+      <Button
+        {...style}
+        className={className}
+        disabled
+        aria-disabled="true"
+        title="Ação comercial desativada na prévia"
+      >
+        {children}
+      </Button>
+    )
   if (url) {
     const linkProps: ButtonProps = {
       href: url,

@@ -1,0 +1,78 @@
+.shell {
+  padding: 1.5rem;
+  max-width: 100%;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--color-gold-soft);
+}
+.toolbar h1 {
+  margin: 0;
+  font:
+    1.8rem 'Big Shoulders Display',
+    sans-serif;
+}
+.toolbar button,
+.toolbar a {
+  padding: 0.65rem 1rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  font: inherit;
+}
+.toolbar button[aria-pressed='true'] {
+  color: var(--color-coal);
+  background: var(--color-gold-soft);
+}
+.notice {
+  padding-block: 0.75rem;
+  color: var(--color-gold-soft);
+}
+.surface {
+  overflow: auto;
+  max-width: 100%;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-subtle);
+}
+.frame {
+  display: block;
+  max-width: none;
+  border: 0;
+  background: var(--bg-dark);
+}
+.module {
+  display: contents;
+}
+.placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  padding: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px dashed var(--color-gold-soft);
+  color: var(--color-gold-soft);
+  background: var(--bg-elevated);
+  font:
+    0.9rem 'Hanken Grotesk',
+    sans-serif;
+  text-align: center;
+}
+.diagnostics {
+  padding: 1rem;
+  color: var(--text-offwhite);
+  background: var(--bg-elevated);
+}
+
+.frameNotice {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font: 0.75rem var(--font-mono);
+  color: var(--color-gold-soft);
+  background: var(--bg-elevated);
+  text-align: center;
+}

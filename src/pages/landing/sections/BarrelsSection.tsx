@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { BarrelCarousel3D } from '@/features/catalog/BarrelCarousel3D'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { Container } from '@/shared/ui/Container'
@@ -7,8 +8,12 @@ import styles from './BarrelsSection.module.css'
 export function BarrelsSection({
   state,
   editorial,
+  renderItemMedia,
+  sectionNumber,
 }: {
   state: CatalogState
+  sectionNumber?: string
+  renderItemMedia?: (itemId: string) => ReactNode
   editorial?: Pick<CmsContentsV2['carousel'], 'heading' | 'lead'>
 }) {
   const chopes =
@@ -20,7 +25,7 @@ export function BarrelsSection({
     <section id="barris" className={styles.section} aria-labelledby="barris-title">
       <Container>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>01 • Vitrine Assinatura</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '01'} • Vitrine Assinatura</p>
           <h2 id="barris-title" className={styles.title}>
             {editorial?.heading ?? <>Escolha seu Barril em 3D</>}
           </h2>
@@ -50,7 +55,7 @@ export function BarrelsSection({
               Nenhum barril disponível no catálogo no momento.
             </p>
           ) : (
-            <BarrelCarousel3D items={chopes} />
+            <BarrelCarousel3D items={chopes} renderItemMedia={renderItemMedia} />
           ))}
 
         <div className={styles.specsGrid}>

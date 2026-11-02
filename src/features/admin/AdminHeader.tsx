@@ -23,6 +23,14 @@ export function AdminHeader({ username, signingOut, onSite, onLogout }: AdminHea
           <a className={styles.site} href="/" onClick={onSite}>
             Ver o site
           </a>
+          <a
+            className={styles.site}
+            href="/admin/preview"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Prévia editorial
+          </a>
           <span className={styles.user}>{username}</span>
           <button
             type="button"
