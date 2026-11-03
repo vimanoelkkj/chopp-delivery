@@ -138,21 +138,24 @@ test.describe('Página inicial: leitura do documento v2', () => {
 })
 
 test.describe('Página inicial: estados', () => {
-  test('sem documento: explica e não oferece criar nem inicializar', async ({ page }) => {
-    await openSite(page, { json: noneBody })
+  test('sem documento: explica e só oferece iniciar por ação explícita (sem escrita ao abrir)', async ({
+    page,
+  }) => {
+    const calls = await openSite(page, { json: noneBody })
     await expect(
       page.getByRole('heading', { name: 'Ainda não há documento da página inicial' }),
     ).toBeVisible()
-    await expect(page.getByText(/não cria nem inicializa documentos/)).toBeVisible()
-    await expect(page.getByRole('button', { name: /criar|inicializar|converter/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Iniciar documento/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /converter/i })).toHaveCount(0)
+    expect(calls.map((call) => call.method)).toEqual(['GET'])
   })
 
-  test('rascunho v1: avisa que a conversão é explícita e não acontece aqui', async ({ page }) => {
+  test('rascunho v1: oferece conversão só depois da prévia, nunca ao abrir', async ({ page }) => {
     await openSite(page, { json: v1Body })
     await expect(
       page.getByRole('heading', { name: 'O rascunho está no formato antigo (v1)' }),
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: /converter/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Iniciar documento/ })).toHaveCount(0)
   })
 
   test('sessão expirada (401): volta ao login com o aviso', async ({ page }) => {

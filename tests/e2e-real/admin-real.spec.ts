@@ -1171,7 +1171,7 @@ test('P4: no v2 document instructs without conversion or editorial writes', asyn
   expect(writes).toEqual([])
 })
 
-test('E5: Página inicial lê o CMS real sem documento e com rascunho v1, sem nenhuma escrita', async ({
+test('E5/E6.0: Página inicial lê o CMS real sem documento e com rascunho v1, sem gravar até confirmar', async ({
   page,
   integration,
 }) => {
@@ -1179,14 +1179,17 @@ test('E5: Página inicial lê o CMS real sem documento e com rascunho v1, sem ne
   const before = await (await page.request.get('/api/admin/site')).json()
   const writes: string[] = []
   page.on('request', (request) => {
-    if (request.url().includes('/api/admin/site') && request.method() !== 'GET')
-      writes.push(request.method())
+    if (request.url().includes('/api/admin/site') && request.method() !== 'GET') {
+      const action = (request.postDataJSON() as { action?: string } | null)?.action
+      // previewConversion só calcula; qualquer outro comando grava
+      if (action !== 'previewConversion') writes.push(`${request.method()} ${action}`)
+    }
   })
   await page.goto('/admin#pagina-inicial')
   await expect(
     page.getByRole('heading', { name: 'Ainda não há documento da página inicial' }),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: /criar|inicializar|converter/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Iniciar documento/ })).toBeVisible()
   expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
 
   const saved = await page.request.put('/api/admin/site/draft', {
@@ -1242,6 +1245,225 @@ test('E5: Página inicial mostra o documento v2 real com ids e ordem do servidor
     draft: seeded.site.draft,
   })
   expect(writes).toEqual([])
+})
+
+/** Prepara (só em D1 descartável) um rascunho v1 pelo caminho de escrita legado, como as demais fixtures. */
+async function seedV1(page: Page, instance: Integration) {
+  const before = await (await page.request.get('/api/admin/site')).json()
+  const saved = await page.request.put('/api/admin/site/draft', {
+    headers: { Origin: instance.origin, 'If-Match': `"${before.draft.revision}"` },
+    data: {
+      action: 'saveDraft',
+      expectedRevision: before.draft.revision,
+      operationId: crypto.randomUUID(),
+      document: cmsDocument(),
+    },
+  })
+  expect(saved.status()).toBe(200)
+  const v1 = await (await page.request.get('/api/admin/site')).json()
+  expect(v1.schema).toBe(1)
+  return v1
+}
+
+const convertCommand = (instance: Integration, revision: string, data: object) => ({
+  headers: { Origin: instance.origin, 'If-Match': `"${revision}"` },
+  data: { expectedRevision: revision, ...data },
+})
+
+type SentDocument = { modules: { content: Record<string, unknown> }[] }
+/** Registra os comandos de escrita (tudo menos previewConversion) que a página envia. */
+function trackCommands(page: Page) {
+  const sent: { action: string; operationId: string; document?: SentDocument }[] = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/api/admin/site/convert') || request.method() !== 'POST') return
+    const body = request.postDataJSON() as {
+      action: string
+      operationId: string
+      document?: SentDocument
+    }
+    if (body.action !== 'previewConversion') sent.push(body)
+  })
+  return sent
+}
+
+test('E6.0: iniciar o documento no CMS real só grava ao confirmar e é idempotente', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const before = await (await page.request.get('/api/admin/site')).json()
+  expect(before.schema).toBeNull()
+  const sent = trackCommands(page)
+
+  await page.goto('/admin#pagina-inicial')
+  await page.getByRole('button', { name: /Iniciar documento/ }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  // aberto o diálogo, ainda nada gravado
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
+  expect(sent).toEqual([])
+
+  await page.getByRole('button', { name: 'Criar documento' }).click()
+  await expect(
+    page.getByText('Documento da página inicial criado. Nada foi publicado.'),
+  ).toBeVisible()
+  expect(sent).toHaveLength(1)
+  expect(sent[0].action).toBe('startV2')
+
+  const after = await (await page.request.get('/api/admin/site')).json()
+  expect(after.schema).toBe(2)
+  expect(after.published).toBeNull()
+  expect(after.draft.document.modules).toHaveLength(9)
+  expect(after.draft.document.modules[0].id).toBe('hero')
+  expect(after.draft.document.modules.find((m: { id: string }) => m.id === 'catalog')).toBeTruthy()
+  expect(
+    after.draft.document.modules.find((m: { template: string }) => m.template === 'carousel')
+      .content.entries,
+  ).toEqual([])
+  expect(after.draft.revision).not.toBe(before.draft.revision)
+
+  // segunda inicialização com outra operação: o servidor recusa e nada muda
+  const second = await page.request.post('/api/admin/site/convert', {
+    ...convertCommand(integration, after.draft.revision, {
+      action: 'startV2',
+      operationId: crypto.randomUUID(),
+      document: after.draft.document,
+    }),
+  })
+  expect(second.status()).toBe(409)
+  expect((await second.json()).error.code).toBe('CMS_ALREADY_V2')
+
+  // operação duplicada: o mesmo comando enviado pela tela devolve o mesmo resultado, sem nova revisão
+  const replay = await page.request.post('/api/admin/site/convert', {
+    ...convertCommand(integration, before.draft.revision, {
+      action: 'startV2',
+      operationId: sent[0].operationId,
+      document: sent[0].document,
+    }),
+  })
+  expect(replay.status()).toBe(200)
+  expect((await replay.json()).site.draft.revision).toBe(after.draft.revision)
+  // mesmo operationId com dados diferentes é recusado como conflito de operação
+  const changedDocument = structuredClone(sent[0].document as SentDocument)
+  changedDocument.modules[0].content.heading = 'Outro título'
+  const clash = await page.request.post('/api/admin/site/convert', {
+    ...convertCommand(integration, before.draft.revision, {
+      action: 'startV2',
+      operationId: sent[0].operationId,
+      document: changedDocument,
+    }),
+  })
+  expect(clash.status()).toBe(409)
+  expect((await clash.json()).error.code).toBe('CMS_OPERATION_CONFLICT')
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(
+    after.draft.revision,
+  )
+
+  // com o documento v2, a tela não oferece mais iniciar nem converter
+  await page.reload()
+  await expect(page.getByRole('navigation', { name: 'Seções da página inicial' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Iniciar documento|Converter/ })).toHaveCount(0)
+  expect(sent).toHaveLength(1)
+})
+
+test('E6.0: converter o rascunho v1 real mostra a prévia sem gravar e converte só após confirmar', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const v1 = await seedV1(page, integration)
+  const sent = trackCommands(page)
+
+  await page.goto('/admin#pagina-inicial')
+  await expect(page.getByText('O que acontece na conversão')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Converter para v2/ })).toBeVisible()
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(v1)
+  expect(sent).toEqual([])
+
+  await page.getByRole('button', { name: /Converter para v2/ }).click()
+  const confirm = page.getByRole('button', { name: 'Converter agora' })
+  await expect(confirm).toBeDisabled()
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(v1)
+  await page.getByLabel('Entendo que a conversão é definitiva.').check()
+  await confirm.click()
+  await expect(page.getByText('Documento convertido para o v2. Nada foi publicado.')).toBeVisible()
+  expect(sent).toHaveLength(1)
+  expect(sent[0].action).toBe('convertToV2')
+
+  const after = await (await page.request.get('/api/admin/site')).json()
+  expect(after.schema).toBe(2)
+  expect(after.published).toBeNull()
+  const converted = after.draft.document.modules as { id: string }[]
+  // identificadores do v1 preservados
+  const v1Ids = (v1.draft.document.modules as { id: string }[]).map((m) => m.id)
+  for (const id of v1Ids) expect(converted.map((m) => m.id)).toContain(id)
+
+  // repetir o mesmo comando já aplicado devolve o resultado original, sem nova revisão
+  const replay = await page.request.post('/api/admin/site/convert', {
+    ...convertCommand(integration, v1.draft.revision, {
+      action: 'convertToV2',
+      operationId: sent[0].operationId,
+      acknowledge: [],
+    }),
+  })
+  expect(replay.status()).toBe(200)
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(
+    after.draft.revision,
+  )
+})
+
+test('E6.0: revisão alterada entre a prévia e a confirmação vira conflito e nada é convertido', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const v1 = await seedV1(page, integration)
+  const sent = trackCommands(page)
+  await page.goto('/admin#pagina-inicial')
+  await page.getByRole('button', { name: /Converter para v2/ }).click()
+  await page.getByLabel('Entendo que a conversão é definitiva.').check()
+
+  // outra pessoa salva o rascunho depois que a prévia foi aberta
+  const edited = cmsDocument()
+  edited.modules[0].content = {
+    heading: 'Título alterado por outra pessoa',
+    summary: '',
+    media: null,
+  }
+  const changed = await page.request.put('/api/admin/site/draft', {
+    headers: { Origin: integration.origin, 'If-Match': `"${v1.draft.revision}"` },
+    data: {
+      action: 'saveDraft',
+      expectedRevision: v1.draft.revision,
+      operationId: crypto.randomUUID(),
+      document: edited,
+    },
+  })
+  expect(changed.status()).toBe(200)
+  const current = await (await page.request.get('/api/admin/site')).json()
+  expect(current.draft.revision).not.toBe(v1.draft.revision)
+
+  await page.getByRole('button', { name: 'Converter agora' }).click()
+  await expect(page.getByRole('alert')).toContainText('O documento mudou')
+  expect(sent).toHaveLength(1)
+  // o servidor recusou: o rascunho continua v1, exatamente como a outra pessoa o deixou
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(current)
+  expect(current.schema).toBe(1)
+})
+
+test('E6.0: sessão expirada ao confirmar leva ao login sem gravar', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const before = await (await page.request.get('/api/admin/site')).json()
+  await page.goto('/admin#pagina-inicial')
+  await page.getByRole('button', { name: /Iniciar documento/ }).click()
+  await page.context().clearCookies()
+  await page.getByRole('button', { name: 'Criar documento' }).click()
+  await expect(page.getByLabel('Usuário')).toBeVisible()
+
+  await login(page, integration)
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
 })
 
 test.describe('P4: configured commercial actions remain inert', () => {

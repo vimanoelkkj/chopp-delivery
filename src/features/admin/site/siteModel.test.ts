@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { convertCmsV1ToV2 } from '../../../../server/cms/convert'
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
+import { cmsDocument } from '../../../../tests/backend/cms-document-fixture'
 import { previewFixture } from '../../../../tests/e2e-real/preview-fixture'
 import {
+  describeConversion,
   describeDocument,
   describeSection,
   documentNotices,
+  documentSetupPending,
+  readCommandResult,
+  readConversionPreview,
   readSiteSnapshot,
   type SiteRead,
   summarizeSections,
@@ -215,5 +221,147 @@ describe('describeDocument e documentNotices', () => {
     expect(notices).toContain('A vitrine de barris está oculta.')
     expect(notices).toContain('Há imagem referenciada que ainda não está pronta para uso.')
     expect(notices).toContain('ALGO_NOVO')
+  })
+})
+
+describe('prévia de conversão (formato real do servidor)', () => {
+  const serverPreview = () => ({
+    preview: {
+      from: { versionId: 'version_12345678-1234-4123-8123-123456789012', revision: REV1 },
+      ...convertCmsV1ToV2(cmsDocument()),
+    },
+  })
+
+  // v1 com o bloco "Barris" depois do catálogo: a conversão o transforma em vitrine e o reordena.
+  const withBarrels = () => {
+    const document = cmsDocument()
+    document.modules.splice(2, 0, {
+      id: 'module_12345678-1234-4123-8123-000000000001',
+      template: 'barrels',
+      region: 'details',
+      visible: true,
+      navigation: 'primary',
+      content: { heading: 'Barris', body: 'Texto dos barris', media: null },
+    })
+    return {
+      preview: {
+        from: { versionId: 'version_12345678-1234-4123-8123-123456789012', revision: REV1 },
+        ...convertCmsV1ToV2(document),
+      },
+    }
+  }
+
+  it('aceita exatamente o que o conversor do servidor produz', () => {
+    const preview = readConversionPreview(serverPreview())
+    expect(preview.document.schemaVersion).toBe(2)
+    expect(preview.from.revision).toBe(REV1)
+    expect(preview.mapping.length).toBe(cmsDocument().modules.length)
+  })
+
+  it.each([
+    ['chave extra', { preview: { ...serverPreview().preview, extra: 1 } }],
+    ['documento ainda v1', { preview: { ...serverPreview().preview, document: cmsDocument() } }],
+    ['perdas que não são texto', { preview: { ...serverPreview().preview, losses: [1] } }],
+    [
+      'mapeamento malformado',
+      { preview: { ...serverPreview().preview, mapping: [{ from: 1, to: 2 }] } },
+    ],
+    ['sem o envelope', serverPreview().preview],
+    ['não é objeto', 'x'],
+  ])('rejeita prévia malformada: %s', (_, value) => {
+    expect(() => readConversionPreview(value)).toThrow('INVALID_PREVIEW')
+  })
+
+  it('descreve só o que a prévia mostra: ids preservados, "Barris" vira vitrine sem barris, ordem muda', () => {
+    const view = describeConversion(readConversionPreview(withBarrels()))
+    expect(view.consequences).toContain(
+      'Textos, visibilidade e identificadores das seções são preservados.',
+    )
+    expect(
+      view.consequences.some((line) => /vitrine/.test(line) && /nenhum barril/.test(line)),
+    ).toBe(true)
+    expect(view.consequences.some((line) => /reordenadas/.test(line))).toBe(true)
+    expect(view.consequences.some((line) => /deixa de receber alterações/.test(line))).toBe(true)
+    expect(view.consequences).toContain('Nada é publicado e o site público não muda.')
+    const carousel = view.sections.find((s) => s.kind === 'Vitrine de barris')
+    expect(carousel?.wasKind).toBe('Barris')
+    expect(view.sections.map((s) => s.position)).toEqual(view.sections.map((_, i) => i + 1))
+    expect(view.losses).toEqual([])
+    expect(view.notices.join(' ')).toMatch(/vitrine de barris não tem barris/)
+  })
+
+  it('sem bloco "Barris" no v1, não promete vitrine nem reordenação que não acontecem', () => {
+    const view = describeConversion(readConversionPreview(serverPreview()))
+    expect(view.consequences.some((line) => /vitrine/.test(line))).toBe(false)
+    expect(view.consequences.some((line) => /reordenadas/.test(line))).toBe(false)
+    expect(view.notices.join(' ')).toMatch(/não tem a vitrine de barris/)
+  })
+
+  it('não afirma que os ids foram preservados quando o mapeamento diz o contrário', () => {
+    const preview = readConversionPreview(serverPreview())
+    preview.mapping[0] = {
+      ...preview.mapping[0],
+      from: { ...preview.mapping[0].from, id: 'outro' },
+    }
+    expect(describeConversion(preview).consequences).not.toContain(
+      'Textos, visibilidade e identificadores das seções são preservados.',
+    )
+  })
+})
+
+describe('readCommandResult', () => {
+  const body = (revision = REV2) => ({
+    command: {
+      operationId: '12345678-1234-4123-8123-123456789abc',
+      action: 'convertToV2',
+      expectedRevision: REV1,
+      revision,
+      versionId: 'version_12345678-1234-4123-8123-123456789012',
+    },
+    site: { schema: 2, draft: { revision: REV2, document: previewFixture() }, published: null },
+  })
+
+  it('aceita o recibo coerente e entrega o documento v2 lido', () => {
+    const receipt = readCommandResult(body())
+    expect(receipt.read.kind).toBe('v2')
+    expect(receipt.command.action).toBe('convertToV2')
+  })
+
+  it.each([
+    [
+      'revisão do recibo diferente da do documento',
+      body('c2_99999999-9999-4999-8999-999999999999'),
+    ],
+    ['ação desconhecida', { ...body(), command: { ...body().command, action: 'publish' } }],
+    [
+      'site v1 no recibo',
+      {
+        ...body(),
+        site: { schema: null, draft: { revision: REV1, document: null }, published: null },
+      },
+    ],
+    ['sem site', { command: body().command }],
+  ])('rejeita: %s', (_, value) => {
+    expect(() => readCommandResult(value)).toThrow('INVALID_RECEIPT')
+  })
+})
+
+describe('pendências do rascunho inicial', () => {
+  it('identifica vitrine vazia e WhatsApp não configurado', () => {
+    const document = previewFixture()
+    const carousel = document.modules.find((module) => module.template === 'carousel')
+    if (carousel?.template !== 'carousel') throw new Error('vitrine ausente')
+    carousel.content.entries = []
+    document.commercial.whatsappNumber = null
+    expect(documentSetupPending(v2(document))).toEqual([
+      'A vitrine ainda não tem barris selecionados.',
+      'O WhatsApp do documento ainda não foi configurado.',
+    ])
+  })
+
+  it('não sugere pendências desses campos quando ambos estão preenchidos', () => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = '5532999999999'
+    expect(documentSetupPending(v2(document))).toEqual([])
   })
 })

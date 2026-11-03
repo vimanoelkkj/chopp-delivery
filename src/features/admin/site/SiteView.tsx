@@ -1,10 +1,12 @@
 import { useId, useRef, useState } from 'react'
 import { AdminButton } from '../ui/AdminButton'
+import { ConvertPanel, StartPanel } from './InitFlow'
 import styles from './SiteView.module.css'
 import {
   describeDocument,
   describeSection,
   documentNotices,
+  documentSetupPending,
   type FieldRow,
   NAVIGATION_LABEL,
   type SectionSummary,
@@ -111,6 +113,7 @@ function Document({ read }: { read: Extract<SiteRead, { kind: 'v2' }> }) {
   const detailRef = useRef<HTMLElement>(null)
   const titleId = useId()
   const notices = documentNotices(read)
+  const pending = documentSetupPending(read)
   const visibleCount = sections.filter((s) => s.visible).length
 
   const select = (id: string) => {
@@ -140,6 +143,18 @@ function Document({ read }: { read: Extract<SiteRead, { kind: 'v2' }> }) {
           Revisão {read.revision.slice(0, 11)}…
         </li>
       </ul>
+
+      {pending.length > 0 ? (
+        <div className={styles.notices} role="status">
+          <p className={styles.noticesTitle}>Rascunho incompleto</p>
+          <ul>
+            {pending.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p>Essas configurações editoriais ainda estão pendentes. Nada foi publicado.</p>
+        </div>
+      ) : null}
 
       {notices.length > 0 ? (
         <div className={styles.notices} role="status">
@@ -194,14 +209,6 @@ function Document({ read }: { read: Extract<SiteRead, { kind: 'v2' }> }) {
 }
 
 const MESSAGES = {
-  none: {
-    title: 'Ainda não há documento da página inicial',
-    text: 'O CMS não tem nenhum rascunho editorial. Esta tela só consulta: ela não cria nem inicializa documentos. A inicialização do CMS v2 fica para uma etapa própria.',
-  },
-  v1: {
-    title: 'O rascunho está no formato antigo (v1)',
-    text: 'Para ver as seções aqui, o documento precisa ser convertido para o v2. A conversão exige confirmação explícita e não é feita por esta tela.',
-  },
   forbidden: {
     title: 'Sem permissão para ver a página inicial',
     text: 'Sua sessão está ativa, mas esta conta não pode consultar o rascunho. Fale com quem administra o painel.',
@@ -216,7 +223,19 @@ const MESSAGES = {
   },
 } as const
 
-function Body({ state, retry }: { state: SiteState; retry: () => void }) {
+function Body({
+  state,
+  retry,
+  onApplied,
+  onExpired,
+  notice,
+}: {
+  state: SiteState
+  retry: () => void
+  onApplied: (read: Extract<SiteRead, { kind: 'v2' }>, message: string) => void
+  onExpired: () => void
+  notice: string | null
+}) {
   if (state.status === 'loading')
     return (
       <div role="status" aria-label="Carregando a página inicial">
@@ -233,10 +252,38 @@ function Body({ state, retry }: { state: SiteState; retry: () => void }) {
         Sessão expirada. Voltando ao login…
       </p>
     )
-  if (state.status === 'ready' && state.read.kind === 'v2') return <Document read={state.read} />
+  if (state.status === 'ready' && state.read.kind === 'v2')
+    return (
+      <>
+        {notice ? (
+          <p role="status" className={styles.success}>
+            {notice}
+          </p>
+        ) : null}
+        <Document read={state.read} />
+      </>
+    )
+  // Sem documento ou rascunho v1: o fluxo explícito de início/conversão. Nada roda sozinho.
+  if (state.status === 'ready' && state.read.kind === 'none')
+    return (
+      <StartPanel
+        revision={state.read.revision}
+        reload={retry}
+        onApplied={onApplied}
+        onExpired={onExpired}
+      />
+    )
+  if (state.status === 'ready' && state.read.kind === 'v1')
+    return (
+      <ConvertPanel
+        revision={state.read.revision}
+        reload={retry}
+        onApplied={onApplied}
+        onExpired={onExpired}
+      />
+    )
 
-  const key = state.status === 'ready' ? state.read.kind : state.status
-  const message = MESSAGES[key as keyof typeof MESSAGES]
+  const message = MESSAGES[state.status as keyof typeof MESSAGES]
   const failed = state.status === 'error' || state.status === 'unavailable'
   return (
     <section className={styles.message} role={failed ? 'alert' : 'status'}>
@@ -253,13 +300,18 @@ function Body({ state, retry }: { state: SiteState; retry: () => void }) {
 
 /** Tela "Página inicial" do painel: consulta o documento editorial do CMS v2, sem editar nada. */
 export function SiteView({ onExpired }: { onExpired: () => void }) {
-  const { state, reload } = useSiteDocument(onExpired)
+  const { state, reload, apply } = useSiteDocument(onExpired)
+  const [notice, setNotice] = useState<string | null>(null)
+  const refresh = () => {
+    setNotice(null)
+    reload()
+  }
   return (
     <div className={styles.page}>
       <div className={styles.content}>
         <div className={styles.heading}>
           <div>
-            <p className={styles.eyebrow}>Somente leitura</p>
+            <p className={styles.eyebrow}>Rascunho do CMS v2</p>
             <h1 className={styles.title}>Página inicial</h1>
           </div>
           <div className={styles.actions}>
@@ -271,16 +323,25 @@ export function SiteView({ onExpired }: { onExpired: () => void }) {
             >
               Abrir prévia
             </a>
-            <AdminButton variant="outline" onClick={reload} disabled={state.status === 'loading'}>
+            <AdminButton variant="outline" onClick={refresh} disabled={state.status === 'loading'}>
               Atualizar
             </AdminButton>
           </div>
         </div>
         <p className={styles.notice}>
-          Rascunho do CMS v2, não publicado. Esta tela só consulta: nada é salvo, convertido ou
-          publicado.
+          Nada é publicado por esta tela. Documentos que já existem só são consultados: a edição dos
+          textos ainda não está disponível.
         </p>
-        <Body state={state} retry={reload} />
+        <Body
+          state={state}
+          retry={refresh}
+          onApplied={(read, message) => {
+            apply(read)
+            setNotice(message)
+          }}
+          onExpired={onExpired}
+          notice={notice}
+        />
       </div>
     </div>
   )

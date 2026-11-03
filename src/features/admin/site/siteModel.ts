@@ -7,6 +7,7 @@ import {
   type CmsDocumentV2,
   type CmsModuleV2,
   type CmsTemplateV2,
+  type CmsVersionedCommandResult,
 } from '../../../../shared/cms/v2'
 import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
 
@@ -434,4 +435,143 @@ export function documentNotices(read: Extract<SiteRead, { kind: 'v2' }>): string
   const fromLayout = read.layout.diagnostics.map((d) => DIAGNOSTIC_TEXT[d.code] ?? d.code)
   const fromServer = read.warnings.map((w) => DIAGNOSTIC_TEXT[w] ?? w)
   return [...new Set([...fromLayout, ...fromServer])]
+}
+
+// ---------------------------------------------------------------------------------------------
+// Prévia de conversão e recibo de comando (E6.0)
+// ---------------------------------------------------------------------------------------------
+
+/** Pendências editoriais visíveis, sem afirmar que um rascunho novo está pronto para uso. */
+export function documentSetupPending(read: Extract<SiteRead, { kind: 'v2' }>): string[] {
+  const carousel = read.document.modules.find((module) => module.template === 'carousel')
+  return [
+    ...(carousel?.template === 'carousel' && carousel.content.entries.length === 0
+      ? ['A vitrine ainda não tem barris selecionados.']
+      : []),
+    ...(read.document.commercial.whatsappNumber === null
+      ? ['O WhatsApp do documento ainda não foi configurado.']
+      : []),
+  ]
+}
+
+export type ConversionPreview = {
+  from: { versionId: string; revision: string }
+  document: CmsDocumentV2
+  mapping: { from: { id: string; template: string }; to: { id: string; template: string } }[]
+  losses: string[]
+  warnings: string[]
+}
+
+const isText = (value: unknown): value is string => typeof value === 'string'
+const isRef = (value: unknown): value is { id: string; template: string } =>
+  exact(value, ['id', 'template']) && isText(value.id) && isText(value.template)
+
+/** Valida a resposta de `previewConversion` (que não escreve nada). Lança se o formato não for o do contrato. */
+export function readConversionPreview(value: unknown): ConversionPreview {
+  if (
+    !exact(value, ['preview']) ||
+    !exact(value.preview, ['from', 'document', 'mapping', 'losses', 'warnings'])
+  )
+    throw new Error('INVALID_PREVIEW')
+  const { from, document, mapping, losses, warnings } = value.preview
+  const parsed = parseCmsDocument(document)
+  if (
+    !exact(from, ['versionId', 'revision']) ||
+    !isText(from.versionId) ||
+    !cmsRevision(from.revision) ||
+    parsed.value?.schemaVersion !== 2 ||
+    !Array.isArray(mapping) ||
+    !mapping.every((m) => exact(m, ['from', 'to']) && isRef(m.from) && isRef(m.to)) ||
+    !Array.isArray(losses) ||
+    !losses.every(isText) ||
+    !Array.isArray(warnings) ||
+    !warnings.every(isText)
+  )
+    throw new Error('INVALID_PREVIEW')
+  return {
+    from: { versionId: from.versionId, revision: from.revision },
+    document: parsed.value,
+    mapping: mapping as ConversionPreview['mapping'],
+    losses: losses as string[],
+    warnings: warnings as string[],
+  }
+}
+
+export type CommandReceipt = {
+  command: CmsVersionedCommandResult['command']
+  read: Extract<SiteRead, { kind: 'v2' }>
+}
+
+/** Valida o recibo de `startV2`/`convertToV2` (também o de `GET /commands/:id`). */
+export function readCommandResult(value: unknown): CommandReceipt {
+  if (
+    !exact(value, ['command', 'site']) ||
+    !exact(value.command, ['operationId', 'action', 'expectedRevision', 'revision', 'versionId']) ||
+    !isText(value.command.operationId) ||
+    !['startV2', 'convertToV2', 'saveDraft'].includes(value.command.action as string) ||
+    !cmsRevision(value.command.expectedRevision) ||
+    !cmsRevision(value.command.revision) ||
+    !isText(value.command.versionId)
+  )
+    throw new Error('INVALID_RECEIPT')
+  const read = readSiteSnapshot(value.site)
+  if (read.kind !== 'v2' || read.revision !== value.command.revision)
+    throw new Error('INVALID_RECEIPT')
+  return { command: value.command as CmsVersionedCommandResult['command'], read }
+}
+
+const V1_TEMPLATE_LABEL: Record<string, string> = { ...TEMPLATE_LABEL, barrels: 'Barris' }
+const templateName = (template: string) => V1_TEMPLATE_LABEL[template] ?? template
+
+export type ConversionView = {
+  /** Seções depois da conversão, na ordem nova, dizendo de qual tipo vieram quando o tipo muda. */
+  sections: { id: string; position: number; title: string; kind: string; wasKind: string | null }[]
+  /** Consequências em linguagem clara, derivadas do que a prévia realmente mostra. */
+  consequences: string[]
+  notices: string[]
+  losses: string[]
+}
+
+/** Transforma a prévia em texto para o administrador, sem afirmar nada que a prévia não mostre. */
+export function describeConversion(preview: ConversionPreview): ConversionView {
+  const after = new Map(preview.document.modules.map((m) => [m.id, m]))
+  const wasKind = new Map(preview.mapping.map((m) => [m.to.id, m.from.template]))
+  const sections = preview.document.modules.map((module, index) => {
+    const was = wasKind.get(module.id)
+    return {
+      id: module.id,
+      position: index + 1,
+      title: titleOf(module),
+      kind: TEMPLATE_LABEL[module.template],
+      wasKind: was && was !== module.template ? templateName(was) : null,
+    }
+  })
+  const idsKept = preview.mapping.every((m) => m.from.id === m.to.id && after.has(m.to.id))
+  const reordered =
+    preview.mapping.map((m) => m.to.id).join('|') !==
+    preview.document.modules.map((m) => m.id).join('|')
+  const barrels = preview.mapping.some(
+    (m) => m.from.template === 'barrels' && m.to.template === 'carousel',
+  )
+  const consequences = [
+    ...(idsKept ? ['Textos, visibilidade e identificadores das seções são preservados.'] : []),
+    ...(barrels
+      ? [
+          'O bloco “Barris” vira a vitrine de barris do v2, mas começa sem nenhum barril selecionado.',
+        ]
+      : []),
+    ...(reordered
+      ? [
+          'As seções são reordenadas pelas posições fixas da página (abertura, vitrine, faixa, catálogo, institucionais e contato).',
+        ]
+      : []),
+    'O rascunho v1 continua guardado no histórico, mas deixa de receber alterações: depois da conversão só o formato v2 é salvo.',
+    'Nada é publicado e o site público não muda.',
+  ]
+  return {
+    sections,
+    consequences,
+    notices: [...new Set(preview.warnings.map((w) => DIAGNOSTIC_TEXT[w] ?? w))],
+    losses: preview.losses,
+  }
 }

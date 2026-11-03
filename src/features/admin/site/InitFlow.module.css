@@ -1,0 +1,201 @@
+/* Inicialização e conversão do CMS v2 (E6.0). Mesmo sistema visual do painel (admin.css). */
+.panel {
+  max-width: 48rem;
+}
+
+.title {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.lead {
+  margin-top: 0.5rem;
+  color: var(--a-mute);
+  line-height: 1.55;
+}
+
+.subtitle {
+  margin: 1.25rem 0 0.375rem;
+  color: var(--a-mute);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+  line-height: 1.55;
+}
+
+.list li + li {
+  margin-top: 0.25rem;
+}
+
+.progress {
+  margin-top: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--a-info-bg);
+  color: var(--a-info);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.alert {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--a-err-line);
+  border-radius: var(--radius-control);
+  background: var(--a-err-bg);
+  color: var(--a-err);
+  line-height: 1.5;
+}
+
+.alertTitle {
+  font-weight: 800;
+}
+
+.alertActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.actions {
+  margin-top: 1.25rem;
+}
+
+.notices {
+  margin-top: 1rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--a-warn-bg);
+  color: var(--a-warn);
+  font-size: 0.9375rem;
+}
+
+.noticesTitle {
+  font-weight: 800;
+}
+
+.notices ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.125rem;
+  list-style: disc;
+}
+
+.losses {
+  margin-top: 0.75rem;
+  color: var(--a-mute);
+  font-size: 0.9375rem;
+}
+
+.sections {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--a-line);
+  border-radius: var(--radius-control);
+  background: var(--a-panel);
+}
+
+.position {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--a-sage);
+  color: var(--a-green);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.sectionText {
+  display: grid;
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.sectionMeta {
+  color: var(--a-mute);
+  font-size: 0.8125rem;
+}
+
+.dialogTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.dialogBody {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  color: var(--a-mute);
+  line-height: 1.6;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: var(--tap-min);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--a-field);
+  border-radius: var(--radius-control);
+  color: var(--a-ink);
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  accent-color: var(--a-green);
+}
+
+.check:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 47.99rem) {
+  .dialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .dialogActions > * {
+    flex: 1 1 100%;
+  }
+}

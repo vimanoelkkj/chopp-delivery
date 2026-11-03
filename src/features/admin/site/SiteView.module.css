@@ -67,6 +67,15 @@
   line-height: 1.45;
 }
 
+.success {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--a-ok-bg);
+  color: var(--a-ok);
+  font-weight: 600;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

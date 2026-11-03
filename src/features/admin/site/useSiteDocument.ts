@@ -80,10 +80,17 @@ export function useSiteDocument(onExpired: () => void) {
     }
   }, [])
 
+  // Aplica um documento já recebido (recibo de uma operação) sem nova leitura.
+  const apply = useCallback((read: SiteRead) => {
+    active.current?.abort()
+    active.current = null
+    setState({ status: 'ready', read })
+  }, [])
+
   useEffect(() => {
     void load()
     return () => active.current?.abort()
   }, [load])
 
-  return { state, reload: load }
+  return { state, reload: load, apply }
 }
