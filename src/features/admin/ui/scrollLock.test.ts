@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 function page({ inner = 1440, client = 1425, ownPadding = 0, inlinePadding = '' } = {}) {
-  const html = { clientWidth: client, style: { paddingRight: inlinePadding } }
+  const html = {
+    clientWidth: client,
+    style: { paddingRight: inlinePadding, overflowX: '', overflowY: '' },
+  }
   const body = { style: { overflow: '' } }
   vi.stubGlobal('document', { documentElement: html, body })
   vi.stubGlobal('window', { innerWidth: inner })
@@ -26,6 +29,21 @@ describe('lockScroll', () => {
     unlock()
     expect(body.style.overflow).toBe('')
     expect(html.style.paddingRight).toBe('')
+  })
+
+  it('libera a propagação do overflow do body e restaura o overflow inline do html', () => {
+    const { html, body } = page()
+    html.style.overflowX = 'clip'
+    html.style.overflowY = 'auto'
+    body.style.overflow = 'auto'
+    const unlock = lockScroll()
+    expect(html.style.overflowX).toBe('visible')
+    expect(html.style.overflowY).toBe('visible')
+    expect(body.style.overflow).toBe('hidden')
+    unlock()
+    expect(html.style.overflowX).toBe('clip')
+    expect(html.style.overflowY).toBe('auto')
+    expect(body.style.overflow).toBe('auto')
   })
 
   it('sem barra clássica (celular, barra sobreposta) não adiciona padding', () => {

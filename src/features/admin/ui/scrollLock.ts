@@ -7,6 +7,8 @@ let restore: (() => void) | undefined
  * - Trava no `body` e não no `html`: o `overflow` do body vai para a viewport, e o `body`
  *   continua sem virar contêiner de rolagem (com `html { overflow: hidden }` o
  *   `overflow-x: hidden` do body o transformava em um, e a barra fixa `sticky` saía da tela).
+ * - Durante a trava, o html precisa ter overflow visible: clip impede que o overflow do body
+ *   se propague à viewport. O valor inline original do html também é restaurado ao fechar.
  * - Compensa a barra de rolagem que some: com barra clássica (Windows) o conteúdo centrado
  *   andaria metade da largura dela. O padding é medido na hora (0 com barra sobreposta, no
  *   celular) e somado ao padding que o `html` já tiver, sem duplicar.
@@ -17,7 +19,14 @@ export function lockScroll(): () => void {
   if (locks++ === 0) {
     const { documentElement: html, body } = document
     const scrollbar = window.innerWidth - html.clientWidth
-    const previous = { overflow: body.style.overflow, paddingRight: html.style.paddingRight }
+    const previous = {
+      overflow: body.style.overflow,
+      htmlOverflowX: html.style.overflowX,
+      htmlOverflowY: html.style.overflowY,
+      paddingRight: html.style.paddingRight,
+    }
+    html.style.overflowX = 'visible'
+    html.style.overflowY = 'visible'
     if (scrollbar > 0) {
       const own = Number.parseFloat(getComputedStyle(html).paddingRight) || 0
       html.style.paddingRight = `${own + scrollbar}px`
@@ -25,6 +34,8 @@ export function lockScroll(): () => void {
     body.style.overflow = 'hidden'
     restore = () => {
       body.style.overflow = previous.overflow
+      html.style.overflowX = previous.htmlOverflowX
+      html.style.overflowY = previous.htmlOverflowY
       html.style.paddingRight = previous.paddingRight
     }
   }

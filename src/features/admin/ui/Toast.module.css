@@ -2,20 +2,23 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   font-weight: 600;
   animation: toast-in 0.24s var(--admin-ease) both;
 }
 
 .success {
-  background: var(--admin-cream);
-  color: var(--color-black);
+  background: var(--a-ok-bg);
+  border-color: #b9cfb5;
+  color: var(--a-ok);
 }
 
 .error {
-  border: 1px solid var(--admin-danger);
-  background: var(--color-panel);
-  color: var(--color-bone);
+  border-color: var(--a-err-line);
+  background: var(--a-err-bg);
+  color: var(--a-err);
   animation:
     toast-in 0.24s var(--admin-ease) both,
     shake 0.36s 0.1s ease-in-out;
@@ -30,10 +33,6 @@
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.error .icon {
-  stroke: var(--admin-danger);
 }
 
 /* O check se desenha: pathLength=1 normaliza o traço. */

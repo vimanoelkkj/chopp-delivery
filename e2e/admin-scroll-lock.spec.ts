@@ -55,14 +55,21 @@ function expectSamePlace(actual: Snapshot, expected: Snapshot) {
 }
 
 async function cycle(page: Page, settle: number) {
-  await page.getByLabel('30 L, preço em reais, Dronken').fill('515')
-  await page.evaluate(() => window.scrollTo(0, 320))
+  const price = page.getByLabel('30 L, preço em reais, Dronken')
+  await price.fill('515')
+  await expect(price).toHaveValue('5,15')
+  // O layout compacto pode ter menos de 320 px de rolagem; ainda exigimos rolagem real.
+  const target = await page.evaluate(() =>
+    Math.min(320, document.documentElement.scrollHeight - window.innerHeight),
+  )
+  expect(target).toBeGreaterThan(0)
+  await page.evaluate((y) => window.scrollTo(0, y), target)
   await page.waitForTimeout(250)
   const before = await snapshot(page)
   expect(before.scrollbar, 'a barra de rolagem precisa estar visível neste teste').toBeGreaterThan(
     0,
   )
-  expect(before.scrollY).toBe(320)
+  expect(before.scrollY).toBe(Math.round(target))
 
   for (let round = 0; round < 3; round++) {
     await page.getByRole('button', { name: 'Descartar' }).click()
@@ -72,6 +79,12 @@ async function cycle(page: Page, settle: number) {
     expectSamePlace(await snapshot(page), before)
     expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden')
     await expect(dialog.getByRole('button', { name: 'Continuar editando' })).toBeFocused()
+    await expect(price).toHaveValue('5,15')
+    // A compensação não basta: a roda sobre o backdrop também não pode rolar o fundo.
+    await page.mouse.move(1, 1)
+    await page.mouse.wheel(0, 200)
+    await page.waitForTimeout(150)
+    expectSamePlace(await snapshot(page), before)
 
     await dialog.getByRole('button', { name: 'Continuar editando' }).click()
     await expect(dialog).toBeHidden()
@@ -86,6 +99,8 @@ async function cycle(page: Page, settle: number) {
       ]),
     ).toEqual(['', '', ''])
     await expect(page.getByRole('button', { name: 'Descartar' })).toBeFocused()
+    await expect(price).toHaveValue('5,15')
+    await expect(page.getByRole('button', { name: /^Salvar/ })).toBeEnabled()
   }
 }
 
@@ -147,10 +162,16 @@ test.describe('barra fixa e foco', () => {
     expect((field?.y ?? 0) + (field?.height ?? 0)).toBeLessThanOrEqual((bar?.y ?? 0) - 8)
 
     await page.getByLabel('30 L, preço em reais, Dronken').fill('515')
-    await page.evaluate(() => window.scrollTo(0, 320))
+    // O layout ficou mais denso e a página pode ser mais curta que 320 px de rolagem: o alvo é o
+    // menor entre 320 e o máximo possível, e o teste exige que haja alguma rolagem para provar.
+    const target = await page.evaluate(() =>
+      Math.min(320, document.documentElement.scrollHeight - window.innerHeight),
+    )
+    expect(target).toBeGreaterThan(0)
+    await page.evaluate((y) => window.scrollTo(0, y), target)
     await page.waitForTimeout(250)
     await page.getByRole('button', { name: 'Descartar' }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(320)
+    expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(Math.round(target))
   })
 })

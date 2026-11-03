@@ -3,7 +3,7 @@
   place-items: center;
   min-height: 100dvh;
   padding: 2rem var(--gutter);
-  background: var(--color-black);
+  background: var(--a-bg);
 }
 
 .card {
@@ -16,48 +16,50 @@
 
 .seal {
   align-self: flex-start;
+  width: 3rem;
+  height: 3rem;
   border-radius: 50%;
+  background: #22282a;
 }
 
 .eyebrow {
-  margin-top: 1.5rem;
-  color: var(--color-gold);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  margin-top: 1rem;
+  color: var(--a-green);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .title {
   margin-top: 0.25rem;
-  font-family: var(--font-display);
-  font-size: clamp(3.5rem, 3rem + 2.5vw, 4.75rem);
-  font-weight: 900;
-  line-height: 0.9;
-  text-transform: uppercase;
+  font-size: clamp(2rem, 1.7rem + 1.4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
 }
 
 .title span {
-  color: var(--color-gold);
+  color: var(--a-green);
 }
 
 .notice {
-  margin-top: 1.25rem;
+  margin-top: 1rem;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--color-line-strong);
-  color: var(--color-soft);
+  border: 1px solid #a9c4d8;
+  border-radius: var(--radius-control);
+  background: var(--a-info-bg);
+  color: var(--a-info);
   font-size: 0.9375rem;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.125rem;
-  margin-top: 1.75rem;
-  padding: 1.5rem;
-  border: 1px solid var(--color-line);
-  border-top: 3px solid var(--color-gold);
-  background: var(--color-panel);
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--a-line);
+  border-radius: var(--radius-panel);
+  background: var(--a-panel);
 }
 
 .field {
@@ -67,37 +69,36 @@
 }
 
 .label {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--a-mute);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .input {
   width: 100%;
-  min-height: 3.125rem;
-  padding: 0 0.875rem;
-  border: 1px solid var(--color-line);
-  border-radius: 0;
-  background: var(--color-black);
-  color: var(--color-bone);
-  font-family: var(--font-mono);
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--a-field);
+  border-radius: var(--radius-control);
+  background: var(--a-input);
+  color: var(--a-ink);
+  font-family: var(--font-body);
   font-size: 1rem;
   transition: border-color 0.15s;
 }
 
 .input:hover {
-  border-color: var(--color-line-strong);
+  border-color: var(--a-ink);
 }
 
 .input:focus-visible {
-  border-color: var(--color-gold);
-  outline-offset: 0;
+  border-color: var(--a-ink);
+  outline-offset: 1px;
 }
 
 .input[aria-invalid='true'] {
-  border-color: var(--admin-danger);
+  border-color: var(--a-err);
+  background: var(--a-err-bg);
 }
 
 .passwordRow {
@@ -116,42 +117,48 @@
   height: 100%;
   padding: 0 0.875rem;
   border: 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   background: transparent;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  color: var(--a-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .toggle:hover {
-  color: var(--color-gold);
+  background: var(--a-sage);
 }
 
 .error {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--admin-danger);
-  color: var(--color-bone);
+  border: 1px solid var(--a-err-line);
+  border-radius: var(--radius-control);
+  background: var(--a-err-bg);
+  color: var(--a-err);
   font-size: 0.9375rem;
+  font-weight: 600;
   animation: shake 0.36s ease-in-out;
 }
 
 .submit {
   width: 100%;
-  min-height: 3.25rem;
+  min-height: 3rem;
 }
 
 .back {
   align-self: center;
-  margin-top: 1.25rem;
-  padding: 0.75rem;
-  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.75rem;
+  padding: 0 0.75rem;
+  color: var(--a-mute);
   font-size: 0.9375rem;
 }
 
 .back:hover {
-  color: var(--color-gold);
+  color: var(--a-ink);
+  text-decoration: underline;
 }
 
 @keyframes card-in {

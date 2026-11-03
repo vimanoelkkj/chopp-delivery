@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { ADMIN_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
 import './admin.css'
 import styles from './AdminApp.module.css'
 import { AdminShell } from './AdminShell'
@@ -13,6 +14,7 @@ import { BootSplash } from './ui/BootSplash'
 
 /** Página do painel (rota /admin). Carregada sob demanda: o site público não baixa este código. */
 export default function AdminApp() {
+  useDocumentTheme(ADMIN_THEME)
   const { state, retry, signedIn, expired, signOut } = useAdminSession()
   // Rascunho guardado só em memória quando a sessão expira no meio da edição (some ao recarregar).
   const rescue = useRef<Rescue | null>(null)

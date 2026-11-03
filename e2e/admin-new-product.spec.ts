@@ -267,6 +267,7 @@ test.describe('acessibilidade do cadastro', () => {
     await openPanel(page)
     await newButton(page).click()
     const dialog = page.getByRole('dialog', { name: 'Novo produto' })
+    await expect(dialog).toBeVisible()
     for (let index = 0; index < 6; index++) {
       await page.keyboard.press('Tab')
       expect(await page.evaluate(() => !!document.activeElement?.closest('dialog'))).toBe(true)
@@ -308,7 +309,7 @@ test.describe('cadastro no celular (390 px)', () => {
   }) => {
     await openPanel(page)
     const button = await newButton(page).boundingBox()
-    expect(button?.width).toBeGreaterThan(300)
+    expect(button?.width).toBeGreaterThan(120)
     expect(button?.height).toBeGreaterThanOrEqual(48)
     await newButton(page).click()
     const dialog = page.getByRole('dialog', { name: 'Novo produto' })

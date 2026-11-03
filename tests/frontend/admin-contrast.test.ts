@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 
-const read = (path: string) => readFileSync(path, 'utf8')
-const tokens = read('src/styles/tokens.css') + read('src/features/admin/admin.css')
+// Tokens do tema do painel (src/features/admin/admin.css). O teste protege os contrastes por papel:
+// se alguém trocar uma cor do tema, a razão calculada abaixo precisa continuar acima do mínimo.
+const css = readFileSync('src/features/admin/admin.css', 'utf8')
 const token = (name: string) => {
-  const match = new RegExp(`--${name}:\\s*#([0-9a-f]{3,6})\\b`, 'i').exec(tokens)
-  if (!match) throw new Error(`token --${name} ausente`)
+  const match = new RegExp(`--a-${name}:\\s*#([0-9a-f]{3,6})\\b`, 'i').exec(css)
+  if (!match) throw new Error(`token --a-${name} ausente`)
   const digits = match[1].length === 3 ? [...match[1]].map((c) => c + c).join('') : match[1]
   return `#${digits}`
 }
@@ -23,27 +24,50 @@ const contrast = (a: string, b: string) => {
   return (light + 0.05) / (dark + 0.05)
 }
 
-// Fundos onde o painel desenha texto: preto (campos, barra, login), fundo, painel de modal,
-// linha da tabela e "steel" (skeleton/trilho).
-const backgrounds = ['color-black', 'color-coal', 'color-panel', 'admin-row'].map(token)
+// Superfícies onde o painel desenha texto.
+const surfaces = ['bg', 'panel', 'input', 'sage', 'blue', 'changed']
 
 it.each([
-  ['vermelho de erro', token('admin-danger')],
-  ['texto auxiliar (muted)', token('color-muted')],
-  ['dourado', token('color-gold')],
-])('%s tem contraste mínimo de 4,5:1 (WCAG AA, texto pequeno) em todos os fundos', (_, color) => {
-  for (const background of backgrounds)
-    expect(contrast(color, background)).toBeGreaterThanOrEqual(4.5)
+  ['grafite (texto)', 'ink'],
+  ['texto secundário', 'mute'],
+  ['verde (estado ativo)', 'green'],
+])('%s tem 4,5:1 (WCAG AA) em todas as superfícies do painel', (_, name) => {
+  for (const surface of surfaces)
+    expect(contrast(token(name), token(surface))).toBeGreaterThanOrEqual(4.5)
 })
 
-it('placeholder "não vende" tem 4,5:1 sobre o preto do campo', () => {
-  const css = read('src/features/admin/catalog/PriceField.module.css')
-  const placeholder = /::placeholder\s*{\s*color:\s*(#[0-9a-f]{6})/i.exec(css)?.[1]
-  expect(placeholder).toBeDefined()
-  expect(contrast(placeholder as string, token('color-black'))).toBeGreaterThanOrEqual(4.5)
+it.each([
+  ['erro', 'err', 'err-bg'],
+  ['alerta', 'warn', 'warn-bg'],
+  ['sucesso', 'ok', 'ok-bg'],
+  ['informação', 'info', 'info-bg'],
+  ['alerta sobre a linha alterada', 'warn', 'changed'],
+  ['erro sobre o painel', 'err', 'panel'],
+])('estado de %s tem 4,5:1 entre texto e fundo próprio', (_, text, background) => {
+  expect(contrast(token(text), token(background))).toBeGreaterThanOrEqual(4.5)
 })
 
-it('texto escuro sobre dourado e creme (botões e aviso de sucesso) passa em AAA', () => {
-  for (const fill of [token('color-gold'), token('admin-gold-pending'), token('admin-cream')])
-    expect(contrast(token('color-black'), fill)).toBeGreaterThanOrEqual(7)
+it('texto grafite sobre o pêssego da ação principal passa em AAA (normal, hover e pendente)', () => {
+  for (const fill of ['peach', 'peach-hover', 'peach-active'])
+    expect(contrast(token('ink'), token(fill))).toBeGreaterThanOrEqual(7)
+})
+
+it('placeholder ("não vende") usa a cor secundária e tem 4,5:1 sobre o campo', () => {
+  const field = readFileSync('src/features/admin/catalog/PriceField.module.css', 'utf8')
+  expect(/::placeholder\s*{\s*color:\s*var\(--a-mute\)/.test(field)).toBe(true)
+  expect(contrast(token('mute'), token('input'))).toBeGreaterThanOrEqual(4.5)
+})
+
+it.each([
+  ['borda de campo', 'field'],
+  ['trilho do interruptor desligado', 'off'],
+  ['trilho do interruptor ligado', 'green'],
+])('%s tem 3:1 (WCAG 1.4.11) contra o fundo e o painel', (_, name) => {
+  for (const surface of ['bg', 'panel'])
+    expect(contrast(token(name), token(surface))).toBeGreaterThanOrEqual(3)
+})
+
+it('o anel de foco (grafite) tem 3:1 contra o fundo, o painel e o pêssego', () => {
+  for (const surface of ['bg', 'panel', 'peach'])
+    expect(contrast(token('ink'), token(surface))).toBeGreaterThanOrEqual(3)
 })

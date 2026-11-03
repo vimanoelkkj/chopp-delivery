@@ -32,7 +32,9 @@ body {
  * o painel administrativo não ativa e segue com o fundo escuro global acima.
  */
 html[data-theme='pastel'],
-html[data-theme='pastel'] body {
+html[data-theme='pastel'] body,
+html[data-theme='admin'],
+html[data-theme='admin'] body {
   background: #faf5ea;
   color: #22282a;
 }

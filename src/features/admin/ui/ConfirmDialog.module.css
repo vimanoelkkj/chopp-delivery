@@ -1,16 +1,15 @@
 .title {
-  font-family: var(--font-display);
-  font-size: 2.75rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  line-height: 0.95;
-  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
   text-wrap: balance;
 }
 
 .text {
-  margin-top: 1.25rem;
-  color: var(--color-soft);
-  line-height: 1.65;
+  margin-top: 0.75rem;
+  color: var(--a-mute);
+  line-height: 1.6;
 }
 
 .actions {
@@ -22,10 +21,6 @@
 }
 
 @media (max-width: 47.99rem) {
-  .title {
-    font-size: 2.375rem;
-  }
-
   .actions > * {
     flex: 1 1 100%;
   }

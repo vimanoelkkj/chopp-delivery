@@ -16,6 +16,10 @@ type PriceFieldProps = {
   alwaysLabel?: boolean
   /** Identifica o campo para levar o foco até ele depois de uma tentativa de salvar. */
   fieldKey: string
+  /** Valor salvo, quando o campo foi alterado: aparece como "antes: ..." para não haver dúvida. */
+  was?: string
+  /** Id de um texto de ajuda (ex.: como digitar) para leitores de tela. */
+  describedBy?: string
   onChange: (text: string) => void
   onBlur: () => void
 }
@@ -34,10 +38,13 @@ export function PriceField({
   placeholder,
   alwaysLabel,
   fieldKey,
+  was,
+  describedBy,
   onChange,
   onBlur,
 }: PriceFieldProps) {
   const errorId = useId()
+  const wasId = useId()
   const ref = useRef<HTMLInputElement>(null)
   const [pasteError, setPasteError] = useState<string>()
   const message = pasteError ?? error
@@ -69,12 +76,12 @@ export function PriceField({
   }
 
   return (
-    <div className={styles.field}>
+    <div className={`${styles.field} ${alwaysLabel ? styles.stacked : ''}`}>
       <span
         className={`${styles.label} ${alwaysLabel ? styles.labelAlways : ''}`}
         aria-hidden="true"
       >
-        {label}
+        {alwaysLabel ? label : label.replace(/\s*\(R\$\)$/, '')}
       </span>
       <input
         ref={ref}
@@ -87,7 +94,12 @@ export function PriceField({
         value={value}
         aria-label={ariaLabel}
         aria-invalid={message ? true : undefined}
-        aria-describedby={message ? errorId : undefined}
+        aria-describedby={
+          [describedBy, message ? errorId : null, was !== undefined ? wasId : null]
+            .filter(Boolean)
+            .join(' ') || undefined
+        }
+        data-changed={was !== undefined ? 'true' : undefined}
         name={fieldKey}
         data-field={fieldKey}
         onChange={edit}
@@ -97,6 +109,11 @@ export function PriceField({
           onBlur()
         }}
       />
+      {was !== undefined ? (
+        <p id={wasId} className={styles.was}>
+          antes: {was === '' ? 'não vende' : was}
+        </p>
+      ) : null}
       {message ? (
         <p id={errorId} className={styles.error} role={pasteError ? 'alert' : undefined}>
           {message}

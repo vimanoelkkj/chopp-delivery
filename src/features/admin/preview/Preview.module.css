@@ -1,52 +1,98 @@
+/*
+ * Prévia editorial. Parte deste arquivo vive no painel (shell, toolbar, moldura, dentro de
+ * [data-admin]) e parte no documento do iframe (frameNotice, message), que não tem os tokens do
+ * painel: por isso esses trechos usam fallback literal da mesma paleta.
+ */
 .shell {
-  padding: 1.5rem;
   max-width: 100%;
+  padding: 1rem var(--gutter) 2rem;
 }
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
-  padding-block: 1rem;
-  border-bottom: 1px solid var(--color-gold-soft);
+  gap: 0.5rem 0.75rem;
+  padding-bottom: 0.75rem;
 }
+
 .toolbar h1 {
+  order: -1;
+  width: 100%;
   margin: 0;
-  font:
-    1.8rem 'Big Shoulders Display',
-    sans-serif;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
+
 .toolbar button,
 .toolbar a {
-  padding: 0.65rem 1rem;
-  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--a-field);
+  border-radius: var(--radius-control);
   background: transparent;
-  border: 1px solid currentColor;
+  color: var(--a-ink);
   font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
 }
+
+.toolbar button:hover,
+.toolbar a:hover {
+  background: var(--a-sage);
+}
+
+/* Dispositivo escolhido: preenchido em grafite (o pêssego fica para ações). */
 .toolbar button[aria-pressed='true'] {
-  color: var(--color-coal);
-  background: var(--color-gold-soft);
+  border-color: var(--a-ink);
+  background: var(--a-ink);
+  color: var(--a-panel);
 }
+
 .notice {
-  padding-block: 0.75rem;
-  color: var(--color-gold-soft);
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--a-info-bg);
+  color: var(--a-info);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
+
+/* Moldura azul-pó ao redor da página; a página é reduzida para caber, sem rolagem lateral. */
 .surface {
   overflow: auto;
   max-width: 100%;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-subtle);
+  padding: 0.75rem;
+  border: 1px solid var(--a-line);
+  border-radius: var(--radius-panel);
+  background: var(--a-blue);
 }
+
+.stage {
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
 .frame {
   display: block;
   max-width: none;
   border: 0;
-  background: var(--bg-dark);
+  background: #ffffff;
+  transform-origin: top left;
 }
+
 .module {
   display: contents;
 }
+
 .placeholder {
   display: grid;
   place-items: center;
@@ -62,17 +108,78 @@
     sans-serif;
   text-align: center;
 }
+
 .diagnostics {
   padding: 1rem;
   color: var(--text-offwhite);
   background: var(--bg-elevated);
 }
 
+/* Aviso dentro do documento do iframe (também quando a prévia é aberta direto). */
 .frameNotice {
   margin: 0;
   padding: 0.5rem 1rem;
-  font: 0.75rem var(--font-mono);
-  color: var(--color-gold-soft);
-  background: var(--bg-elevated);
+  font:
+    600 0.8125rem / 1.4 'Hanken Grotesk',
+    system-ui,
+    sans-serif;
+  color: #1d4e7a;
+  background: #d9e7f1;
   text-align: center;
+}
+
+/* Estados da prévia (carregando, ausente, expirada, indisponível), no painel e no frame. */
+.message {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--a-line, #d5dccb);
+  border-radius: 0.875rem;
+  background: var(--a-panel, #fffdf7);
+  color: var(--a-ink, #22282a);
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.message h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.message p {
+  margin: 0;
+  max-width: 40rem;
+  color: var(--a-mute, #56605a);
+}
+
+.message button,
+.message a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--a-field, #6b7568);
+  border-radius: 0.625rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (min-width: 48rem) {
+  .toolbar h1 {
+    order: 0;
+    width: auto;
+    margin-right: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar button,
+  .toolbar a {
+    transition: none;
+  }
 }

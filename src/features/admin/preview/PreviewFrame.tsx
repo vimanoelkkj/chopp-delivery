@@ -1,3 +1,4 @@
+import { PASTEL_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
 import { useCatalog } from '../../catalog/useCatalog'
 import styles from './Preview.module.css'
 import { PreviewMessage } from './PreviewMessage'
@@ -5,6 +6,7 @@ import { PreviewRenderer } from './PreviewRenderer'
 import { usePreviewDocument } from './usePreviewDocument'
 
 export default function PreviewFrame() {
+  useDocumentTheme(PASTEL_THEME)
   const { state, reload } = usePreviewDocument()
   const catalog = useCatalog()
   if (state.status !== 'ready') return <PreviewMessage state={state} retry={reload} />

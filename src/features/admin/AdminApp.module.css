@@ -15,22 +15,19 @@
 }
 
 .eyebrow {
-  color: var(--color-gold);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--a-green);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .title {
-  font-family: var(--font-display);
-  font-size: clamp(2.75rem, 2rem + 3vw, 4.25rem);
+  font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.5rem);
   font-weight: 800;
-  line-height: 0.95;
-  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   text-wrap: balance;
 }
 
 .text {
-  color: var(--color-soft);
+  color: var(--a-mute);
 }

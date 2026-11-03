@@ -421,7 +421,7 @@ test.describe('edição concorrente', () => {
 })
 
 test.describe('teclado e foco', () => {
-  test('anel de foco dourado visível e ordem lógica do cabeçalho ao primeiro campo', async ({
+  test('anel de foco grafite visível e ordem lógica do cabeçalho ao primeiro campo', async ({
     page,
   }) => {
     await openPanel(page)
@@ -429,6 +429,8 @@ test.describe('teclado e foco', () => {
     const site = page.getByRole('link', { name: 'Ver o site' })
     await expect(site).toBeFocused()
     await expect(site).toHaveCSS('outline-style', 'solid')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Prévia editorial' })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Sair', exact: true })).toBeFocused()
     await page.keyboard.press('Tab')
@@ -438,7 +440,7 @@ test.describe('teclado e foco', () => {
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Subir Dronken' })).toBeDisabled()
     await expect(price(page, '30 L', 'Dronken')).toBeFocused()
-    await expect(price(page, '30 L', 'Dronken')).toHaveCSS('border-top-color', 'rgb(244, 177, 11)')
+    await expect(price(page, '30 L', 'Dronken')).toHaveCSS('border-top-color', 'rgb(34, 40, 42)')
   })
 
   test('interruptor funciona com Espaço e anuncia o estado', async ({ page }) => {
@@ -495,7 +497,9 @@ test.describe('painel mobile', () => {
     )
     expect(overflow).toBe(0)
     await expect(page.getByText('8 produtos · 1 oculto')).toBeVisible()
-    await expect(page.getByRole('listitem').first().getByText('30 L (R$)')).toBeVisible()
+    await expect(
+      page.getByRole('listitem').first().getByText('30 L', { exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Salvar', exact: true })).toBeVisible()
     const bar = await page.getByRole('button', { name: 'Descartar' }).boundingBox()
     expect(bar && bar.y + bar.height).toBeGreaterThan(700)

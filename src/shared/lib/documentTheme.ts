@@ -3,6 +3,9 @@ import { useLayoutEffect } from 'react'
 /** Tema da vitrine pública. Só as páginas que o ativam ganham o fundo creme no documento. */
 export const PASTEL_THEME = 'pastel'
 
+/** Tema do painel administrativo: fundo claro do documento (overscroll) só nas telas do painel. */
+export const ADMIN_THEME = 'admin'
+
 type ThemeRoot = { dataset: Record<string, string | undefined> }
 
 const stacks = new WeakMap<object, string[]>()

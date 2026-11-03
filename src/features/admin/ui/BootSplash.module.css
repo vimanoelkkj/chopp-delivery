@@ -4,39 +4,39 @@
   justify-items: center;
   gap: 1.25rem;
   min-height: 100dvh;
-  background: var(--color-black);
+  background: var(--a-bg);
   opacity: 0;
   animation: appear 0.2s 0.5s forwards;
 }
 
 .seal {
   border-radius: 50%;
+  background: #22282a;
   animation: pulse 1.6s ease-in-out infinite;
 }
 
 .bar {
   position: relative;
   width: 11.5rem;
-  height: 2px;
+  height: 3px;
+  border-radius: 99px;
   overflow: hidden;
-  background: var(--color-steel);
+  background: var(--a-sage);
 }
 
 .bar::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--color-gold);
+  background: var(--a-green);
   transform: translateX(-100%);
   animation: slide 1.3s ease-in-out infinite;
 }
 
 .label {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--a-mute);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 @keyframes appear {

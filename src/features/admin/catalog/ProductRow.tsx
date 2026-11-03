@@ -15,6 +15,10 @@ type ProductRowProps = {
   /** Mensagens já filtradas: só o que deve aparecer agora (`price:<code>` e `row`). */
   errors: Record<string, string>
   changed: boolean
+  /** Preço salvo por coluna (texto já formatado), para mostrar "antes" nos campos alterados. */
+  savedPrices?: Record<string, string>
+  /** Id do texto de ajuda de como digitar preços. */
+  priceHelpId?: string
   rowRef: Ref<HTMLLIElement>
   onPrice: (code: string, text: string) => void
   onBlur: (code: string) => void
@@ -30,6 +34,8 @@ export function ProductRow({
   total,
   errors,
   changed,
+  savedPrices,
+  priceHelpId,
   rowRef,
   onPrice,
   onBlur,
@@ -39,28 +45,38 @@ export function ProductRow({
   const visible = item.visible
   return (
     <li ref={rowRef} className={styles.row} data-visible={visible} data-changed={changed}>
-      <div className={styles.photo} aria-hidden="true">
-        Foto
-      </div>
       <div className={styles.name}>
-        <h2 className={styles.title}>{item.name}</h2>
+        <div className={styles.titleRow}>
+          <h2 className={styles.title}>{item.name}</h2>
+          {changed ? (
+            <span className={styles.changedTag} aria-hidden="true">
+              Alterado
+            </span>
+          ) : null}
+        </div>
         {changed ? <span className="visually-hidden">Alterado, ainda não salvo.</span> : null}
         <p className={styles.description}>{item.description}</p>
       </div>
       <div className={styles.prices}>
-        {columns.map(({ code, label }) => (
-          <PriceField
-            key={code}
-            label={label}
-            ariaLabel={`${label.replace(' (R$)', '')}, preço em reais, ${item.name}`}
-            fieldKey={`${item.key}:price:${code}`}
-            value={item.variants.find((v) => v.code === code)?.priceText ?? ''}
-            placeholder={priceRequired ? '0,00' : 'não vende'}
-            error={errors[`price:${code}`]}
-            onChange={(value) => onPrice(code, value)}
-            onBlur={() => onBlur(code)}
-          />
-        ))}
+        {columns.map(({ code, label }) => {
+          const current = item.variants.find((v) => v.code === code)?.priceText ?? ''
+          const before = savedPrices?.[code]
+          return (
+            <PriceField
+              key={code}
+              label={label}
+              ariaLabel={`${label.replace(' (R$)', '')}, preço em reais, ${item.name}`}
+              fieldKey={`${item.key}:price:${code}`}
+              value={current}
+              was={before !== undefined && before !== current ? before : undefined}
+              describedBy={priceHelpId}
+              placeholder={priceRequired ? '0,00' : 'não vende'}
+              error={errors[`price:${code}`]}
+              onChange={(value) => onPrice(code, value)}
+              onBlur={() => onBlur(code)}
+            />
+          )
+        })}
       </div>
       <div className={styles.visible}>
         <Switch

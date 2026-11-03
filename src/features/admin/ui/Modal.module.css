@@ -6,22 +6,23 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-bone);
+  color: var(--a-ink);
   overflow: visible;
 }
 
+/* ::backdrop não herda os tokens do painel em todos os navegadores: cor literal. */
 .dialog::backdrop {
-  background: rgb(0 0 0 / 0.8);
+  background: rgb(34 40 42 / 0.45);
 }
 
 .panel {
   max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 1.75rem;
-  border: 1px solid var(--color-line);
-  border-top: 3px solid var(--color-gold);
-  background: var(--color-panel);
+  padding: 1.5rem;
+  border: 1px solid var(--a-line);
+  border-radius: var(--radius-panel);
+  background: var(--a-panel);
 }
 
 .dialog[data-state='open'] {
@@ -78,7 +79,9 @@
     max-height: 90dvh;
     padding: 1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
     border-right: 0;
+    border-bottom: 0;
     border-left: 0;
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
   }
 
   .panel::before {
@@ -87,8 +90,9 @@
     width: 2.5rem;
     height: 0.25rem;
     margin: -0.5rem auto 1rem;
-    background: var(--color-line-strong);
-    opacity: 0.6;
+    border-radius: 99px;
+    background: var(--a-field);
+    opacity: 0.5;
   }
 
   .dialog[data-state='open'] {

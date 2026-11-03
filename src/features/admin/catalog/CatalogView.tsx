@@ -9,6 +9,7 @@ import { type DraftItem, hasContent, isStandardRow } from './draft'
 import { ItemCard } from './ItemCard'
 import { NewProductDialog } from './NewProductDialog'
 import { ProductRow } from './ProductRow'
+import { formatPriceText } from './price'
 import { type CategoryId, EMPTY_TITLE, PRICE_REQUIRED, STANDARD_COLUMNS } from './types'
 import type { useCatalogEditor } from './useCatalogEditor'
 
@@ -134,6 +135,16 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
   const productsCount = (draft.order.chopes ?? allKeys).length
   const columns = STANDARD_COLUMNS[tab] ?? []
   const tableRows = order.some((key) => isStandardRow(draft.items[key]))
+  // Preço salvo por produto e coluna: base do "antes: ..." nos campos alterados.
+  const savedPrices = Object.fromEntries(
+    categories.flatMap((c) =>
+      c.items.map((item) => [
+        item.id,
+        Object.fromEntries(item.variants.map((v) => [v.code, formatPriceText(v.priceCents)])),
+      ]),
+    ),
+  ) as Record<string, Record<string, string>>
+  const priceHelpId = `${idPrefix}-price-help`
   const touchedAny = (key: string) =>
     Object.keys(state.touched).some((path) => path.startsWith(`${key}:`))
 
@@ -224,84 +235,96 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
                 </p>
               </section>
             ) : (
-              <div
-                className={styles.table}
-                style={{ '--slots': Math.max(columns.length, 1) } as CSSProperties}
-              >
-                {tableRows ? (
-                  <div className={styles.head} aria-hidden="true">
-                    <span>Foto</span>
-                    <span>Produto</span>
-                    {columns.map(({ code, label }) => (
-                      <span key={code}>{label}</span>
-                    ))}
-                    <span>No site</span>
-                    <span>Ordem</span>
-                  </div>
-                ) : null}
-                <ul className={styles.list}>
-                  {order.map((key, index) => {
-                    const item = draft.items[key]
-                    const common = {
-                      item,
-                      priceRequired: PRICE_REQUIRED.has(tab),
-                      position: index + 1,
-                      total: order.length,
-                      errors: shownErrors(key),
-                      changed: changed.includes(key),
-                      rowRef: flip.register(key),
-                      onVisible: (visible: boolean) => editor.setVisible(key, visible),
-                      onMove: (direction: -1 | 1) => move(key, direction),
-                    }
-                    return isStandardRow(item) ? (
-                      <ProductRow
-                        key={key}
-                        {...common}
-                        columns={columns}
-                        onPrice={(code, text) =>
-                          editor.setVariantField(key, code, 'priceText', text)
-                        }
-                        onBlur={(code) => editor.blurPrice(key, code)}
-                      />
-                    ) : (
-                      <ItemCard
-                        key={key}
-                        {...common}
-                        categoryName={categoryName(tab)}
-                        onItemField={(field, text) => editor.setItemField(key, field, text)}
-                        onTouch={(field) => editor.touch(`${key}:${field}`)}
-                        onVariantField={(variant, field, text) =>
-                          editor.setVariantField(key, variant, field, text)
-                        }
-                        onBlurPrice={(variant) => editor.blurPrice(key, variant)}
-                        onAddVariant={() => {
-                          const variant = editor.addVariant(key)
-                          focusAfter.current = { field: `${key}:label:${variant}` }
-                          setFocusTick((tick) => tick + 1)
-                        }}
-                        identityLocked={state.saving || !!state.uncertain}
-                        onRemoveVariant={(variant) => editor.removeVariant(key, variant)}
-                        onCancel={() => cancel(item)}
-                      />
-                    )
-                  })}
-                </ul>
-                <p className={styles.note}>
-                  {tab === 'chopes' ? (
-                    <>
-                      <span className={styles.noteLong}>
-                        Deixe um preço em branco quando o produto não é vendido naquele tamanho. O
-                        botão do tamanho some do site automaticamente.
-                      </span>
-                      <span className={styles.noteShort}>
-                        Preço em branco: o tamanho não aparece no site.
-                      </span>
-                    </>
-                  ) : PRICE_REQUIRED.has(tab) ? (
-                    'O preço é obrigatório em cada variante.'
-                  ) : null}
+              <>
+                <p id={priceHelpId} className={styles.help}>
+                  <span className={styles.noteLong}>
+                    Preços: digite só os números, contando os centavos. 51500 vira R$ 515,00 e 515
+                    vira R$ 5,15. Para trocar um valor, selecione o campo e digite de novo.
+                  </span>
+                  <span className={styles.noteShort}>
+                    Digite os centavos: 51500 vira R$ 515,00.
+                  </span>
                 </p>
-              </div>
+                <div
+                  className={styles.table}
+                  style={{ '--slots': Math.max(columns.length, 1) } as CSSProperties}
+                >
+                  {tableRows ? (
+                    <div className={styles.head} aria-hidden="true">
+                      <span>Produto</span>
+                      {columns.map(({ code, label }) => (
+                        <span key={code}>{label}</span>
+                      ))}
+                      <span>No site</span>
+                      <span>Ordem</span>
+                    </div>
+                  ) : null}
+                  <ul className={styles.list}>
+                    {order.map((key, index) => {
+                      const item = draft.items[key]
+                      const common = {
+                        item,
+                        priceRequired: PRICE_REQUIRED.has(tab),
+                        position: index + 1,
+                        total: order.length,
+                        errors: shownErrors(key),
+                        changed: changed.includes(key),
+                        savedPrices: item.id === null ? undefined : savedPrices[item.id],
+                        priceHelpId,
+                        rowRef: flip.register(key),
+                        onVisible: (visible: boolean) => editor.setVisible(key, visible),
+                        onMove: (direction: -1 | 1) => move(key, direction),
+                      }
+                      return isStandardRow(item) ? (
+                        <ProductRow
+                          key={key}
+                          {...common}
+                          columns={columns}
+                          onPrice={(code, text) =>
+                            editor.setVariantField(key, code, 'priceText', text)
+                          }
+                          onBlur={(code) => editor.blurPrice(key, code)}
+                        />
+                      ) : (
+                        <ItemCard
+                          key={key}
+                          {...common}
+                          categoryName={categoryName(tab)}
+                          onItemField={(field, text) => editor.setItemField(key, field, text)}
+                          onTouch={(field) => editor.touch(`${key}:${field}`)}
+                          onVariantField={(variant, field, text) =>
+                            editor.setVariantField(key, variant, field, text)
+                          }
+                          onBlurPrice={(variant) => editor.blurPrice(key, variant)}
+                          onAddVariant={() => {
+                            const variant = editor.addVariant(key)
+                            focusAfter.current = { field: `${key}:label:${variant}` }
+                            setFocusTick((tick) => tick + 1)
+                          }}
+                          identityLocked={state.saving || !!state.uncertain}
+                          onRemoveVariant={(variant) => editor.removeVariant(key, variant)}
+                          onCancel={() => cancel(item)}
+                        />
+                      )
+                    })}
+                  </ul>
+                  <p className={styles.note}>
+                    {tab === 'chopes' ? (
+                      <>
+                        <span className={styles.noteLong}>
+                          Deixe um preço em branco quando o produto não é vendido naquele tamanho. O
+                          botão do tamanho some do site automaticamente.
+                        </span>
+                        <span className={styles.noteShort}>
+                          Preço em branco: o tamanho não aparece no site.
+                        </span>
+                      </>
+                    ) : PRICE_REQUIRED.has(tab) ? (
+                      'O preço é obrigatório em cada variante.'
+                    ) : null}
+                  </p>
+                </div>
+              </>
             )}
           </Tabs>
         </fieldset>

@@ -1,16 +1,66 @@
-/* Tokens do painel. Só existem dentro de [data-admin]; o site público não é afetado.
-   A única cor fora da paleta preto/dourado/branco é o vermelho de erro, usado com parcimônia. */
+/*
+ * Tema do painel (Pastel Brewery, versão administrativa). Só existe dentro de [data-admin]: nem a
+ * homepage nem os tokens globais de styles/tokens.css são alterados.
+ *
+ * Superfícies claras e neutras, texto grafite, Hanken Grotesk. Pêssego é reservado à ação principal
+ * (salvar, novo produto, entrar); verde marca o estado ativo; sálvia e azul-pó apoiam; erro, alerta,
+ * sucesso e informação têm cores próprias. Contrastes (texto sobre fundo) medidos: grafite/creme
+ * 13,8:1, grafite/pêssego 8,4:1, secundário/creme 6,0:1, borda de campo 4,7:1, estados 6,4 a 7,0:1.
+ */
 [data-admin] {
-  --admin-cream: #efe9dd;
-  --admin-gold-pending: #cf9508;
-  --admin-danger: #ff8d78;
-  --admin-row: #12100c;
+  --a-bg: #faf5ea;
+  --a-panel: #fffdf7;
+  --a-input: #ffffff;
+  --a-sage: #e6eee0;
+  --a-blue: #d9e7f1;
+  --a-ink: #22282a;
+  --a-mute: #56605a;
+  --a-line: #d5dccb;
+  --a-field: #6b7568;
+  --a-green: #2a6048;
+  --a-off: #7a8577;
+  --a-peach: #f6b48e;
+  --a-peach-hover: #fac6a6;
+  --a-peach-active: #f0a27a;
+  --a-changed: #fff6e6;
+
+  --a-err: #9b1c1c;
+  --a-err-bg: #fbe9e7;
+  --a-err-line: #e3b5b0;
+  --a-warn: #7a4b00;
+  --a-warn-bg: #fff1d6;
+  --a-ok: #1f5e43;
+  --a-ok-bg: #e6eee0;
+  --a-info: #1d4e7a;
+  --a-info-bg: #d9e7f1;
+
   --admin-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --admin-bar-h: 4.75rem;
-  background: var(--color-coal);
-  color: var(--color-bone);
+  --admin-bar-h: 4.25rem;
+  --radius-panel: 0.875rem;
+  --radius-control: 0.625rem;
+
+  /* Uma só família, em frase; os rótulos que eram mono caixa-alta usam a mesma Hanken. */
+  --font-display: var(--font-body);
+  --font-mono: var(--font-body);
+  --focus-ring: 3px solid var(--a-ink);
+
+  /* Rede de segurança: tokens legados que algum componente ainda leia ficam claros também. */
+  --color-black: var(--a-panel);
+  --color-coal: var(--a-bg);
+  --color-panel: var(--a-panel);
+  --color-steel: var(--a-sage);
+  --color-line: var(--a-line);
+  --color-line-strong: var(--a-field);
+  --color-muted: var(--a-mute);
+  --color-soft: var(--a-mute);
+  --color-bone: var(--a-ink);
+  --color-gold: var(--a-green);
+  --color-gold-hover: var(--a-ink);
+
+  background: var(--a-bg);
+  color: var(--a-ink);
   min-height: 100dvh;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 [data-admin] :is(button, a, [role='tab'], [role='switch']) {

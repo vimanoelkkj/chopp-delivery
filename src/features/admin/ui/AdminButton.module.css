@@ -4,8 +4,9 @@
   justify-content: center;
   gap: 0.625rem;
   min-height: var(--tap-min);
-  padding: 0 1.5rem;
+  padding: 0 1.25rem;
   border: 1px solid transparent;
+  border-radius: var(--radius-control);
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
@@ -24,33 +25,35 @@
   transform: scale(0.97);
 }
 
+/* Ação principal: o único uso do pêssego no painel. */
 .gold {
-  background: var(--color-gold);
-  color: var(--color-black);
+  background: var(--a-peach);
+  color: var(--a-ink);
 }
 
 .gold:hover:not(:disabled) {
-  background: var(--color-gold-hover);
+  background: var(--a-peach-hover);
 }
 
 .outline {
   background: transparent;
-  border-color: var(--color-line-strong);
-  color: var(--color-bone);
+  border-color: var(--a-field);
+  color: var(--a-ink);
 }
 
 .outline:hover:not(:disabled) {
-  border-color: var(--color-gold);
-  color: var(--color-gold);
+  background: var(--a-sage);
 }
 
+/* Confirmação destrutiva (descartar, cancelar cadastro): cor de erro, não de ação principal. */
 .cream {
-  background: var(--admin-cream);
-  color: var(--color-black);
+  background: var(--a-err-bg);
+  border-color: var(--a-err-line);
+  color: var(--a-err);
 }
 
 .cream:hover:not(:disabled) {
-  background: #fff;
+  background: #f6d9d5;
 }
 
 .button:disabled {
@@ -63,7 +66,7 @@
 }
 
 .pending.gold {
-  background: var(--admin-gold-pending);
+  background: var(--a-peach-active);
 }
 
 .spinner {

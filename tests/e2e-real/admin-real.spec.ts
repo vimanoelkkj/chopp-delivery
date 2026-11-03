@@ -1231,14 +1231,15 @@ test.describe('P4: configured commercial actions remain inert', () => {
     const rawFrame = page.frames().find((f) => new URL(f.url()).pathname === '/admin/preview/frame')
     expect(rawFrame).toBeDefined()
     await rawFrame?.evaluate(() => document.fonts.ready)
-    // O tema pastel é da vitrine pública: nem o shell do painel nem o documento do frame o ativam.
+    // Cada documento tem o seu tema: o shell do painel usa o tema do painel e o iframe, que é a
+    // página pública em prévia, usa o pastel. Os dois têm o mesmo fundo creme, sem vazar um no outro.
     const readDocument = () => ({
       theme: document.documentElement.dataset.theme ?? null,
       background: getComputedStyle(document.documentElement).backgroundColor,
     })
-    const dark = { theme: null, background: 'rgb(0, 0, 0)' }
-    expect(await page.evaluate(readDocument)).toEqual(dark)
-    expect(await rawFrame?.evaluate(readDocument)).toEqual(dark)
+    const cream = 'rgb(250, 245, 234)'
+    expect(await page.evaluate(readDocument)).toEqual({ theme: 'admin', background: cream })
+    expect(await rawFrame?.evaluate(readDocument)).toEqual({ theme: 'pastel', background: cream })
     await testInfo.attach('preview-desktop', {
       body: await page.locator('iframe').screenshot({ animations: 'disabled' }),
       contentType: 'image/png',
