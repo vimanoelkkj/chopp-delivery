@@ -4,19 +4,19 @@ import styles from './HowItWorks.module.css'
 
 const steps = [
   {
-    title: 'Escolha o Chopp',
+    title: 'Escolha o chopp',
     text: 'Selecione o estilo e a cervejaria desejada, definindo entre 30L ou 50L conforme o número de convidados.',
   },
   {
-    title: 'Dados & Tomada',
+    title: 'Dados e tomada',
     text: 'Informe data, horário, endereço do evento e se a tomada disponível é 110V ou 220V para a chopeira.',
   },
   {
-    title: 'Instalação Inclusa',
+    title: 'Instalação inclusa',
     text: 'Nossa equipe posiciona o barril, liga a chopeira elétrica profissional, calibra o CO2 e deixa tudo pronto.',
   },
   {
-    title: 'Aproveite o Chopp',
+    title: 'Aproveite o chopp',
     text: 'Chopp sempre gelado do primeiro ao último copo. Após o evento, nós recolhemos o equipamento sem complicações.',
   },
 ]
@@ -34,9 +34,9 @@ export function HowItWorks({
     <section id="como" className={styles.section} aria-labelledby="como-title">
       <Container className={styles.inner}>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>{sectionNumber ?? '03'} • Sem Complicações</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '03'} • Sem complicações</p>
           <h2 id="como-title" className={styles.title}>
-            {editorial?.heading ?? <>Como Funciona a Entrega</>}
+            {editorial?.heading ?? <>Como funciona a entrega</>}
           </h2>
           <p className={styles.lead}>
             Operação exclusivamente por delivery. Levamos o barril gelado, conectamos a chopeira

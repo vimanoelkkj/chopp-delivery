@@ -19,7 +19,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
   return (
     <aside className={styles.banner} aria-label={item.title}>
       <div className={styles.copy}>
-        <p className={styles.eyebrow}>• Tradição Mineira em Barril</p>
+        <p className={styles.eyebrow}>Tradição mineira em barril</p>
         <h3 className={styles.title}>{item.title}</h3>
         <p className={styles.description}>{item.description}</p>
       </div>
@@ -43,7 +43,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
                   </span>
                 </div>
                 {isAvail ? (
-                  <WhatsAppButton customText={message} variant="outline" size="md">
+                  <WhatsAppButton customText={message} variant="gold" size="md">
                     Adicionar {v.label}
                   </WhatsAppButton>
                 ) : null}
@@ -61,7 +61,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
             </div>
             <WhatsAppButton
               customText={`Olá! Gostaria de adicionar a ${productName} (Garrafa ${item.bottleMl}ml por ${formatBRL(item.price)}) ao meu pedido.`}
-              variant="outline"
+              variant="gold"
               size="md"
             >
               Adicionar ao Pedido

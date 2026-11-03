@@ -158,7 +158,7 @@ describe('P3: typed editorial content and escaped rendering', () => {
     expect(html).toContain('Texto fornecido pelo administrador.')
     expect(html).not.toContain('Fundado em')
     expect(html).not.toContain('Não entregamos latas')
-    expect(html).toContain('/images/kegs/keg-studio-30l.jpg')
+    expect(html).toMatch(/keg-studio-30l[^"]*\.webp/)
   })
 })
 
@@ -251,7 +251,7 @@ describe('P3: editorial props cannot set commercial data or navigation', () => {
     expect(hrefs(after)).toEqual(hrefs(before))
     expect(after).toContain('href="#barris"')
     expect(after).toContain('href="#chopes"')
-    expect(after).toContain('/images/kegs/keg-hero-50l.jpg')
+    expect(after).toMatch(/keg-hero-50l[^"]*\.webp/)
     expect(after).toContain('18+')
   })
 })

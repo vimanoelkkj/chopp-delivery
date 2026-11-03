@@ -73,12 +73,12 @@
 
 .switchBtnActive {
   background: var(--color-gold-soft);
-  color: #101713;
+  color: var(--on-accent, #101713);
 }
 
 .switchBtnActive:hover {
   background: var(--color-amber);
-  color: #101713;
+  color: var(--on-accent, #101713);
 }
 
 .grid {
@@ -100,7 +100,7 @@
 }
 
 .card {
-  background: #141b16;
+  background: var(--surface-panel, #141b16);
   border: 1px solid var(--border-subtle);
   border-radius: 1rem;
   padding: 1.25rem;
@@ -114,9 +114,9 @@
 }
 
 .card:hover {
-  border-color: rgba(198, 164, 106, 0.45);
+  border-color: var(--accent-border, rgba(198, 164, 106, 0.45));
   transform: translateY(-4px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-hover, 0 12px 30px rgba(0, 0, 0, 0.5));
 }
 
 .topRow {
@@ -142,7 +142,7 @@
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #34d399;
+  color: var(--ok-ink, #34d399);
 }
 
 .stockBadgeOnly50 {
@@ -263,7 +263,7 @@
 
 .orderBtn:hover {
   background: var(--color-gold-soft);
-  color: #101713;
+  color: var(--on-accent, #101713);
   border-color: var(--color-gold-soft);
 }
 

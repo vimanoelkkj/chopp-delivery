@@ -17,21 +17,19 @@
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-gold-soft);
+  letter-spacing: 0;
+  color: var(--accent-text);
   margin: 0;
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 1.8rem + 3.5vw, 4rem);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  line-height: 1;
+  font-size: var(--text-h2);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
   color: var(--text-offwhite);
   margin: 0;
 }
@@ -53,9 +51,9 @@
 }
 
 .specCard {
-  background: var(--bg-elevated);
-  border: 1px solid var(--surface-card);
-  border-radius: 1rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
   padding: 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
@@ -64,15 +62,16 @@
 
 .specValue {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  color: var(--color-gold-soft);
-  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent-text);
+  line-height: 1.1;
 }
 
 .specLabel {
-  font-size: 0.8125rem;
-  color: var(--color-muted);
+  font-size: 0.875rem;
+  color: var(--text-muted-green);
   line-height: 1.4;
 }
 

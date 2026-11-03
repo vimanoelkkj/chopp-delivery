@@ -1,29 +1,32 @@
 .ticker {
   overflow: hidden;
-  background: var(--color-gold);
-  color: var(--color-black);
+  background: var(--bg-elevated);
+  color: var(--text-offwhite);
+  border-block: 1px solid var(--border-subtle);
 }
 
 .track {
   display: flex;
   width: max-content;
-  animation: slide 40s linear infinite;
+  animation: slide 70s linear infinite;
 }
 
 .row {
   display: flex;
   flex: none;
+  min-width: 100vw;
+  justify-content: space-around;
 }
 
 .item {
   display: flex;
   align-items: center;
-  padding: 0.625rem 0;
+  padding: 0.75rem 0;
   font-family: var(--font-display);
-  font-size: 1.875rem;
-  font-weight: 900;
-  line-height: 1.1;
-  text-transform: uppercase;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
@@ -41,7 +44,7 @@
 @media (min-width: 48rem) {
   .item {
     padding-block: 0.875rem;
-    font-size: 2.75rem;
+    font-size: 1.125rem;
   }
 
   .item::after {
@@ -49,8 +52,39 @@
   }
 }
 
+/*
+ * Movimento reduzido: nada anda e nada fica escondido. A cópia decorativa (aria-hidden) sai, e a
+ * lista visível quebra em linhas e centraliza, então "Instalação inclusa" nunca é cortada.
+ */
 @media (prefers-reduced-motion: reduce) {
   .track {
+    width: auto;
     animation: none;
+    justify-content: center;
+  }
+
+  .row[aria-hidden='true'],
+  .item[aria-hidden='true'] {
+    display: none;
+  }
+
+  .row {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-inline: var(--gutter);
+  }
+
+  .row {
+    gap: 0 1.75rem;
+  }
+
+  .item {
+    padding-block: 0.5rem;
+  }
+
+  .item::after {
+    content: none;
   }
 }

@@ -33,7 +33,7 @@
   flex: none;
   font-family: var(--font-mono);
   font-size: 1.375rem;
-  color: var(--color-gold);
+  color: var(--accent-text, var(--color-gold));
 }
 
 .answer {

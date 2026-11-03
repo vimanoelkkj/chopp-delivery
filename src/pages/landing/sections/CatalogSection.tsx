@@ -1,7 +1,6 @@
 import { CachacaBanner } from '@/features/catalog/CachacaBanner'
 import { standardChopes } from '@/features/catalog/expanded-api'
-import { KegCardsGrid } from '@/features/catalog/KegCardsGrid'
-import { PriceTable } from '@/features/catalog/PriceTable'
+import { PriceComparison } from '@/features/catalog/PriceComparison'
 import { visibleProducts } from '@/features/catalog/pricing'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { VariantCatalog } from '@/features/catalog/VariantCatalog'
@@ -31,9 +30,9 @@ export function CatalogSection({
       <Container className={styles.inner}>
         <div className={styles.top}>
           <div className={styles.headerCopy}>
-            <p className={styles.eyebrow}>{sectionNumber ?? '02'} • Catálogo Real</p>
+            <p className={styles.eyebrow}>{sectionNumber ?? '02'} • Catálogo real</p>
             <h2 id="chopes-title" className={styles.title}>
-              {editorial?.heading ?? <>Nossos Chopes &amp; Litragens</>}
+              {editorial?.heading ?? <>Nossos chopes e litragens</>}
             </h2>
             <p className={styles.note}>
               {editorial?.intro ??
@@ -60,18 +59,7 @@ export function CatalogSection({
                 <div key={c.id}>
                   {chopes.length ? (
                     standard ? (
-                      <>
-                        <KegCardsGrid products={visibleProducts(state.catalog.products)} />
-                        <div className={styles.tableBlock}>
-                          <div className={styles.tableHeader}>
-                            <h3 className={styles.tableTitle}>Tabela Comparativa de Litragens</h3>
-                            <p className={styles.tableSubtitle}>
-                              Valores oficiais verificados por barril
-                            </p>
-                          </div>
-                          <PriceTable products={visibleProducts(state.catalog.products)} />
-                        </div>
-                      </>
+                      <PriceComparison products={visibleProducts(state.catalog.products)} />
                     ) : (
                       <VariantCatalog items={chopes} />
                     )

@@ -5,6 +5,7 @@ import { AgeNotice } from '@/features/compliance/AgeNotice'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { Container } from '@/shared/ui/Container'
+import { KegCutout } from '@/shared/ui/KegCutout'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './Hero.module.css'
 
@@ -42,21 +43,18 @@ export function Hero({
               <>
                 O melhor do chopp.
                 <br />
-                <span className={styles.accentGradient}>Direto para o seu evento.</span>
+                <span className={styles.accent}>Direto para o seu evento.</span>
               </>
             )}
           </h1>
         </div>
 
         <div className={styles.heroVisual}>
-          {mediaFallback ?? (
-            <img
-              src="/images/kegs/keg-hero-50l.jpg"
-              alt="Barril de Chopp de Inox Escovado 50 Litros com Iluminação Cinematográfica"
-              className={styles.kegImg}
-              loading="eager"
-            />
-          )}
+          <div className={styles.kegStage}>
+            {mediaFallback ?? (
+              <KegCutout photo="hero50" alt="Barril de chopp em aço inox escovado, 50 litros" />
+            )}
+          </div>
 
           {minPrice !== null && (
             <div className={styles.floatingPill}>

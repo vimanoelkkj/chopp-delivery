@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useCatalog } from '@/features/catalog/useCatalog'
+import { PASTEL_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
 import { useInView } from '@/shared/lib/useInView'
 import styles from './LandingPage.module.css'
 import { AboutSection } from './sections/AboutSection'
@@ -15,6 +16,7 @@ import { StickyCta } from './sections/StickyCta'
 import { Ticker } from './sections/Ticker'
 
 export function LandingPage() {
+  useDocumentTheme(PASTEL_THEME)
   const { state: catalogState, retry } = useCatalog()
   const heroCtaRef = useRef<HTMLDivElement>(null)
   const finalCtaRef = useRef<HTMLDivElement>(null)

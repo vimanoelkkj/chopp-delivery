@@ -1,0 +1,494 @@
+/*
+ * Pastel Brewery (protótipo, somente DEV).
+ *
+ * Paleta: creme #FAF5EA (fundo) · sálvia #E6EEE0 / #CFDDCB (superfícies) · pêssego #F6B48E (ação)
+ *         azul-pó #D9E7F1 (campo de seção) · grafite #22282A (tinta) · verde-folha #2F6B4F (preço e detalhes).
+ * Tipografia: Hanken Grotesk 800 em frase (Hero e título da vitrine) + Big Shoulders das seções oficiais.
+ *
+ * Toda a troca de identidade acontece nas variáveis abaixo; as seções oficiais não são tocadas.
+ */
+.page {
+  /* tokens legados */
+  --color-black: #22282a;
+  --color-coal: #f3ecdd;
+  --color-panel: #fffdf7;
+  --color-steel: #e7eee2;
+  --color-line: #d8d2c0;
+  --color-line-strong: #8d9788;
+  --color-muted: #56605a;
+  --color-soft: #38403b;
+  --color-bone: #22282a;
+  --color-gold: #f6b48e;
+  --color-gold-hover: #fac6a6;
+
+  /* tokens do Conceito C, re-escopados */
+  --bg-dark: #faf5ea;
+  --bg-elevated: #e6eee0;
+  --surface-card: #cfddcb;
+  --color-gold-soft: #2a6048;
+  --color-amber: #1f6b4a;
+  --color-amber-hover: #2a805b;
+  --text-offwhite: #22282a;
+  --text-muted-green: #4a554e;
+  --border-subtle: #d5dccb;
+  --border-gold-subtle: rgba(47, 107, 79, 0.3);
+
+  /* ganchos dos componentes compartilhados */
+  --surface-panel: #fffdf7;
+  --surface-deep: #d9e7f1;
+  --surface-inset: rgba(230, 238, 224, 0.7);
+  --on-accent: #ffffff;
+  --on-strong: #ffffff;
+  --accent-border: rgba(47, 107, 79, 0.45);
+  --numeral-ink: rgba(47, 107, 79, 0.16);
+  --header-bg: rgba(250, 245, 234, 0.94);
+  --ok-ink: #1f6b4a;
+  --shadow-panel: 0 14px 32px rgba(34, 40, 42, 0.1);
+  --shadow-hover: 0 14px 30px rgba(34, 40, 42, 0.14);
+  --sticky-fade: #faf5ea;
+  --accent-text: #2a6048;
+  --surface-closing: #cfddcb;
+
+  --stage: #cfddcb;
+  --stage-card: #fffdf7;
+
+  background: var(--bg-dark);
+  color: var(--text-offwhite);
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  overflow-x: clip;
+}
+
+/* Superfície sobre a qual os barris aparecem (?surface=cream|sage|blue). */
+.page[data-surface='cream'] {
+  --stage: #f1e8d3;
+  --stage-card: #f1e8d3;
+}
+
+.page[data-surface='sage'] {
+  --stage: #cfddcb;
+  --stage-card: #dfe9db;
+}
+
+.page[data-surface='blue'] {
+  --stage: #d9e7f1;
+  --stage-card: #e6f0f7;
+}
+
+.hero {
+  padding-block: 1.25rem 3rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Mobile: título, barril e ação vêm antes do texto de apoio (o barril fica na primeira tela). */
+.copy {
+  display: contents;
+}
+
+.title {
+  order: 1;
+}
+
+.visual {
+  order: 2;
+}
+
+.actions {
+  order: 3;
+}
+
+.lead {
+  order: 4;
+}
+
+.title {
+  margin: 0;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(2.25rem, 9.6vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text-offwhite);
+  text-wrap: balance;
+}
+
+.lead {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  color: var(--text-muted-green);
+}
+
+.actions {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: stretch;
+}
+
+.textLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  font-weight: 700;
+  color: var(--text-offwhite);
+  text-decoration: underline;
+  text-decoration-color: var(--color-gold);
+  text-decoration-thickness: 0.2em;
+  text-underline-offset: 0.25em;
+}
+
+/* Campo sálvia chapado com o barril em um quadro grafite: o inox é o protagonista. */
+.visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  border-radius: 2rem;
+  background: var(--stage);
+}
+
+.keg {
+  width: 100%;
+  height: clamp(12.5rem, 32svh, 20rem);
+  object-fit: cover;
+  object-position: 50% 42%;
+  border-radius: 1.5rem;
+  background: #101713;
+}
+
+.price {
+  position: absolute;
+  left: 1.75rem;
+  bottom: 1.75rem;
+  display: grid;
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  background: var(--color-gold);
+  color: var(--color-black);
+  font-size: 0.8125rem;
+  line-height: 1.15;
+}
+
+.price strong {
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.barrels {
+  padding-block: 3rem 4rem;
+  background: var(--bg-elevated);
+  scroll-margin-top: 5.5rem;
+}
+
+.h2 {
+  margin: 0 0 1rem;
+  text-align: center;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 8vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text-offwhite);
+}
+
+.status {
+  text-align: center;
+  color: var(--text-muted-green);
+}
+
+/* Carrossel: mesma geometria oficial, cards creme com a foto do barril em quadro arredondado. */
+.carousel {
+  --bc-card-bg: var(--stage-card);
+  --bc-chip-bg: #eef3ea;
+  --bc-chip-selected-bg: #fbd9c2;
+  --bc-img-radius: 1rem;
+  --bc-side-brightness: 0.94;
+  --bc-center-shadow: 0 24px 40px rgba(34, 40, 42, 0.2);
+}
+
+@media (min-width: 48rem) {
+  .copy {
+    display: grid;
+    gap: 1rem;
+    align-content: center;
+  }
+
+  .hero {
+    padding-block: 3rem 4rem;
+  }
+
+  .grid {
+    grid-template-columns: 1.05fr 1fr;
+    align-items: stretch;
+    column-gap: 3rem;
+  }
+
+  .title {
+    font-size: clamp(3rem, 5.2vw, 5rem);
+  }
+
+  .actions {
+    grid-auto-flow: column;
+    justify-content: start;
+    justify-items: start;
+    align-items: center;
+    column-gap: 1.5rem;
+  }
+
+  .visual {
+    padding: 2rem;
+    min-height: 26rem;
+  }
+
+  .keg {
+    height: 100%;
+    min-height: 22rem;
+  }
+
+  .price {
+    left: 3rem;
+    bottom: 3rem;
+  }
+}
+
+/* Barril com fundo transparente: tamanho natural (nunca ampliado), proporção preservada e sombra
+   de contato desenhada. Não há máscara nem blend mode: a transparência vem do próprio arquivo. */
+.cutout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cutoutImg {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100% - 0.75rem);
+  object-fit: contain;
+  filter: drop-shadow(0 6px 8px rgba(34, 40, 42, 0.16));
+  pointer-events: none;
+}
+
+.cutout::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 0;
+  width: 58%;
+  height: 0.75rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(34, 40, 42, 0.3);
+  filter: blur(7px);
+}
+
+.heroCutout {
+  position: relative;
+  width: 100%;
+  height: clamp(12.5rem, 32svh, 20rem);
+}
+
+@media (min-width: 48rem) {
+  .heroCutout {
+    height: clamp(22rem, 30vw, 27rem);
+  }
+}
+
+.surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: center;
+  padding: 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted-green);
+}
+
+.surfaces a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
+  color: var(--text-offwhite);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.surfaces a[aria-current='page'] {
+  font-weight: 800;
+  text-decoration-color: var(--color-gold);
+  text-decoration-thickness: 0.2em;
+}
+
+/* Com recorte, o preço sai de cima do barril e fica abaixo dele. */
+.priceDock {
+  position: static;
+  justify-self: start;
+  margin-top: 0.75rem;
+}
+
+/*
+ * Composição "refined" (?composition=refined): Hero sálvia #E6EEE0, vitrine creme #FAF5EA,
+ * card central azul-pó #D9E7F1, laterais discretos e ações em pêssego #F6B48E com texto grafite.
+ * Só redefine variáveis e superfícies desta rota; a geometria do carrossel não muda.
+ */
+.page[data-composition='refined'] .hero {
+  background: #e6eee0;
+}
+
+.page[data-composition='refined'] .visual {
+  background: transparent;
+}
+
+.page[data-composition='refined'] .barrels {
+  background: #faf5ea;
+}
+
+.page[data-composition='refined'] .carousel {
+  --bc-card-bg: #d9e7f1;
+  --bc-side-bg: #eef2ee;
+  --bc-side-brightness: 0.98;
+  --bc-center-border: rgba(34, 40, 42, 0.18);
+  --bc-center-shadow: 0 24px 40px rgba(34, 40, 42, 0.16);
+  --bc-chip-bg: #f4f8fb;
+  --bc-chip-selected-bg: #f6b48e;
+  --bc-chip-selected-ink: #22282a;
+  --bc-chip-selected-border: #22282a;
+  --bc-nav-bg: #f6b48e;
+  --bc-nav-ink: #22282a;
+  --bc-nav-border: rgba(34, 40, 42, 0.55);
+  --bc-nav-hover-bg: #fac6a6;
+  --bc-nav-hover-ink: #22282a;
+}
+
+.page[data-composition='refined'] .priceDock {
+  justify-self: center;
+}
+
+/*
+ * Sistema tipográfico e de superfícies da composição "refined".
+ * Uma só família (Hanken Grotesk 400-900), títulos em frase, numerais tabulares nos preços;
+ * Big Shoulders e IBM Plex Mono saem desta rota por variável. Nada aqui altera as seções oficiais.
+ */
+.page[data-composition='refined'] {
+  --font-display: var(--font-body);
+  --font-mono: var(--font-body);
+  --text-h2: clamp(2rem, 1.5rem + 2.4vw, 3rem);
+  --text-h2-large: var(--text-h2);
+  --text-cta: clamp(2.75rem, 2rem + 3.5vw, 4rem);
+  --section-y: clamp(3rem, 2rem + 4vw, 5rem);
+  --focus-ring: 3px solid #22282a;
+  --surface-deep: #e6eee0;
+  --surface-closing: #e6eee0;
+  --color-coal: #faf5ea;
+}
+
+.page[data-composition='refined'] h2 {
+  font-size: var(--text-h2);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-transform: none;
+}
+
+.page[data-composition='refined'] h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.page[data-composition='refined'] :global(#contato-title) {
+  font-size: var(--text-cta);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.page[data-composition='refined'] [class*='eyebrow'] {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent-text);
+}
+
+.page[data-composition='refined'] [class*='stepNumber'] {
+  font-size: 2.25rem;
+  font-weight: 800;
+}
+
+.page[data-composition='refined'] [class*='stepText'],
+.page[data-composition='refined'] [class*='lead'] {
+  font-size: 1rem;
+}
+
+/* Raios: contêineres 1.25rem, controles 0.75rem; pílulas só para status e navegação. */
+.page[data-composition='refined'] [class*='_button_'] {
+  border-radius: 0.75rem;
+}
+
+/* Hero: escala menor para não alongar a página e selo de preço mais discreto. */
+.page[data-composition='refined'] .title {
+  font-size: clamp(2rem, 8.8vw, 3rem);
+}
+
+.page[data-composition='refined'] .lead {
+  font-size: 1rem;
+}
+
+.page[data-composition='refined'] .h2 {
+  margin-bottom: 1.5rem;
+}
+
+.page[data-composition='refined'] .barrels {
+  padding-block: var(--section-y);
+}
+
+.page[data-composition='refined'] .priceDock {
+  padding: 0.375rem 0.875rem;
+}
+
+/* Vitrine: card central com borda e sombra firmes e sem vazio abaixo do barril. */
+.page[data-composition='refined'] .carousel {
+  --bc-center-border: rgba(34, 40, 42, 0.24);
+  --bc-center-shadow: 0 22px 38px -10px rgba(34, 40, 42, 0.24), 0 2px 6px rgba(34, 40, 42, 0.1);
+}
+
+@media (min-width: 48rem) {
+  .page[data-composition='refined'] .title {
+    font-size: clamp(2.75rem, 4.2vw, 4rem);
+  }
+
+  .page[data-composition='refined'] .carousel {
+    --bc-img-h: 14rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .page[data-composition='refined'] .carousel {
+    --bc-img-h: 16rem;
+    --bc-card-h: 27rem;
+  }
+}
+
+/* Menu desktop: links do cabeçalho com alvo de toque de 44 px sem mudar a altura do cabeçalho. */
+.page[data-composition='refined'] header nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}

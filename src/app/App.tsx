@@ -41,10 +41,10 @@ const DevMotionPreview = import.meta.env.DEV
 const DevProto = import.meta.env.DEV
   ? lazy(() => import('@/pages/preview/proto/ProtoRoutes'))
   : null
-const protoVariant = (): 'a' | 'b' | null => {
+const protoVariant = (): 'a' | 'b' | 'pastel' | null => {
   if (!import.meta.env.DEV) return null
-  const match = /^\/__proto\/([ab])\/?$/.exec(window.location.pathname)
-  return match ? (match[1] as 'a' | 'b') : null
+  const match = /^\/__proto\/(a|b|pastel)\/?$/.exec(window.location.pathname)
+  return match ? (match[1] as 'a' | 'b' | 'pastel') : null
 }
 
 function checkIsPreview(): boolean {

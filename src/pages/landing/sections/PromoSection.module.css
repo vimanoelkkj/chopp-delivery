@@ -1,6 +1,6 @@
 .section {
-  background: var(--color-gold);
-  color: var(--color-black);
+  background: var(--bg-elevated);
+  color: var(--text-offwhite);
 }
 
 .inner {
@@ -22,17 +22,19 @@
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--accent-text);
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(3.375rem, 2.2rem + 5vw, 5.5rem);
-  font-weight: 900;
-  line-height: 0.9;
-  text-transform: uppercase;
+  font-size: var(--text-h2);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: var(--text-offwhite);
 }
 
 .text {
@@ -45,10 +47,6 @@
   .inner {
     padding-block: 4.5rem;
     gap: 2rem;
-  }
-
-  .eyebrow {
-    font-size: 0.8125rem;
   }
 
   .text {

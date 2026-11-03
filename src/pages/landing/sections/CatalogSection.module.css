@@ -22,61 +22,31 @@
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--color-gold-soft);
+  color: var(--accent-text);
   margin-bottom: 0.5rem;
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 1.8rem + 3vw, 4rem);
-  font-weight: 900;
-  text-transform: uppercase;
+  font-size: var(--text-h2);
+  font-weight: 800;
   color: var(--text-offwhite);
-  line-height: 1;
-  letter-spacing: -0.01em;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
 }
 
 .note {
   margin-top: 0.5rem;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--text-muted-green);
 }
 
-.tableBlock {
-  margin-top: 3.5rem;
-  padding-top: 2.5rem;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.tableHeader {
-  margin-bottom: 1.5rem;
-}
-
-.tableTitle {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--text-offwhite);
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.tableSubtitle {
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  color: var(--color-gold-soft);
-  margin-top: 0.25rem;
-}
-
 @media (min-width: 48rem) {
   .inner {
-    gap: 3rem;
+    gap: 2.5rem;
   }
 
   .top {

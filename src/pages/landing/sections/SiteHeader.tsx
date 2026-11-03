@@ -27,8 +27,8 @@ export function SiteHeader({
       <aside className={styles.deliveryPill} aria-label="Aviso de entrega">
         <span className={styles.pillDot} aria-hidden="true" />
         <span>
-          Operação Exclusiva por Delivery • Entrega e Instalação em São João del-Rei e Região • Sem
-          Retirada
+          Operação exclusiva por delivery • Entrega e instalação em São João del-Rei e região • Sem
+          retirada
         </span>
       </aside>
       <header className={styles.header}>

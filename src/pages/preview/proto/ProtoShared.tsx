@@ -53,7 +53,7 @@ export function useStickyVisibility(heroCta: RefObject<HTMLElement | null>) {
   return { finalCtaRef, stickyVisible: !heroInView && !finalInView }
 }
 
-export function ProtoSwitcher({ current }: { current: 'a' | 'b' }) {
+export function ProtoSwitcher({ current }: { current: 'a' | 'b' | 'pastel' }) {
   const link = (href: string, label: string, active: boolean) => (
     <a
       href={href}
@@ -68,7 +68,8 @@ export function ProtoSwitcher({ current }: { current: 'a' | 'b' }) {
       aria-label="Alternar protótipo (somente desenvolvimento)"
       style={{
         display: 'flex',
-        gap: '1rem',
+        flexWrap: 'wrap',
+        gap: '0.5rem 1rem',
         justifyContent: 'center',
         padding: '1rem',
         fontFamily: 'var(--font-mono)',
@@ -81,6 +82,7 @@ export function ProtoSwitcher({ current }: { current: 'a' | 'b' }) {
       <span>Protótipo (dev):</span>
       {link('/__proto/a', 'A · Conceito C refinado', current === 'a')}
       {link('/__proto/b', 'B · Editorial imersivo', current === 'b')}
+      {link('/__proto/pastel', 'Pastel Brewery', current === 'pastel')}
       {link('/', 'Homepage oficial', false)}
     </nav>
   )

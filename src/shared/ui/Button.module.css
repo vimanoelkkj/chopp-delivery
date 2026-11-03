@@ -5,6 +5,7 @@
   min-height: 3.25rem;
   padding: 0 1.75rem;
   border: 1px solid transparent;
+  border-radius: var(--radius-control, 0);
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
@@ -42,7 +43,7 @@
 
 .outline:hover {
   border-color: var(--color-gold);
-  color: var(--color-gold);
+  color: var(--accent-text, var(--color-gold));
 }
 
 .dark {

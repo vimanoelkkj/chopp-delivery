@@ -17,7 +17,7 @@ export function PromoSection({
         <div className={styles.copy}>
           <p className={styles.eyebrow}>Happy hour · promoções</p>
           <h2 id={headingId} className={styles.title}>
-            {editorial?.heading ?? <>Condições Especiais para Eventos</>}
+            {editorial?.heading ?? <>Condições especiais para eventos</>}
           </h2>
           <p className={styles.text}>
             {editorial?.body ?? (
@@ -28,7 +28,7 @@ export function PromoSection({
             )}
           </p>
         </div>
-        <WhatsAppButton message="promo" variant="dark" size="lg">
+        <WhatsAppButton message="promo" variant="gold" size="lg">
           Quero essa
         </WhatsAppButton>
       </Container>

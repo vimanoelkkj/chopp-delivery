@@ -1231,6 +1231,14 @@ test.describe('P4: configured commercial actions remain inert', () => {
     const rawFrame = page.frames().find((f) => new URL(f.url()).pathname === '/admin/preview/frame')
     expect(rawFrame).toBeDefined()
     await rawFrame?.evaluate(() => document.fonts.ready)
+    // O tema pastel é da vitrine pública: nem o shell do painel nem o documento do frame o ativam.
+    const readDocument = () => ({
+      theme: document.documentElement.dataset.theme ?? null,
+      background: getComputedStyle(document.documentElement).backgroundColor,
+    })
+    const dark = { theme: null, background: 'rgb(0, 0, 0)' }
+    expect(await page.evaluate(readDocument)).toEqual(dark)
+    expect(await rawFrame?.evaluate(readDocument)).toEqual(dark)
     await testInfo.attach('preview-desktop', {
       body: await page.locator('iframe').screenshot({ animations: 'disabled' }),
       contentType: 'image/png',

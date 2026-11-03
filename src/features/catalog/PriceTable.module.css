@@ -61,7 +61,7 @@
   font-family: var(--font-mono);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-gold);
+  color: var(--accent-text, var(--color-gold));
   white-space: nowrap;
 }
 

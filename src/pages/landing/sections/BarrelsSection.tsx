@@ -25,9 +25,9 @@ export function BarrelsSection({
     <section id="barris" className={styles.section} aria-labelledby="barris-title">
       <Container>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>{sectionNumber ?? '01'} • Vitrine Assinatura</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '01'} • Vitrine assinatura</p>
           <h2 id="barris-title" className={styles.title}>
-            {editorial?.heading ?? <>Escolha seu Barril em 3D</>}
+            {editorial?.heading ?? <>Escolha seu barril em 3D</>}
           </h2>
           <p className={styles.lead}>
             {editorial?.lead ?? (

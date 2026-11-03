@@ -26,6 +26,17 @@ body {
   overflow-x: clip;
 }
 
+/*
+ * Documento da vitrine pública (Pastel Brewery): o fundo creme cobre o overscroll do celular.
+ * Só vale quando uma página ativa o tema em <html data-theme="pastel"> (ver documentTheme.ts);
+ * o painel administrativo não ativa e segue com o fundo escuro global acima.
+ */
+html[data-theme='pastel'],
+html[data-theme='pastel'] body {
+  background: #faf5ea;
+  color: #22282a;
+}
+
 h1,
 h2,
 h3,

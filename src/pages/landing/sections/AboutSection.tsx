@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Container } from '@/shared/ui/Container'
+import { KegCutout } from '@/shared/ui/KegCutout'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './AboutSection.module.css'
 
@@ -16,9 +17,9 @@ export function AboutSection({
     <section id="sobre" className={styles.section} aria-labelledby="sobre-title">
       <Container className={styles.inner}>
         <div className={styles.copy}>
-          <p className={styles.eyebrow}>{sectionNumber ?? '04'} • Origem &amp; Compromisso</p>
+          <p className={styles.eyebrow}>{sectionNumber ?? '04'} • Origem e compromisso</p>
           <h2 id="sobre-title" className={styles.title}>
-            {editorial?.heading ?? <>O Chopp Como Centro da Sua Celebração</>}
+            {editorial?.heading ?? <>O chopp como centro da sua celebração</>}
           </h2>
           <p className={styles.lead}>
             {editorial?.body ?? (
@@ -40,12 +41,13 @@ export function AboutSection({
 
         <div className={styles.mediaCard}>
           {mediaFallback ?? (
-            <img
-              src="/images/kegs/keg-studio-30l.jpg"
-              alt="Barris de Chopp em Aço Escovado na Câmara Fria"
-              className={styles.photo}
-              loading="lazy"
-            />
+            <div className={styles.stage}>
+              <KegCutout
+                photo="studio30"
+                alt="Barril de chopp em aço inox escovado"
+                eager={false}
+              />
+            </div>
           )}
           <div className={styles.captionRow}>
             <span>Barris em aço inoxidável padrão alimentício</span>

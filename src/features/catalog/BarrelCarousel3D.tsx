@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
+import { KegCutout, kegPhotoForItem } from '@/shared/ui/KegCutout'
 import type { PublicCatalog } from '../../../shared/catalog'
 import { centsToReais } from '../../../shared/money'
 import styles from './BarrelCarousel3D.module.css'
@@ -323,7 +324,7 @@ export function BarrelCarousel3D({
               >
                 <div className={styles.imageWrap}>
                   {renderItemMedia?.(keg.id) ?? (
-                    <img src={keg.image} alt={keg.alt} className={styles.kegImg} loading="eager" />
+                    <KegCutout photo={kegPhotoForItem(keg.id, index)} alt={keg.alt} />
                   )}
                   {keg.badgeText && (
                     <span

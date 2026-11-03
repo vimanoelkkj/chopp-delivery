@@ -1,6 +1,6 @@
 .section {
   border-top: 1px solid var(--color-line);
-  background: var(--color-black);
+  background: var(--surface-closing, var(--color-black));
 }
 
 .inner {
@@ -21,13 +21,13 @@
 .title {
   font-family: var(--font-display);
   font-size: var(--text-cta);
-  font-weight: 900;
-  line-height: 0.84;
-  text-transform: uppercase;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
 }
 
 .accent {
-  color: var(--color-gold);
+  color: var(--accent-text, var(--color-gold));
 }
 
 .action {
