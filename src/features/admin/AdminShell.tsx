@@ -7,6 +7,7 @@ import type { AdminCatalogGateway } from './catalog/gateway'
 import type { Rescue } from './catalog/saveFlow'
 import type { AdminUser } from './catalog/types'
 import { useCatalogEditor } from './catalog/useCatalogEditor'
+import type { SiteRescue } from './site/HomeEditor'
 import { SiteView } from './site/SiteView'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useToast } from './ui/useToast'
@@ -33,6 +34,10 @@ type AdminShellProps = {
   onExpired: (rescue?: Rescue) => void
   rescue?: Rescue | null
   onRescueHandled?: () => void
+  /** Alterações da Página inicial guardadas só em memória se a sessão expira durante a edição. */
+  siteRescue?: SiteRescue | null
+  onSiteRescue?: (rescue: SiteRescue) => void
+  onSiteRescueHandled?: () => void
 }
 
 export function AdminShell({
@@ -42,6 +47,9 @@ export function AdminShell({
   onExpired,
   rescue,
   onRescueHandled,
+  siteRescue = null,
+  onSiteRescue = () => {},
+  onSiteRescueHandled = () => {},
 }: AdminShellProps) {
   const { toast, notify } = useToast()
   const editor = useCatalogEditor(gateway, {
@@ -54,7 +62,9 @@ export function AdminShell({
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [target, setTarget] = useState<Target>('site')
   const [signingOut, setSigningOut] = useState(false)
-  const { dirty } = editor
+  const [siteDirty, setSiteDirty] = useState(false)
+  // Qualquer tela com alterações não salvas protege a saída da página, do painel e do site.
+  const dirty = editor.dirty || siteDirty
   // As duas telas ficam montadas depois de abertas e só uma aparece: trocar de tela não perde as
   // alterações não salvas do catálogo (o beforeunload e a confirmação de saída seguem valendo).
   const view = useAdminView()
@@ -111,7 +121,7 @@ export function AdminShell({
         }}
         onLogout={() => request('logout')}
       />
-      <AdminViewNav view={view} dirty={dirty} />
+      <AdminViewNav view={view} dirty={editor.dirty} siteDirty={siteDirty} />
       <main className={styles.main}>
         <div data-view="produtos" hidden={view !== 'produtos'} className={styles.view}>
           <CatalogView editor={editor} toast={toast} />
@@ -122,7 +132,21 @@ export function AdminShell({
             hidden={view !== 'pagina-inicial'}
             className={styles.view}
           >
-            <SiteView onExpired={() => onExpired()} />
+            <SiteView
+              userId={user.id}
+              onExpired={() => {
+                const { load, draft } = editor.state
+                onExpired(
+                  editor.dirty && draft && load.status === 'ready'
+                    ? { draft, revision: load.saved.revision, userId: user.id }
+                    : undefined,
+                )
+              }}
+              rescue={siteRescue}
+              onRescue={onSiteRescue}
+              onRescueHandled={onSiteRescueHandled}
+              onDirtyChange={setSiteDirty}
+            />
           </div>
         ) : null}
       </main>

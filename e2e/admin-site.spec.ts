@@ -66,10 +66,12 @@ test.describe('Página inicial: leitura do documento v2', () => {
     await expect(detail.getByRole('heading', { level: 2 })).toHaveText('Perguntas do rascunho')
     await expect(detail.getByText('module_12345678-1234-4123-8123-000000000003')).toBeVisible()
     await expect(detail.getByText('#faq')).toBeVisible()
-    await expect(detail.getByText('Este conteúdo está publicado?')).toBeVisible()
-    await expect(detail.getByText('até 120 caracteres').first()).toBeVisible()
-    // as três situações existem na tela e são texto, não só cor
-    await expect(detail.getByText('Editável depois').first()).toBeVisible()
+    // o conteúdo editorial agora é formulário: o valor está no campo e o limite no contador
+    await expect(detail.getByRole('textbox', { name: 'Pergunta 1' })).toHaveValue(
+      'Este conteúdo está publicado?',
+    )
+    await expect(detail.getByTestId('char-count').first()).toContainText('de 120')
+    // estrutura continua somente leitura e dita como texto, não só cor
     await expect(detail.getByText('Somente leitura').first()).toBeVisible()
     await sectionList(page)
       .getByRole('button', { name: /Rascunho privado P4/ })
@@ -93,10 +95,15 @@ test.describe('Página inicial: leitura do documento v2', () => {
     await hidden.click()
     const detail = page.getByRole('region', { name: 'História editorial' })
     await expect(detail.getByText('Fora da página (oculta)')).toBeVisible()
+    await expect(detail.getByRole('switch', { name: /Mostrar/ })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
     await sectionList(page)
       .getByRole('button', { name: /Rascunho privado P4/ })
       .click()
-    await expect(page.getByText('Obrigatória: precisa estar sempre visível.')).toBeVisible()
+    await expect(page.getByText('Esta seção é obrigatória e não pode ser ocultada.')).toBeVisible()
+    await expect(page.getByRole('switch')).toHaveCount(0)
   })
 
   test('é somente leitura: só um GET em /api/admin/site, nenhuma escrita, conversão ou início', async ({

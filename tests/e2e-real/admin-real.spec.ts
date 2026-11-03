@@ -1466,6 +1466,260 @@ test('E6.0: sessão expirada ao confirmar leva ao login sem gravar', async ({
   expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
 })
 
+type SiteDoc = {
+  commercial: unknown
+  modules: { id: string; template: string; visible: boolean; content: Record<string, unknown> }[]
+}
+const putDraft = (
+  page: Page,
+  instance: Integration,
+  revision: string,
+  document: unknown,
+  operationId: string = crypto.randomUUID(),
+) =>
+  page.request.put('/api/admin/site/draft', {
+    headers: { Origin: instance.origin, 'If-Match': `"${revision}"` },
+    data: { action: 'saveDraft', expectedRevision: revision, operationId, document },
+  })
+
+/** Escritas que a tela envia ao CMS, por endpoint (prova de que nada além de saveDraft sai daqui). */
+function trackWrites(page: Page) {
+  const writes: {
+    method: string
+    path: string
+    body: { operationId?: string; action?: string }
+  }[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (url.pathname.startsWith('/api/admin/site') && request.method() !== 'GET')
+      writes.push({
+        method: request.method(),
+        path: url.pathname,
+        body: (request.postDataJSON() ?? {}) as { operationId?: string; action?: string },
+      })
+  })
+  return writes
+}
+
+const heroTitle = (page: Page) => page.getByRole('textbox', { name: 'Título' })
+const saveDraftButton = (page: Page) => page.getByRole('button', { name: 'Salvar rascunho' })
+const savedNotice = (page: Page) =>
+  page.getByRole('status').filter({ hasText: 'Rascunho salvo. Nada foi publicado.' })
+
+test('E6.1: editar e salvar no CMS real altera só o rascunho e a prévia mostra apenas o salvo', async ({
+  page,
+  integration,
+}) => {
+  const seeded = await seedPreview(page, integration)
+  const before = seeded.site as { schema: number; draft: { revision: string; document: SiteDoc } }
+  const writes = trackWrites(page)
+
+  await page.goto('/admin#pagina-inicial')
+  await expect(heroTitle(page)).toHaveValue('Rascunho privado P4')
+  await heroTitle(page).fill('Abertura editada no E6')
+  // editar não grava: o servidor continua exatamente como estava
+  expect((await (await page.request.get('/api/admin/site')).json()).draft).toEqual(before.draft)
+  expect(writes).toEqual([])
+
+  await saveDraftButton(page).click()
+  await expect(savedNotice(page)).toBeVisible()
+  expect(writes).toHaveLength(1)
+  expect(writes[0]).toMatchObject({ method: 'PUT', path: '/api/admin/site/draft' })
+  expect(writes[0].body.action).toBe('saveDraft')
+
+  const after = await (await page.request.get('/api/admin/site')).json()
+  expect(after.schema).toBe(2)
+  expect(after.published).toBeNull()
+  expect(after.draft.revision).not.toBe(before.draft.revision)
+  const document = after.draft.document as SiteDoc
+  expect(document.modules[0].content.heading).toBe('Abertura editada no E6')
+  // todo o resto do documento é idêntico: ids, ordem, tipos, visibilidade, mídia e dados comerciais
+  expect(document.commercial).toEqual(before.draft.document.commercial)
+  expect(document.modules.slice(1)).toEqual(before.draft.document.modules.slice(1))
+  expect(document.modules[0].id).toBe(before.draft.document.modules[0].id)
+
+  // repetir o mesmo comando (resposta perdida) devolve o mesmo resultado, sem nova revisão
+  const replay = await putDraft(
+    page,
+    integration,
+    before.draft.revision,
+    JSON.parse(JSON.stringify(document)),
+    writes[0].body.operationId,
+  )
+  expect(replay.status()).toBe(200)
+  expect((await replay.json()).site.draft.revision).toBe(after.draft.revision)
+  // o mesmo operationId com outro conteúdo é recusado
+  const changed = JSON.parse(JSON.stringify(document)) as SiteDoc
+  changed.modules[0].content.heading = 'Outro conteúdo, mesma operação'
+  const clash = await putDraft(
+    page,
+    integration,
+    before.draft.revision,
+    changed,
+    writes[0].body.operationId,
+  )
+  expect(clash.status()).toBe(409)
+  expect((await clash.json()).error.code).toBe('CMS_OPERATION_CONFLICT')
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(
+    after.draft.revision,
+  )
+
+  // prévia autenticada: mostra o último rascunho salvo, não o que está sendo digitado
+  await heroTitle(page).fill('Texto ainda não salvo')
+  const preview = await page.context().newPage()
+  await preview.goto('/admin/preview')
+  const frame = preview.frameLocator('iframe[title="Rascunho CMS v2"]')
+  await expect(
+    frame.getByRole('heading', { level: 1, name: 'Abertura editada no E6' }),
+  ).toBeVisible()
+  await expect(frame.getByText('Texto ainda não salvo')).toHaveCount(0)
+  await preview.close()
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(
+    after.draft.revision,
+  )
+})
+
+test('E6.1: FAQ, listas e visibilidade salvam no CMS real; obrigatórias e limites são mantidos', async ({
+  page,
+  integration,
+}) => {
+  const seeded = await seedPreview(page, integration)
+  const before = seeded.site.draft as { revision: string; document: SiteDoc }
+  await page.goto('/admin#pagina-inicial')
+  const nav = page.getByRole('navigation', { name: 'Seções da página inicial' })
+
+  await nav.getByRole('button', { name: /Perguntas do rascunho/ }).click()
+  await page.getByRole('textbox', { name: 'Pergunta 1' }).fill('Qual é o prazo?')
+  await page.getByRole('textbox', { name: 'Resposta 1' }).fill('Combinamos no pedido.\nSem pressa.')
+  await page.getByRole('button', { name: 'Adicionar item' }).click()
+  await page.getByRole('textbox', { name: 'Pergunta 3' }).fill('Tem retirada?')
+  await nav.getByRole('button', { name: /História editorial/ }).click()
+  await page.getByRole('switch', { name: /Mostrar/ }).click()
+  await nav.getByRole('button', { name: /Faixa de destaques/ }).click()
+  await page.getByRole('textbox', { name: 'Frase 1' }).fill('Entrega rápida')
+  await saveDraftButton(page).click()
+  await expect(savedNotice(page)).toBeVisible()
+
+  const after = await (await page.request.get('/api/admin/site')).json()
+  const modules = after.draft.document.modules as SiteDoc['modules']
+  const faq = modules.find((m) => m.template === 'faq')
+  const items = faq?.content.items as { question: string; answer: string }[]
+  expect(items[0]).toEqual({
+    question: 'Qual é o prazo?',
+    answer: 'Combinamos no pedido.\nSem pressa.',
+  })
+  expect(items[2]).toEqual({ question: 'Tem retirada?', answer: '' })
+  expect(modules.find((m) => m.template === 'about')?.visible).toBe(false)
+  const ticker = modules.find((m) => m.template === 'ticker')
+  expect((ticker?.content.items as string[] | undefined)?.[0]).toBe('Entrega rápida')
+  for (const template of ['hero', 'catalog', 'contact'])
+    expect(modules.find((m) => m.template === template)?.visible).toBe(true)
+
+  // o servidor real recusa o que a interface já impede (defesa em profundidade); nada é gravado
+  const revision = after.draft.revision as string
+  const base = JSON.parse(JSON.stringify(after.draft.document)) as SiteDoc
+  const attempts: [string, (d: SiteDoc) => void][] = [
+    ['título com 121 caracteres', (d) => (d.modules[0].content.heading = 'a'.repeat(121))],
+    ['texto com 2001 caracteres', (d) => (d.modules[0].content.summary = 'b'.repeat(2001))],
+    ['texto com link', (d) => (d.modules[0].content.summary = 'veja https://exemplo.com')],
+    ['seção obrigatória oculta', (d) => (d.modules[0].visible = false)],
+    [
+      'WhatsApp inválido',
+      (d) => ((d.commercial as { whatsappNumber: string }).whatsappNumber = '12'),
+    ],
+  ]
+  for (const [label, mutate] of attempts) {
+    const doc = JSON.parse(JSON.stringify(base)) as SiteDoc
+    mutate(doc)
+    const refused = await putDraft(page, integration, revision, doc)
+    expect(refused.status(), label).toBe(400)
+  }
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(revision)
+  expect(before.revision).not.toBe(revision)
+})
+
+test('E6.1: conflito de revisão no CMS real não sobrescreve e preserva o texto local', async ({
+  page,
+  integration,
+}) => {
+  const seeded = await seedPreview(page, integration)
+  const before = seeded.site.draft as { revision: string; document: SiteDoc }
+  const writes = trackWrites(page)
+  await page.goto('/admin#pagina-inicial')
+  await heroTitle(page).fill('Minha edição')
+
+  // outra sessão salva primeiro
+  const other = JSON.parse(JSON.stringify(before.document)) as SiteDoc
+  other.modules[0].content.heading = 'Edição da outra sessão'
+  expect((await putDraft(page, integration, before.revision, other)).status()).toBe(200)
+  const current = await (await page.request.get('/api/admin/site')).json()
+
+  await saveDraftButton(page).click()
+  const alert = page.getByRole('alert').filter({ hasText: 'O rascunho mudou em outro lugar' })
+  await expect(alert).toContainText('Nada foi gravado')
+  expect(writes).toHaveLength(1)
+  await expect(heroTitle(page)).toHaveValue('Minha edição')
+  await expect(saveDraftButton(page)).toBeDisabled()
+  // a versão da outra sessão continua intacta no servidor
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(current)
+
+  await alert.getByRole('button', { name: 'Carregar versão atual…' }).click()
+  await page.getByRole('button', { name: 'Descartar e carregar' }).click()
+  await expect(heroTitle(page)).toHaveValue('Edição da outra sessão')
+  expect(writes).toHaveLength(1)
+})
+
+test('E6.1: sessão expirada ao salvar volta ao login, não grava e restaura o texto depois de entrar', async ({
+  page,
+  integration,
+}) => {
+  const seeded = await seedPreview(page, integration)
+  const before = seeded.site.draft as { revision: string }
+  await page.goto('/admin#pagina-inicial')
+  await heroTitle(page).fill('Escrito antes de a sessão cair')
+  await page.context().clearCookies()
+  await saveDraftButton(page).click()
+  await expect(page.getByLabel('Usuário')).toBeVisible()
+
+  await page.getByLabel('Usuário').fill(integration.username)
+  await page.getByLabel('Senha', { exact: true }).fill(integration.password)
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await expect(page.getByText('Suas alterações foram restauradas depois do login')).toBeVisible()
+  await expect(heroTitle(page)).toHaveValue('Escrito antes de a sessão cair')
+  // nada foi gravado enquanto a sessão estava expirada
+  expect((await (await page.request.get('/api/admin/site')).json()).draft.revision).toBe(
+    before.revision,
+  )
+  await saveDraftButton(page).click()
+  await expect(savedNotice(page)).toBeVisible()
+  expect(
+    (await (await page.request.get('/api/admin/site')).json()).draft.document.modules[0].content
+      .heading,
+  ).toBe('Escrito antes de a sessão cair')
+})
+
+test('E6.1: falha de rede depois de gravar é reconciliada pelo recibo, sem segundo PUT', async ({
+  page,
+  integration,
+}) => {
+  await seedPreview(page, integration)
+  const writes = trackWrites(page)
+  await page.goto('/admin#pagina-inicial')
+  await heroTitle(page).fill('Gravou, mas a resposta se perdeu')
+  // deixa o servidor real gravar e derruba só a resposta que a página receberia
+  await page.route('**/api/admin/site/draft', async (route) => {
+    await route.fetch()
+    await route.abort('failed')
+  })
+  await saveDraftButton(page).click()
+  await expect(savedNotice(page)).toBeVisible()
+  expect(writes).toHaveLength(1)
+  expect(
+    (await (await page.request.get('/api/admin/site')).json()).draft.document.modules[0].content
+      .heading,
+  ).toBe('Gravou, mas a resposta se perdeu')
+})
+
 test.describe('P4: configured commercial actions remain inert', () => {
   test.use({ whatsappNumber: '5532999999999' })
   test('P4: valid v2 iframe has real desktop/mobile viewports, derived navigation and inert commerce', async ({

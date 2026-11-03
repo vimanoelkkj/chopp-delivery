@@ -53,6 +53,32 @@ describe('forma da requisição', () => {
     expect(body).toMatchObject({ action: 'startV2', expectedRevision: REV1, operationId: OP })
   })
 
+  it('saveDraft: PUT em /api/admin/site/draft com If-Match, operationId e o documento inteiro', async () => {
+    const fetchMock = stub(async () => json(200, receipt('saveDraft')))
+    const document = buildInitialDocument()
+    const outcome = await runCommand({
+      action: 'saveDraft',
+      expectedRevision: REV1,
+      operationId: OP,
+      document,
+    })
+    expect(outcome.ok).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/admin/site/draft')
+    expect(init.method).toBe('PUT')
+    expect((init.headers as Record<string, string>)['If-Match']).toBe(`"${REV1}"`)
+    const body = JSON.parse(init.body as string)
+    expect(Object.keys(body).sort()).toEqual([
+      'action',
+      'document',
+      'expectedRevision',
+      'operationId',
+    ])
+    expect(body).toMatchObject({ action: 'saveDraft', expectedRevision: REV1, operationId: OP })
+    expect(body.document).toEqual(JSON.parse(JSON.stringify(document)))
+  })
+
   it('convertToV2: o cliente nunca envia o documento; envia só os reconhecimentos', async () => {
     const fetchMock = stub(async () => json(200, receipt('convertToV2')))
     await runCommand({

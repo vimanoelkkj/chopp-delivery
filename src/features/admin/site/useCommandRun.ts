@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
 import { type Failure, fetchReceipt, runCommand } from './cmsCommands'
 import type { CommandReceipt } from './siteModel'
@@ -6,6 +6,7 @@ import type { CommandReceipt } from './siteModel'
 export type RunArgs =
   | { action: 'startV2'; revision: string; document: CmsDocumentV2 }
   | { action: 'convertToV2'; revision: string; acknowledge: string[] }
+  | { action: 'saveDraft'; revision: string; document: CmsDocumentV2 }
 
 export type RunPhase =
   | { kind: 'idle' }
@@ -22,7 +23,7 @@ export type RunPhase =
     }
 
 /**
- * Executa um comando de escrita do CMS (`startV2` ou `convertToV2`) com as garantias da E6.0:
+ * Executa um comando de escrita do CMS (`startV2`, `convertToV2` ou `saveDraft`) com as garantias da E6.0:
  * - nada roda ao montar: só `run`, chamado por um clique de confirmação;
  * - o `operationId` nasce no `run` e só é reutilizado para o MESMO comando (mesma ação, revisão,
  *   reconhecimentos e documento). O servidor repete esse comando de forma idempotente, então
@@ -44,12 +45,20 @@ export function useCommandRun({
   const last = useRef<RunArgs | null>(null)
   const callbacks = useRef({ onApplied, onExpired })
   callbacks.current = { onApplied, onExpired }
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const reconcile = useCallback(async () => {
     const id = identity.current?.id
     if (!id) return
     setPhase({ kind: 'reconciling' })
     const outcome = await fetchReceipt(id)
+    if (!mounted.current) return
     if (outcome.ok && outcome.value) return callbacks.current.onApplied(outcome.value)
     if (outcome.ok)
       return setPhase({
@@ -77,10 +86,11 @@ export function useCommandRun({
         setPhase({ kind: 'submitting' })
         const base = { expectedRevision: args.revision, operationId: identity.current.id }
         const outcome = await runCommand(
-          args.action === 'startV2'
-            ? { action: 'startV2', ...base, document: args.document }
-            : { action: 'convertToV2', ...base, acknowledge: args.acknowledge },
+          args.action === 'convertToV2'
+            ? { action: 'convertToV2', ...base, acknowledge: args.acknowledge }
+            : { action: args.action, ...base, document: args.document },
         )
+        if (!mounted.current) return
         if (outcome.ok) return callbacks.current.onApplied(outcome.value)
         const { failure } = outcome
         if (failure.kind === 'expired') {

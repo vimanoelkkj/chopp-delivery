@@ -93,14 +93,14 @@ export const NAVIGATION_LABEL = {
 
 /**
  * Situação de um campo no contrato real:
- * - `editable`: o contrato aceita texto e uma etapa futura de edição poderá alterá-lo;
+ * - `editable`: o contrato aceita texto e o administrador pode alterá-lo no editor;
  * - `readonly`: definido por regra do código, derivado ou vindo de outro domínio (catálogo);
  * - `unavailable`: existe no contrato, mas não há como ver nem trocar o conteúdo ainda (mídia).
  */
 export type FieldStatus = 'editable' | 'readonly' | 'unavailable'
 
 export const STATUS_LABEL: Record<FieldStatus, string> = {
-  editable: 'Editável depois',
+  editable: 'Editável',
   readonly: 'Somente leitura',
   unavailable: 'Indisponível',
 }

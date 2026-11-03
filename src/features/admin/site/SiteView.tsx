@@ -1,212 +1,12 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AdminButton } from '../ui/AdminButton'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { isDirty } from './editModel'
+import { HomeEditor, type SiteRescue } from './HomeEditor'
 import { ConvertPanel, StartPanel } from './InitFlow'
 import styles from './SiteView.module.css'
-import {
-  describeDocument,
-  describeSection,
-  documentNotices,
-  documentSetupPending,
-  type FieldRow,
-  NAVIGATION_LABEL,
-  type SectionSummary,
-  type SiteRead,
-  STATUS_LABEL,
-  summarizeSections,
-} from './siteModel'
+import type { SiteRead } from './siteModel'
 import { type SiteState, useSiteDocument } from './useSiteDocument'
-
-const emptyText = (row: FieldRow) =>
-  row.key.endsWith('media')
-    ? 'Sem imagem'
-    : row.key === 'anchor'
-      ? 'Sem âncora'
-      : row.key === 'whatsapp'
-        ? 'Não definido'
-        : 'Vazio'
-
-/** Linhas de campos: cada uma diz se o campo é editável no futuro, somente leitura ou indisponível. */
-function Rows({ rows, label }: { rows: FieldRow[]; label: string }) {
-  return (
-    <dl className={styles.rows} aria-label={label}>
-      {rows.map((row) => (
-        <div
-          key={row.key}
-          className={row.group ? styles.groupRow : styles.row}
-          data-depth={row.depth ?? 0}
-          data-status={row.status}
-        >
-          <dt className={styles.term}>
-            <span>{row.label}</span>
-            {row.group ? null : (
-              <span className={`${styles.status} ${styles[row.status]}`}>
-                {STATUS_LABEL[row.status]}
-              </span>
-            )}
-          </dt>
-          <dd className={styles.value}>
-            {row.group ? null : row.value === null ? (
-              <span className={styles.empty}>{emptyText(row)}</span>
-            ) : (
-              <span className={row.long ? styles.long : undefined}>{row.value}</span>
-            )}
-            {row.hint ? <small className={styles.hint}>{row.hint}</small> : null}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** Tipo e âncora; o tipo some quando já é o próprio título (ex.: a faixa, que não tem título). */
-const metaOf = (section: SectionSummary) =>
-  [
-    section.title === section.templateLabel ? null : section.templateLabel,
-    section.anchor ? `#${section.anchor}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
-function SectionItem({
-  section,
-  selected,
-  onSelect,
-}: {
-  section: SectionSummary
-  selected: boolean
-  onSelect: () => void
-}) {
-  const meta = metaOf(section)
-  return (
-    <li>
-      <button
-        type="button"
-        className={styles.item}
-        aria-current={selected ? 'true' : undefined}
-        data-hidden={!section.visible}
-        onClick={onSelect}
-      >
-        <span className={styles.position} aria-hidden="true">
-          {section.position ?? '–'}
-        </span>
-        <span className={styles.itemText}>
-          <span className={styles.itemTitle}>{section.title}</span>
-          {meta ? <span className={styles.itemMeta}>{meta}</span> : null}
-        </span>
-        <span className={styles.itemFlags}>
-          {section.visible ? null : <span className={styles.flagWarn}>Oculta</span>}
-          {section.mandatory ? <span className={styles.flag}>Obrigatória</span> : null}
-          {section.navigation === 'none' ? null : (
-            <span className={styles.flag}>{NAVIGATION_LABEL[section.navigation]}</span>
-          )}
-        </span>
-      </button>
-    </li>
-  )
-}
-
-function Document({ read }: { read: Extract<SiteRead, { kind: 'v2' }> }) {
-  const sections = summarizeSections(read.document, read.layout)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const selected = sections.find((s) => s.id === selectedId) ?? sections[0]
-  const detail = selected ? describeSection(read.document, read.layout, selected.id) : null
-  const detailRef = useRef<HTMLElement>(null)
-  const titleId = useId()
-  const notices = documentNotices(read)
-  const pending = documentSetupPending(read)
-  const visibleCount = sections.filter((s) => s.visible).length
-
-  const select = (id: string) => {
-    setSelectedId(id)
-    // Em tela estreita o detalhe fica abaixo da lista: leva o olhar até ele.
-    if (window.matchMedia('(max-width: 63.99rem)').matches)
-      requestAnimationFrame(() =>
-        detailRef.current?.scrollIntoView({
-          block: 'start',
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'auto'
-            : 'smooth',
-        }),
-      )
-  }
-
-  return (
-    <>
-      <ul className={styles.chips} aria-label="Resumo do documento">
-        <li className={styles.chip}>
-          {sections.length} {sections.length === 1 ? 'seção' : 'seções'}
-        </li>
-        <li className={styles.chip}>
-          {visibleCount} {visibleCount === 1 ? 'visível' : 'visíveis'}
-        </li>
-        <li className={`${styles.chip} ${styles.chipInfo}`}>
-          Revisão {read.revision.slice(0, 11)}…
-        </li>
-      </ul>
-
-      {pending.length > 0 ? (
-        <div className={styles.notices} role="status">
-          <p className={styles.noticesTitle}>Rascunho incompleto</p>
-          <ul>
-            {pending.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <p>Essas configurações editoriais ainda estão pendentes. Nada foi publicado.</p>
-        </div>
-      ) : null}
-
-      {notices.length > 0 ? (
-        <div className={styles.notices} role="status">
-          <p className={styles.noticesTitle}>Avisos do documento</p>
-          <ul>
-            {notices.map((notice) => (
-              <li key={notice}>{notice}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <details className={styles.documentInfo}>
-        <summary>Documento e dados comerciais</summary>
-        <Rows rows={describeDocument(read)} label="Dados do documento" />
-      </details>
-
-      <div className={styles.split}>
-        <nav aria-label="Seções da página inicial" className={styles.sections}>
-          <ol className={styles.list}>
-            {sections.map((section) => (
-              <SectionItem
-                key={section.id}
-                section={section}
-                selected={section.id === selected?.id}
-                onSelect={() => select(section.id)}
-              />
-            ))}
-          </ol>
-        </nav>
-
-        {detail ? (
-          <section ref={detailRef} className={styles.detail} aria-labelledby={titleId}>
-            <header className={styles.detailHead}>
-              <p className={styles.detailKind}>
-                {detail.templateLabel}
-                {detail.number ? ` · seção ${detail.number}` : ''}
-              </p>
-              <h2 id={titleId} className={styles.detailTitle}>
-                {detail.title}
-              </h2>
-            </header>
-            <h3 className={styles.groupTitle}>Estrutura</h3>
-            <Rows rows={detail.structure} label={`Estrutura de ${detail.title}`} />
-            <h3 className={styles.groupTitle}>Conteúdo</h3>
-            <Rows rows={detail.content} label={`Conteúdo de ${detail.title}`} />
-          </section>
-        ) : null}
-      </div>
-    </>
-  )
-}
 
 const MESSAGES = {
   forbidden: {
@@ -223,17 +23,29 @@ const MESSAGES = {
   },
 } as const
 
+type V2Read = Extract<SiteRead, { kind: 'v2' }>
+
 function Body({
   state,
   retry,
   onApplied,
   onExpired,
+  onSaveExpired,
+  onDirtyChange,
+  onSnapshotChange,
+  onLockChange,
+  restore,
   notice,
 }: {
   state: SiteState
   retry: () => void
-  onApplied: (read: Extract<SiteRead, { kind: 'v2' }>, message: string) => void
+  onApplied: (read: V2Read, message: string) => void
   onExpired: () => void
+  onSaveExpired: (rescue: { document: SiteRescue['document']; revision: string }) => void
+  onDirtyChange: (dirty: boolean) => void
+  onSnapshotChange: (snapshot: Omit<SiteRescue, 'userId'> | null) => void
+  onLockChange: (locked: boolean) => void
+  restore: SiteRescue | null
   notice: string | null
 }) {
   if (state.status === 'loading')
@@ -260,7 +72,16 @@ function Body({
             {notice}
           </p>
         ) : null}
-        <Document read={state.read} />
+        <HomeEditor
+          read={state.read}
+          restore={restore}
+          onApplied={onApplied}
+          onExpired={onSaveExpired}
+          onDirtyChange={onDirtyChange}
+          onSnapshotChange={onSnapshotChange}
+          onLockChange={onLockChange}
+          onReload={retry}
+        />
       </>
     )
   // Sem documento ou rascunho v1: o fluxo explícito de início/conversão. Nada roda sozinho.
@@ -298,11 +119,62 @@ function Body({
   )
 }
 
-/** Tela "Página inicial" do painel: consulta o documento editorial do CMS v2, sem editar nada. */
-export function SiteView({ onExpired }: { onExpired: () => void }) {
+/** Tela "Página inicial" do painel: edita o rascunho editorial do CMS v2. Nada é publicado. */
+export function SiteView({
+  userId,
+  onExpired,
+  rescue,
+  onRescue,
+  onRescueHandled,
+  onDirtyChange,
+}: {
+  userId: string
+  onExpired: () => void
+  /** Alterações guardadas antes de a sessão expirar (devolvidas após novo login). */
+  rescue: SiteRescue | null
+  onRescue: (rescue: SiteRescue) => void
+  onRescueHandled: () => void
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const { state, reload, apply } = useSiteDocument(onExpired)
   const [notice, setNotice] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [locked, setLocked] = useState(false)
+  const [confirmingRefresh, setConfirmingRefresh] = useState(false)
+  const pendingRescue = useRef(rescue)
+  const readyV2 = state.status === 'ready' && state.read.kind === 'v2' ? state.read : null
+  const restore = useMemo(() => {
+    const kept = pendingRescue.current
+    return readyV2 && kept && kept.userId === userId && isDirty(readyV2.document, kept.document)
+      ? kept
+      : null
+  }, [readyV2, userId])
+
+  // Consome o rascunho guardado uma única vez: mantido em conflito se a revisão mudou, nunca descartado automaticamente.
+  useEffect(() => {
+    const kept = pendingRescue.current
+    if (!readyV2 || !kept) return
+    pendingRescue.current = null
+    if (kept.userId !== userId) onRescueHandled()
+    setNotice(
+      kept.userId !== userId
+        ? 'Não há alterações desta conta para restaurar.'
+        : !isDirty(readyV2.document, kept.document)
+          ? 'Suas alterações já constam no rascunho salvo. Nada foi reenviado.'
+          : kept.revision === readyV2.revision
+            ? 'Suas alterações foram restauradas depois do login. Confira e salve o rascunho.'
+            : 'Suas alterações foram preservadas como conflito: a versão salva mudou. Copie seus textos antes de descartar e carregar a versão atual.',
+    )
+  }, [readyV2, userId, onRescueHandled])
+
+  const changeDirty = (value: boolean) => {
+    setDirty(value)
+    onDirtyChange(value)
+    if (value) setNotice(null)
+  }
   const refresh = () => {
+    if (locked) return
+    onRescueHandled()
     setNotice(null)
     reload()
   }
@@ -322,15 +194,20 @@ export function SiteView({ onExpired }: { onExpired: () => void }) {
               rel="noopener noreferrer"
             >
               Abrir prévia
+              <span className="visually-hidden"> (mostra só o último rascunho salvo)</span>
             </a>
-            <AdminButton variant="outline" onClick={refresh} disabled={state.status === 'loading'}>
+            <AdminButton
+              variant="outline"
+              onClick={() => (dirty ? setConfirmingRefresh(true) : refresh())}
+              disabled={state.status === 'loading' || locked}
+            >
               Atualizar
             </AdminButton>
           </div>
         </div>
         <p className={styles.notice}>
-          Nada é publicado por esta tela. Documentos que já existem só são consultados: a edição dos
-          textos ainda não está disponível.
+          Nada é publicado por esta tela. Você edita o rascunho e só o que for salvo aparece na
+          prévia; o site público continua independente do CMS.
         </p>
         <Body
           state={state}
@@ -340,8 +217,33 @@ export function SiteView({ onExpired }: { onExpired: () => void }) {
             setNotice(message)
           }}
           onExpired={onExpired}
+          onSaveExpired={(kept) => {
+            onRescue({ ...kept, userId })
+            onExpired()
+          }}
+          onDirtyChange={changeDirty}
+          onSnapshotChange={(snapshot) => {
+            if (snapshot) onRescue({ ...snapshot, userId })
+            else onRescueHandled()
+          }}
+          onLockChange={setLocked}
+          restore={restore}
           notice={notice}
         />
+        <ConfirmDialog
+          open={confirmingRefresh}
+          title="Descartar as alterações e atualizar?"
+          confirmLabel="Descartar e atualizar"
+          cancelLabel="Continuar editando"
+          onCancel={() => setConfirmingRefresh(false)}
+          onConfirm={() => {
+            setConfirmingRefresh(false)
+            refresh()
+          }}
+        >
+          Há alterações que ainda não foram salvas. Atualizar carrega o rascunho do servidor e
+          descarta o que você editou.
+        </ConfirmDialog>
       </div>
     </div>
   )

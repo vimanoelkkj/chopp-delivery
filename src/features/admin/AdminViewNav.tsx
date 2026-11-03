@@ -21,7 +21,15 @@ export function useAdminView(): AdminView {
   return view
 }
 
-export function AdminViewNav({ view, dirty }: { view: AdminView; dirty: boolean }) {
+export function AdminViewNav({
+  view,
+  dirty,
+  siteDirty = false,
+}: {
+  view: AdminView
+  dirty: boolean
+  siteDirty?: boolean
+}) {
   return (
     <nav className={styles.nav} aria-label="Telas do painel">
       <div className={styles.inner}>
@@ -44,6 +52,12 @@ export function AdminViewNav({ view, dirty }: { view: AdminView; dirty: boolean 
           aria-current={view === 'pagina-inicial' ? 'page' : undefined}
         >
           Página inicial
+          {siteDirty ? (
+            <>
+              <span className={styles.dot} aria-hidden="true" />
+              <span className="visually-hidden"> (alterações não salvas)</span>
+            </>
+          ) : null}
         </a>
       </div>
     </nav>

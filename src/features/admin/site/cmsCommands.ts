@@ -15,6 +15,7 @@ import {
  */
 
 export type CommandInput =
+  | { action: 'saveDraft'; expectedRevision: string; operationId: string; document: CmsDocumentV2 }
   | { action: 'previewConversion'; expectedRevision: string; operationId: string }
   | {
       action: 'convertToV2'
@@ -109,13 +110,17 @@ function bodyOf(input: CommandInput) {
     ...(input.action === 'convertToV2' && input.acknowledge
       ? { acknowledge: input.acknowledge }
       : {}),
-    ...(input.action === 'startV2' ? { document: input.document } : {}),
+    ...(input.action === 'startV2' || input.action === 'saveDraft'
+      ? { document: input.document }
+      : {}),
   }
 }
 
 async function post(input: CommandInput) {
-  return send('/api/admin/site/convert', {
-    method: 'POST',
+  // Salvar rascunho usa o endpoint próprio do contrato (PUT); os demais comandos, o de conversão.
+  const save = input.action === 'saveDraft'
+  return send(save ? '/api/admin/site/draft' : '/api/admin/site/convert', {
+    method: save ? 'PUT' : 'POST',
     headers: { 'Content-Type': 'application/json', 'If-Match': `"${input.expectedRevision}"` },
     body: JSON.stringify(bodyOf(input)),
   })
@@ -139,7 +144,7 @@ export async function previewConversion(
   }
 }
 
-/** `startV2` ou `convertToV2`: escrita. Uma só tentativa; o desfecho incerto é tratado por quem chama. */
+/** `startV2`, `convertToV2` ou `saveDraft`: escrita. Uma só tentativa; o desfecho incerto é tratado por quem chama. */
 export async function runCommand(
   input: Exclude<CommandInput, { action: 'previewConversion' }>,
 ): Promise<Outcome<CommandReceipt>> {

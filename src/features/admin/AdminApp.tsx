@@ -9,6 +9,7 @@ import type { Rescue } from './catalog/saveFlow'
 import { LoginScreen } from './login/LoginScreen'
 import { PreviewShell } from './preview/PreviewShell'
 import { useAdminSession } from './session/useAdminSession'
+import type { SiteRescue } from './site/HomeEditor'
 import { AdminButton } from './ui/AdminButton'
 import { BootSplash } from './ui/BootSplash'
 
@@ -18,16 +19,32 @@ export default function AdminApp() {
   const { state, retry, signedIn, expired, signOut } = useAdminSession()
   // Rascunho guardado só em memória quando a sessão expira no meio da edição (some ao recarregar).
   const rescue = useRef<Rescue | null>(null)
+  // O mesmo para a Página inicial: o documento editado fica só em memória até o novo login.
+  const siteRescue = useRef<SiteRescue | null>(null)
   const onExpired = useCallback(
     (kept?: Rescue) => {
       rescue.current = kept ?? null
-      expired(Boolean(kept))
+      expired(Boolean(kept) || siteRescue.current !== null)
     },
     [expired],
   )
   const onRescueHandled = useCallback(() => {
     rescue.current = null
   }, [])
+  const onSiteRescue = useCallback((kept: SiteRescue) => {
+    siteRescue.current = kept
+  }, [])
+  const onSiteRescueHandled = useCallback(() => {
+    siteRescue.current = null
+  }, [])
+  const signOutAndDiscard = useCallback(async () => {
+    const ok = await signOut()
+    if (ok) {
+      siteRescue.current = null
+      rescue.current = null
+    }
+    return ok
+  }, [signOut])
   // Release e integração não têm fallback: falhas da API permanecem erros.
   const gateway = useMemo(
     () =>
@@ -69,15 +86,22 @@ export default function AdminApp() {
       ) : null}
       {state.status === 'authenticated' ? (
         /^\/admin\/preview\/?$/.test(window.location.pathname) ? (
-          <PreviewShell username={state.user.username} onSignOut={signOut} onExpired={onExpired} />
+          <PreviewShell
+            username={state.user.username}
+            onSignOut={signOutAndDiscard}
+            onExpired={onExpired}
+          />
         ) : (
           <AdminShell
             user={state.user}
             gateway={gateway}
-            onSignOut={signOut}
+            onSignOut={signOutAndDiscard}
             onExpired={onExpired}
             rescue={rescue.current}
             onRescueHandled={onRescueHandled}
+            siteRescue={siteRescue.current}
+            onSiteRescue={onSiteRescue}
+            onSiteRescueHandled={onSiteRescueHandled}
           />
         )
       ) : null}
