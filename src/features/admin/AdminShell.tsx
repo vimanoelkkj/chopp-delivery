@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AdminHeader } from './AdminHeader'
 import styles from './AdminShell.module.css'
+import { AdminViewNav, useAdminView } from './AdminViewNav'
 import { CatalogView } from './catalog/CatalogView'
 import type { AdminCatalogGateway } from './catalog/gateway'
 import type { Rescue } from './catalog/saveFlow'
 import type { AdminUser } from './catalog/types'
 import { useCatalogEditor } from './catalog/useCatalogEditor'
+import { SiteView } from './site/SiteView'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useToast } from './ui/useToast'
 
@@ -53,6 +55,23 @@ export function AdminShell({
   const [target, setTarget] = useState<Target>('site')
   const [signingOut, setSigningOut] = useState(false)
   const { dirty } = editor
+  // As duas telas ficam montadas depois de abertas e só uma aparece: trocar de tela não perde as
+  // alterações não salvas do catálogo (o beforeunload e a confirmação de saída seguem valendo).
+  const view = useAdminView()
+  const [siteOpened, setSiteOpened] = useState(view === 'pagina-inicial')
+  const shownView = useRef(view)
+  useEffect(() => {
+    if (view === 'pagina-inicial') setSiteOpened(true)
+    // Ao trocar de tela, o foco vai para o título dela (leitor de tela e teclado). Comparar com a
+    // tela já mostrada evita focar no carregamento inicial, inclusive no StrictMode do dev.
+    if (shownView.current === view) return
+    shownView.current = view
+    requestAnimationFrame(() => {
+      const heading = document.querySelector<HTMLElement>(`[data-view="${view}"] h1`)
+      heading?.setAttribute('tabindex', '-1')
+      heading?.focus()
+    })
+  }, [view])
 
   useEffect(() => {
     if (!dirty) return
@@ -92,8 +111,20 @@ export function AdminShell({
         }}
         onLogout={() => request('logout')}
       />
+      <AdminViewNav view={view} dirty={dirty} />
       <main className={styles.main}>
-        <CatalogView editor={editor} toast={toast} />
+        <div data-view="produtos" hidden={view !== 'produtos'} className={styles.view}>
+          <CatalogView editor={editor} toast={toast} />
+        </div>
+        {siteOpened ? (
+          <div
+            data-view="pagina-inicial"
+            hidden={view !== 'pagina-inicial'}
+            className={styles.view}
+          >
+            <SiteView onExpired={() => onExpired()} />
+          </div>
+        ) : null}
       </main>
       <ConfirmDialog
         open={leaveOpen}

@@ -1,0 +1,73 @@
+.nav {
+  border-bottom: 1px solid var(--a-line);
+  background: var(--a-panel);
+}
+
+.inner {
+  display: flex;
+  gap: 0.25rem;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 0 var(--gutter);
+}
+
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  color: var(--a-mute);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+
+.link:hover {
+  color: var(--a-ink);
+}
+
+.link[aria-current='page'] {
+  color: var(--a-ink);
+}
+
+/* Tela atual: sublinhado verde (e texto grafite), como nas abas do catálogo. */
+.link::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: var(--a-green);
+  transform: scaleX(0);
+  transition: transform 0.22s var(--admin-ease);
+}
+
+.link[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+/* Alterações não salvas no catálogo continuam valendo enquanto se consulta a outra tela. */
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--a-peach);
+  box-shadow: 0 0 0 1.5px var(--a-warn);
+}
+
+@media (max-width: 47.99rem) {
+  .link {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link,
+  .link::after {
+    transition: none;
+  }
+}

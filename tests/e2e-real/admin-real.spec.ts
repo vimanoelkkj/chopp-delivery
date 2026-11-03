@@ -1171,6 +1171,79 @@ test('P4: no v2 document instructs without conversion or editorial writes', asyn
   expect(writes).toEqual([])
 })
 
+test('E5: Página inicial lê o CMS real sem documento e com rascunho v1, sem nenhuma escrita', async ({
+  page,
+  integration,
+}) => {
+  await login(page, integration)
+  const before = await (await page.request.get('/api/admin/site')).json()
+  const writes: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/api/admin/site') && request.method() !== 'GET')
+      writes.push(request.method())
+  })
+  await page.goto('/admin#pagina-inicial')
+  await expect(
+    page.getByRole('heading', { name: 'Ainda não há documento da página inicial' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: /criar|inicializar|converter/i })).toHaveCount(0)
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(before)
+
+  const saved = await page.request.put('/api/admin/site/draft', {
+    headers: { Origin: integration.origin, 'If-Match': `"${before.draft.revision}"` },
+    data: {
+      action: 'saveDraft',
+      expectedRevision: before.draft.revision,
+      operationId: crypto.randomUUID(),
+      document: cmsDocument(),
+    },
+  })
+  expect(saved.status()).toBe(200)
+  const v1 = await (await page.request.get('/api/admin/site')).json()
+  expect(v1.schema).toBe(1)
+  await page.getByRole('button', { name: 'Atualizar' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'O rascunho está no formato antigo (v1)' }),
+  ).toBeVisible()
+  expect(await (await page.request.get('/api/admin/site')).json()).toEqual(v1)
+  expect(writes).toEqual([])
+})
+
+test('E5: Página inicial mostra o documento v2 real com ids e ordem do servidor', async ({
+  page,
+  integration,
+}) => {
+  const seeded = await seedPreview(page, integration)
+  const document = seeded.site.draft.document
+  const writes: string[] = []
+  page.on('request', (request) => {
+    if (request.url().includes('/api/admin/site') && request.method() !== 'GET')
+      writes.push(request.method())
+  })
+  await page.goto('/admin#pagina-inicial')
+  await expect(page.getByRole('heading', { level: 1, name: 'Página inicial' })).toBeVisible()
+  const sections = page.getByRole('navigation', { name: 'Seções da página inicial' })
+  await expect(sections.getByRole('button')).toHaveCount(document.modules.length)
+  await expect(sections.getByRole('button').first()).toContainText(
+    document.modules[0].content.heading,
+  )
+  const second = document.modules[1]
+  await sections.getByRole('button').nth(1).click()
+  await expect(page.getByText(second.id, { exact: true })).toBeVisible()
+  await expect(page.getByText('Revisão c2_', { exact: false })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Abrir prévia' })).toHaveAttribute(
+    'href',
+    '/admin/preview',
+  )
+  // O GET pode trazer `warnings`, que o resultado do comando não tem: o que não pode mudar é o rascunho.
+  const after = await (await page.request.get('/api/admin/site')).json()
+  expect({ schema: after.schema, draft: after.draft }).toEqual({
+    schema: seeded.site.schema,
+    draft: seeded.site.draft,
+  })
+  expect(writes).toEqual([])
+})
+
 test.describe('P4: configured commercial actions remain inert', () => {
   test.use({ whatsappNumber: '5532999999999' })
   test('P4: valid v2 iframe has real desktop/mobile viewports, derived navigation and inert commerce', async ({

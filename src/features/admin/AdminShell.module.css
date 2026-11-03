@@ -9,3 +9,19 @@
   flex: 1;
   flex-direction: column;
 }
+
+.view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* display:flex acima venceria o hidden do navegador; a tela inativa precisa sumir de fato. */
+.view[hidden] {
+  display: none;
+}
+
+/* O título recebe foco só por programa (tabindex -1) ao trocar de tela; não é um controle. */
+.view h1:focus {
+  outline: none;
+}

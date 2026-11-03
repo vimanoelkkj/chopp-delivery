@@ -433,6 +433,11 @@ test.describe('teclado e foco', () => {
     await expect(page.getByRole('link', { name: 'Prévia editorial' })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Sair', exact: true })).toBeFocused()
+    // barra de telas do painel (Produtos e Página inicial) entre o cabeçalho e o conteúdo
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Produtos' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('link', { name: 'Página inicial' })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Novo produto' })).toBeFocused()
     await page.keyboard.press('Tab')
