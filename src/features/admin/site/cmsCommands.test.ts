@@ -198,11 +198,54 @@ describe('consulta do recibo (somente leitura)', () => {
   })
 
   it('401 vira sessão expirada; rede fora do ar vira "unknown"', async () => {
-    stub(async () => json(401, {}))
+    stub(async () => json(401, { error: { code: 'UNAUTHENTICATED' } }))
     expect(await fetchReceipt(OP)).toEqual({ ok: false, failure: { kind: 'expired' } })
     stub(async () => {
       throw new TypeError('offline')
     })
+    expect(await fetchReceipt(OP)).toEqual({ ok: false, failure: { kind: 'unknown' } })
+  })
+})
+
+describe('M3D.1: Access responses during a write', () => {
+  it.each([200, 401, 403, 302])(
+    'HTML/redirect %i preserves the payload and leaves the outcome unknown',
+    async (status) => {
+      const input = {
+        action: 'saveDraft' as const,
+        expectedRevision: REV2,
+        operationId: OP,
+        document: buildInitialDocument(),
+      }
+      const hero = input.document.modules.find((module) => module.template === 'hero')
+      if (!hero) throw new Error('Missing fixture hero')
+      hero.content.heading = 'Local unsaved text preserved'
+      const before = JSON.stringify(input)
+      const fetchMock = stub(
+        async () =>
+          new Response('<html>Access login</html>', {
+            status,
+            headers: {
+              'Content-Type': 'text/html',
+              ...(status === 302 ? { Location: 'https://identity.example/login' } : {}),
+            },
+          }),
+      )
+      expect(await runCommand(input)).toEqual({ ok: false, failure: { kind: 'unknown' } })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][1].redirect).toBe('error')
+      expect(JSON.stringify(input)).toBe(before)
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).operationId).toBe(OP)
+    },
+  )
+  it('does not call an external JSON error a confirmed F2 expiry or an absent receipt', async () => {
+    const fetchMock = stub(async () => json(401, { error: { code: 'ACCESS_DENIED' } }))
+    expect(await fetchReceipt(OP)).toEqual({ ok: false, failure: { kind: 'unknown' } })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    stub(
+      async () =>
+        new Response('not JSON', { status: 404, headers: { 'Content-Type': 'application/json' } }),
+    )
     expect(await fetchReceipt(OP)).toEqual({ ok: false, failure: { kind: 'unknown' } })
   })
 })

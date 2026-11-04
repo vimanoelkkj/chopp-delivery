@@ -1,3 +1,4 @@
+import { requireApiJson } from '../httpResponse'
 import { AdminApiError, type AdminCatalogGateway } from './gateway'
 import { parseSaveResult, parseSnapshot } from './wire'
 
@@ -35,7 +36,8 @@ export function createHttpGateway({
   async function call(init: RequestInit): Promise<unknown> {
     let response: Response
     try {
-      response = await fetcher(path, { credentials: 'same-origin', ...init })
+      response = await fetcher(path, { credentials: 'same-origin', ...init, redirect: 'error' })
+      requireApiJson(response)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error
       throw new AdminApiError('unavailable')

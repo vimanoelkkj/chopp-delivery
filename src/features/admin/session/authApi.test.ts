@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchSession, login, logout } from './authApi'
 
 const reply = (status: number, body: unknown = {}, headers: HeadersInit = {}) =>
-  new Response(JSON.stringify(body), { status, headers })
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...Object.fromEntries(new Headers(headers)) },
+  })
 
 function stubFetch(response: Response | Error) {
   const fetchMock = vi.fn(async () => {
@@ -62,7 +65,7 @@ describe('login', () => {
 
 describe('fetchSession e logout', () => {
   it('401 = sem sessão; 200 = usuário; outros status lançam', async () => {
-    stubFetch(reply(401))
+    stubFetch(reply(401, { error: { code: 'UNAUTHENTICATED' } }))
     expect(await fetchSession()).toBeNull()
     stubFetch(reply(200, { authenticated: true, user: { id: 'u1', username: 'owner' } }))
     expect(await fetchSession()).toEqual({ id: 'u1', username: 'owner' })
@@ -80,5 +83,40 @@ describe('fetchSession e logout', () => {
     expect(await logout()).toBe(false)
     stubFetch(reply(403))
     expect(await logout()).toBe(false)
+  })
+})
+
+describe('M3D.1: logout requires the F2 contract', () => {
+  it.each([200, 401, 403])('HTML %i never confirms logout', async (status) => {
+    const fetchMock = stubFetch(
+      new Response('<html>Access login</html>', {
+        status,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    )
+    expect(await logout()).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].redirect).toBe('error')
+  })
+  it.each([{}, { ok: false }, { ok: true, unexpected: true }])(
+    'unexpected JSON is not a logout receipt (%j)',
+    async (body) => {
+      stubFetch(reply(200, body))
+      expect(await logout()).toBe(false)
+    },
+  )
+  it('rejects a followed redirect even with a success-shaped body', async () => {
+    const response = reply(200, { ok: true })
+    Object.defineProperty(response, 'redirected', { value: true })
+    stubFetch(response)
+    expect(await logout()).toBe(false)
+  })
+  it('external 401 HTML or JSON cannot be mistaken for an expired F2 session', async () => {
+    stubFetch(
+      new Response('Access expired', { status: 401, headers: { 'Content-Type': 'text/html' } }),
+    )
+    await expect(fetchSession()).rejects.toThrow()
+    stubFetch(reply(401, { error: { code: 'ACCESS_DENIED' } }))
+    await expect(fetchSession()).rejects.toThrow()
   })
 })

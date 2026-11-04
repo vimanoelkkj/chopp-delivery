@@ -885,3 +885,47 @@ test('E6.2: salvar Produtos e seções mantém os dois domínios independentes',
   await expect(page.getByText('Tudo salvo.', { exact: true })).toBeVisible()
   expect(server.puts).toHaveLength(1)
 })
+
+for (const accessStatus of [200, 401, 403, 302]) {
+  test(`M3D.1: Access ${accessStatus} during save preserves the editor and never resends`, async ({
+    page,
+  }) => {
+    const server = await openEditor(page, {
+      onPut: (route) =>
+        route.fulfill({
+          status: accessStatus,
+          contentType: 'text/html',
+          body: '<html>Access authentication required</html>',
+          ...(accessStatus === 302 ? { headers: { Location: '/access-login' } } : {}),
+        }),
+      onReceipt: (route) =>
+        route.fulfill({
+          status: 401,
+          contentType: 'text/html',
+          body: '<html>Access expired</html>',
+        }),
+    })
+    await field(page, 'Título').fill('Texto local preservado durante expiração Access')
+    await saveButton(page).click()
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Não conseguimos confirmar' }),
+    ).toBeVisible()
+    await expect(field(page, 'Título')).toHaveValue(
+      'Texto local preservado durante expiração Access',
+    )
+    await expect(saveButton(page)).toBeDisabled()
+    expect(server.puts).toHaveLength(1)
+    const operationId = server.puts[0].operationId
+    expect(server.receipts.every((url) => url.endsWith(operationId))).toBe(true)
+    await page.getByRole('button', { name: 'Verificar agora' }).click()
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Não conseguimos confirmar' }),
+    ).toBeVisible()
+    expect(server.puts).toHaveLength(1)
+    expect(server.receipts).toHaveLength(2)
+    await expect(field(page, 'Título')).toHaveValue(
+      'Texto local preservado durante expiração Access',
+    )
+    expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0])
+  })
+}

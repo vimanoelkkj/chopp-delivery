@@ -163,7 +163,9 @@ describe('envio', () => {
       [409, 'busy'],
       [401, 'expired'],
     ] as const) {
-      const fetchMock = stub(async () => json(status, { error: { code: 'X' } }))
+      const fetchMock = stub(async () =>
+        json(status, { error: { code: status === 401 ? 'UNAUTHENTICATED' : 'X' } }),
+      )
       const outcome = await uploadMedia({
         file: new Blob(['x']),
         mime: 'image/png',

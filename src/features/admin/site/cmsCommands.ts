@@ -1,4 +1,5 @@
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
+import { requireApiJson, requireF2SessionError } from '../httpResponse'
 import {
   type CommandReceipt,
   type ConversionPreview,
@@ -67,15 +68,13 @@ export async function send(
       cache: 'no-store',
       signal: controller.signal,
       ...init,
+      redirect: 'error',
     })
+    requireApiJson(response)
     const raw = await response.text()
-    if (raw.length > BODY_LIMIT) return { status: response.status, body: undefined }
-    let body: unknown
-    try {
-      body = raw === '' ? undefined : JSON.parse(raw)
-    } catch {
-      body = undefined
-    }
+    if (raw.length > BODY_LIMIT) throw new Error('ADMIN_RESPONSE_TOO_LARGE')
+    const body: unknown = JSON.parse(raw)
+    requireF2SessionError(response.status, body)
     return { status: response.status, body }
   } finally {
     clearTimeout(timer)

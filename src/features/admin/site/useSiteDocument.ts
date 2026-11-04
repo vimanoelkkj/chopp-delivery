@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { requireApiJson, requireF2SessionError } from '../httpResponse'
 import { readSiteSnapshot, type SiteRead } from './siteModel'
 
 /**
@@ -61,8 +62,12 @@ export function useSiteDocument(onExpired: () => void) {
         credentials: 'same-origin',
         cache: 'no-store',
         signal: controller.signal,
+        redirect: 'error',
       })
       if (active.current !== controller) return
+      requireApiJson(response)
+      if (response.status === 401 || response.status === 403)
+        requireF2SessionError(response.status, await readBounded(response))
       if (response.status === 401) {
         setState({ status: 'expired' })
         expiredRef.current()

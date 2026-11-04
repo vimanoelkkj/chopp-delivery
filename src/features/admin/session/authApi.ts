@@ -1,4 +1,5 @@
 import type { AdminUser } from '../catalog/types'
+import { requireApiJson, requireF2SessionError } from '../httpResponse'
 
 /**
  * Cliente das rotas reais da F2 (`/api/auth/*`). O cookie de sessão é HttpOnly e gerenciado
@@ -40,9 +41,15 @@ export async function login(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
       signal,
+      redirect: 'error',
     })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
+    return { ok: false, reason: 'unavailable' }
+  }
+  try {
+    requireApiJson(response)
+  } catch {
     return { ok: false, reason: 'unavailable' }
   }
   if (response.status === 200) {
@@ -65,17 +72,35 @@ export async function login(
 
 /** `null` = sem sessão válida (401). Qualquer outra falha lança e vira "indisponível". */
 export async function fetchSession(signal?: AbortSignal): Promise<AdminUser | null> {
-  const response = await fetch('/api/auth/me', { signal })
+  const response = await fetch('/api/auth/me', { signal, redirect: 'error', cache: 'no-store' })
+  requireApiJson(response)
+  const body = await json(response)
+  requireF2SessionError(response.status, body)
   if (response.status === 401) return null
-  const user = response.ok ? readUser(await json(response)) : null
+  const user = response.ok ? readUser(body) : null
   if (!user) throw new Error('Sessão indisponível')
   return user
 }
 
-/** Sempre 200 no servidor, até sem sessão; `false` só quando a chamada não chegou lá. */
+/** Só o recibo JSON exato da F2 confirma revogação; falhas preservam a sessão local. */
 export async function logout(): Promise<boolean> {
   try {
-    return (await fetch('/api/auth/logout', { method: 'POST' })).ok
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      redirect: 'error',
+      cache: 'no-store',
+    })
+    requireApiJson(response)
+    const body = await json(response)
+    return (
+      response.status === 200 &&
+      typeof body === 'object' &&
+      body !== null &&
+      !Array.isArray(body) &&
+      Object.keys(body).length === 1 &&
+      'ok' in body &&
+      body.ok === true
+    )
   } catch {
     return false
   }
