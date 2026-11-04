@@ -13,14 +13,15 @@ export type MaintenanceEnv = {
   ADMIN_ALLOW_INSECURE_LOCAL?: string
   CMS_MEDIA_LOCAL?: string
 }
-type Command = {
-  commandId: string
-  environment: 'homologation'
-  action: 'bootstrap' | 'recover'
-  username: string
-  expectedAuthVersion: number
-  ownerId?: string
-}
+type Command = { commandId: string; environment: 'homologation' } & (
+  | { action: 'inspect' }
+  | {
+      action: 'bootstrap' | 'recover'
+      username: string
+      expectedAuthVersion: number
+      ownerId?: string
+    }
+)
 function commandOf(raw: string): Command {
   if (raw.length > 2048) throw new Error('INVALID_COMMAND')
   const value = JSON.parse(raw)
@@ -30,8 +31,7 @@ function commandOf(raw: string): Command {
     'commandId',
     'environment',
     'action',
-    'username',
-    'expectedAuthVersion',
+    ...(value.action === 'inspect' ? [] : ['username', 'expectedAuthVersion']),
     ...(value.action === 'recover' ? ['ownerId'] : []),
   ]
   if (
@@ -40,12 +40,13 @@ function commandOf(raw: string): Command {
       value.commandId,
     ) ||
     value.environment !== 'homologation' ||
-    !['bootstrap', 'recover'].includes(value.action) ||
-    typeof value.username !== 'string' ||
-    !Number.isSafeInteger(value.expectedAuthVersion) ||
-    (value.action === 'bootstrap'
-      ? value.expectedAuthVersion !== 0
-      : value.expectedAuthVersion < 1) ||
+    !['bootstrap', 'recover', 'inspect'].includes(value.action) ||
+    (value.action !== 'inspect' &&
+      (typeof value.username !== 'string' ||
+        !Number.isSafeInteger(value.expectedAuthVersion) ||
+        (value.action === 'bootstrap'
+          ? value.expectedAuthVersion !== 0
+          : value.expectedAuthVersion < 1))) ||
     (value.action === 'recover' && typeof value.ownerId !== 'string')
   )
     throw new Error('INVALID_COMMAND')
@@ -64,19 +65,54 @@ export default {
         env.ADMIN_ALLOW_INSECURE_LOCAL !== undefined ||
         env.CMS_MEDIA_LOCAL !== undefined ||
         !env.DELEGAS_DB ||
-        !env.MAINTENANCE_PASSWORD ||
         !env.ADMIN_ORIGIN
       )
         throw new Error('INVALID_ENVIRONMENT')
       const origin = new URL(env.ADMIN_ORIGIN)
       if (
         origin.protocol !== 'https:' ||
+        origin.origin !== env.ADMIN_ORIGIN ||
         ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
       )
         throw new Error('INVALID_ENVIRONMENT')
-      authConfig(new Request(env.ADMIN_ORIGIN), env)
       const command = commandOf(env.MAINTENANCE_COMMAND ?? '')
       commandId = command.commandId
+      if (command.action === 'inspect') {
+        const rows = await env.DELEGAS_DB.prepare(
+          'SELECT id, username, active, auth_version FROM admin_users LIMIT 2',
+        ).all<{ id: string; username: string; active: number; auth_version: number }>()
+        if (rows.success !== true || !Array.isArray(rows.results) || rows.results.length > 1)
+          throw new Error('INVALID_OWNER_METADATA')
+        const row = rows.results[0]
+        if (
+          rows.results.length === 1 &&
+          (!row ||
+            typeof row.id !== 'string' ||
+            row.id.length < 1 ||
+            row.id.length > 128 ||
+            typeof row.username !== 'string' ||
+            !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(row.username) ||
+            ![0, 1].includes(row.active) ||
+            !Number.isSafeInteger(row.auth_version) ||
+            row.auth_version < 1)
+        )
+          throw new Error('INVALID_OWNER_METADATA')
+        console.info('ADMIN_MAINTENANCE', {
+          commandId,
+          result: 'INSPECTED',
+          owner: row
+            ? {
+                id: row.id,
+                username: row.username,
+                active: row.active === 1,
+                authVersion: row.auth_version,
+              }
+            : null,
+        })
+        return
+      }
+      if (!env.MAINTENANCE_PASSWORD) throw new Error('INVALID_ENVIRONMENT')
+      authConfig(new Request(env.ADMIN_ORIGIN), env)
       const applied =
         command.action === 'bootstrap'
           ? await bootstrapOwner(

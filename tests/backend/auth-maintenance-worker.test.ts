@@ -142,3 +142,98 @@ describe('M3D.1 scheduled-only maintenance boundary', () => {
     expect(logs).not.toContain('database details')
   })
 })
+
+describe('M3F private metadata inspection', () => {
+  const inspect = { commandId: id, environment: 'homologation', action: 'inspect' }
+  it('reads only owner metadata without a password or pepper, using the scheduled channel', async () => {
+    const all = vi.fn(async () => ({
+      success: true,
+      results: [
+        {
+          id: 'owner-test',
+          username: 'owner',
+          active: 1,
+          auth_version: 3,
+          password_hash: 'must-not-leak',
+          token_hash: 'must-not-leak',
+        },
+      ],
+    }))
+    const prepare = vi.fn(() => ({ all }))
+    await worker.scheduled(event(), {
+      ...env(),
+      DELEGAS_DB: { prepare } as unknown as D1Database,
+      MAINTENANCE_COMMAND: JSON.stringify(inspect),
+      MAINTENANCE_PASSWORD: undefined,
+      ADMIN_PASSWORD_PEPPER: undefined,
+    })
+    expect(prepare).toHaveBeenCalledExactlyOnceWith(
+      'SELECT id, username, active, auth_version FROM admin_users LIMIT 2',
+    )
+    expect(all).toHaveBeenCalledTimes(1)
+    expect(console.info).toHaveBeenCalledExactlyOnceWith('ADMIN_MAINTENANCE', {
+      commandId: id,
+      result: 'INSPECTED',
+      owner: { id: 'owner-test', username: 'owner', active: true, authVersion: 3 },
+    })
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain('must-not-leak')
+    expect(bootstrapOwner).not.toHaveBeenCalled()
+    expect(recoverOwnerCredentials).not.toHaveBeenCalled()
+  })
+  it('reports an empty owner table conclusively, without bootstrapping', async () => {
+    const prepare = vi.fn(() => ({ all: vi.fn(async () => ({ success: true, results: [] })) }))
+    await worker.scheduled(event(), {
+      ...env(),
+      DELEGAS_DB: { prepare } as unknown as D1Database,
+      MAINTENANCE_COMMAND: JSON.stringify(inspect),
+    })
+    expect(console.info).toHaveBeenCalledWith('ADMIN_MAINTENANCE', {
+      commandId: id,
+      result: 'INSPECTED',
+      owner: null,
+    })
+    expect(bootstrapOwner).not.toHaveBeenCalled()
+  })
+  it.each([
+    { results: [{ id: 'owner-test', username: 'owner', active: 1, auth_version: 0 }] },
+    {
+      results: [
+        { id: 'owner-test', username: 'owner', active: 1, auth_version: 1 },
+        { id: 'other', username: 'other', active: 1, auth_version: 1 },
+      ],
+    },
+    { results: null },
+    { results: [null] },
+  ])(
+    'refuses inconsistent metadata and never spreads a database row into logs',
+    async ({ results }) => {
+      const prepare = vi.fn(() => ({ all: vi.fn(async () => ({ success: true, results })) }))
+      await worker.scheduled(event(), {
+        ...env(),
+        DELEGAS_DB: { prepare } as unknown as D1Database,
+        MAINTENANCE_COMMAND: JSON.stringify(inspect),
+      })
+      expect(console.info).not.toHaveBeenCalled()
+      expect(console.error).toHaveBeenCalledWith('ADMIN_MAINTENANCE', {
+        commandId: id,
+        result: 'UNCONFIRMED',
+      })
+    },
+  )
+  it('SQL failure cannot be mistaken for an empty account or disclose SQL/credentials', async () => {
+    const prepare = vi.fn(() => ({
+      all: vi.fn(async () => {
+        throw new Error(`${password} SELECT password_hash`)
+      }),
+    }))
+    await worker.scheduled(event(), {
+      ...env(),
+      DELEGAS_DB: { prepare } as unknown as D1Database,
+      MAINTENANCE_COMMAND: JSON.stringify(inspect),
+    })
+    expect(console.info).not.toHaveBeenCalled()
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(password)
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('password_hash')
+    expect(recoverOwnerCredentials).not.toHaveBeenCalled()
+  })
+})
