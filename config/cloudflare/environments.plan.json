@@ -1,0 +1,57 @@
+{
+  "planVersion": 1,
+  "kind": "offline-preparation-only",
+  "remoteOperationsEnabled": false,
+  "pathBase": "repository-root",
+  "environments": {
+    "laboratory": {
+      "config": "wrangler.jsonc",
+      "disposableHarness": "scripts/dev-admin-integration.mts",
+      "remoteAllowed": false
+    },
+    "homologation": {
+      "enabled": false,
+      "pages": {
+        "projectName": null,
+        "pages_build_output_dir": "./dist-release",
+        "buildCommand": "npm run build:release",
+        "verifyCommand": "npm run verify:release",
+        "compatibility_date": "2026-08-06"
+      },
+      "d1": {
+        "binding": "DELEGAS_DB",
+        "database_name": null,
+        "database_id": null,
+        "migrations_dir": "migrations"
+      },
+      "r2": {
+        "binding": "CMS_MEDIA_BUCKET",
+        "bucket_name": null,
+        "publicAccess": false,
+        "remoteBindingEnabled": false
+      },
+      "processor": {
+        "binding": "CMS_MEDIA_PROCESSOR",
+        "implementation": null,
+        "remoteBindingEnabled": false,
+        "profiles": ["hero", "section"]
+      },
+      "auth": {
+        "origin": null,
+        "requiredSecrets": ["ADMIN_PASSWORD_PEPPER"],
+        "forbiddenVars": ["ADMIN_ALLOW_INSECURE_LOCAL", "CMS_MEDIA_LOCAL"],
+        "bootstrap": "not-implemented-remotely",
+        "privateAccessPolicy": "decision-required"
+      },
+      "editorial": {
+        "publicationEnabled": false,
+        "publicCmsConsumptionEnabled": false
+      }
+    },
+    "production": {
+      "enabled": false,
+      "config": null,
+      "resources": null
+    }
+  }
+}
