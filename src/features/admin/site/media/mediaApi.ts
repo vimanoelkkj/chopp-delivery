@@ -28,7 +28,12 @@ export type MediaItem = {
   /** `not_checked`: a listagem não lê o armazenamento; só a entrega do arquivo prova a disponibilidade. */
   integrity: 'not_checked' | 'unavailable'
 }
-export type MediaCapacity = { limit: number; consumed: number; remaining: number }
+export type MediaCapacity = {
+  limit: number
+  consumed: number
+  remaining: number
+  includesTombstones: boolean
+}
 export type MediaPage = { media: MediaItem[]; nextCursor: string | null; capacity: MediaCapacity }
 
 export type MediaFailure =
@@ -42,7 +47,7 @@ export type MediaFailure =
   | { kind: 'invalid'; code?: string }
   /** 413: arquivo acima do limite. */
   | { kind: 'too-large' }
-  /** 429: a cota vitalícia de registros acabou. */
+  /** 429: a capacidade disponível acabou. */
   | { kind: 'quota' }
   /** 409: outro envio em andamento ou conflito de operação. */
   | { kind: 'busy' }
@@ -116,7 +121,7 @@ export function readMediaPage(value: unknown): MediaPage {
     !isCount(capacity.consumed) ||
     !isCount(capacity.remaining) ||
     capacity.limit === 0 ||
-    capacity.includesTombstones !== true ||
+    typeof capacity.includesTombstones !== 'boolean' ||
     capacity.remaining !== Math.max(0, capacity.limit - capacity.consumed) ||
     (nextCursor !== null && (typeof nextCursor !== 'string' || nextCursor.length > 80))
   )
@@ -140,6 +145,7 @@ export function readMediaPage(value: unknown): MediaPage {
       limit: capacity.limit,
       consumed: capacity.consumed,
       remaining: capacity.remaining,
+      includesTombstones: capacity.includesTombstones,
     },
   }
 }

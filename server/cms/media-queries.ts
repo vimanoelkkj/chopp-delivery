@@ -6,8 +6,8 @@ import { readVerifiedMediaObjects } from './media-integrity'
 import { type LocalMediaEnv, localMediaEnabled } from './media-library'
 import { cmsMediaId, cmsUuid } from './validation'
 
-// Mirrors the unchanged SQL quota in 0007; includes rejected records and tombstones.
-const LIFETIME_LIMIT = 100
+// Legacy fallback until the complete 0010 capacity projection is installed.
+const MEDIA_LIMIT = 100
 const error = (code: string, status: number) => authJson({ error: { code } }, status)
 type Row = {
   media_id: string
@@ -58,11 +58,17 @@ export async function handleMediaList(request: Request, env: LocalMediaEnv): Pro
     after = { time: Number(parts[0]), id: parts[1] }
   }
   try {
+    const reusable = Boolean(
+      await env.DELEGAS_DB.prepare(
+        "SELECT 1 FROM sqlite_schema WHERE type='view' AND name='cms_media_capacity'",
+      ).first(),
+    )
+    const capacitySql = reusable
+      ? `SELECT capacity_limit,consumed,includes_tombstones FROM cms_media_capacity WHERE ${auth.proof.sql}`
+      : `SELECT ${MEDIA_LIMIT} capacity_limit,count(*) consumed,1 includes_tombstones FROM cms_media WHERE ${auth.proof.sql}`
     const statements = [
       env.DELEGAS_DB.prepare(`SELECT 1 ok WHERE ${auth.proof.sql}`).bind(...auth.proof.values),
-      env.DELEGAS_DB.prepare(
-        `SELECT count(*) consumed FROM cms_media WHERE ${auth.proof.sql}`,
-      ).bind(...auth.proof.values),
+      env.DELEGAS_DB.prepare(capacitySql).bind(...auth.proof.values),
       env.DELEGAS_DB.prepare(`SELECT media_id,state,revision,created_at FROM cms_media WHERE ${auth.proof.sql}
         ${after ? 'AND (created_at<? OR (created_at=? AND media_id<?))' : ''}
         ORDER BY created_at DESC,media_id DESC LIMIT ?`).bind(
@@ -76,7 +82,13 @@ export async function handleMediaList(request: Request, env: LocalMediaEnv): Pro
     const rows = result[2].results as unknown as Row[]
     const page = rows.slice(0, limit),
       last = page[page.length - 1]
-    const consumed = Number((result[1].results[0] as { consumed: number }).consumed)
+    const capacity = result[1].results[0] as {
+      capacity_limit: number
+      consumed: number
+      includes_tombstones: number
+    }
+    const consumed = Number(capacity.consumed),
+      limitCapacity = Number(capacity.capacity_limit)
     return authJson({
       media: page.map((row) => ({
         id: row.media_id,
@@ -87,10 +99,10 @@ export async function handleMediaList(request: Request, env: LocalMediaEnv): Pro
       })),
       nextCursor: rows.length > limit && last ? `${last.created_at}:${last.media_id}` : null,
       capacity: {
-        limit: LIFETIME_LIMIT,
+        limit: limitCapacity,
         consumed,
-        remaining: Math.max(0, LIFETIME_LIMIT - consumed),
-        includesTombstones: true,
+        remaining: Math.max(0, limitCapacity - consumed),
+        includesTombstones: Boolean(capacity.includes_tombstones),
       },
     })
   } catch {

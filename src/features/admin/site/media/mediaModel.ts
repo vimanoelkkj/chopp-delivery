@@ -4,8 +4,7 @@ import type { MediaCapacity, MediaFailure, MediaItem } from './mediaApi'
 /**
  * Regras da biblioteca de imagens (M2B): modelo puro, sem rede e sem DOM.
  * Os limites espelham `MEDIA_LIMITS` do servidor (um teste confere); o servidor continua sendo a
- * autoridade. Validar aqui serve para não gastar a cota vitalícia de registros com arquivos que o
- * servidor recusaria, pois um envio recusado também consome um dos 100 registros.
+ * autoridade. Validar aqui evita tentativas recusadas que podem reservar capacidade até a limpeza.
  */
 
 export type ImageMime = 'image/png' | 'image/jpeg' | 'image/webp'
@@ -20,7 +19,7 @@ export const MEDIA_PAGE_SIZE = 12
 
 /** O que a tela diz sobre formato e tamanho, na mesma frase em todo lugar. */
 export const UPLOAD_RULES =
-  'PNG, JPEG ou WebP, até 5 MB (no máximo 6000 px por lado e 12 megapixels). Cada envio usa 1 registro da cota, mesmo se for recusado.'
+  'PNG, JPEG ou WebP, até 5 MB (no máximo 6000 px por lado e 12 megapixels). Um envio pode ocupar uma vaga até a exclusão concluída, mesmo se for recusado.'
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
@@ -89,7 +88,9 @@ export function capacityView(capacity: MediaCapacity): CapacityView {
         ? 'Nenhum envio restante'
         : `${capacity.remaining} ${capacity.remaining === 1 ? 'envio restante' : 'envios restantes'}`,
     level,
-    note: 'Cota vitalícia: imagens apagadas ou recusadas também contam; não há limpeza automática.',
+    note: capacity.includesTombstones
+      ? 'Cota vitalícia: este banco ainda conta imagens apagadas e recusadas.'
+      : 'Capacidade reutilizável: exclusões concluídas liberam vagas. Imagens recusadas aguardam limpeza; referências históricas continuam protegidas.',
   }
 }
 
@@ -176,7 +177,7 @@ export function uploadFailureText(failure: MediaFailure): Message {
     case 'quota':
       return {
         title: 'A cota de imagens acabou',
-        text: 'Todos os registros vitalícios foram usados. Não dá para enviar novas imagens; as já enviadas continuam disponíveis para escolher.',
+        text: 'Não dá para enviar novas imagens enquanto a capacidade estiver ocupada. Imagens sem referências podem liberar vagas após a exclusão concluída. As já enviadas continuam disponíveis para escolher.',
       }
     case 'busy':
       return {

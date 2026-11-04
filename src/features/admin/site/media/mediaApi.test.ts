@@ -38,6 +38,17 @@ const stub = (impl: (url: string, init: RequestInit) => Promise<Response>) => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('listagem', () => {
+  it('aceita capacidade reutilizável e preserva a política recebida do servidor', async () => {
+    stub(async () =>
+      json(
+        200,
+        page({ capacity: { limit: 100, consumed: 1, remaining: 99, includesTombstones: false } }),
+      ),
+    )
+    const outcome = await listMedia({ limit: 12 })
+    expect(outcome.ok && outcome.value.capacity.includesTombstones).toBe(false)
+  })
+
   it('GET com limite e cursor codificado; sem corpo, sem escrita', async () => {
     const fetchMock = stub(async () => json(200, page()))
     const outcome = await listMedia({ limit: 12, cursor: '1700000000000:' + ID })
@@ -59,7 +70,12 @@ describe('listagem', () => {
     if (!outcome.ok) throw new Error('esperava sucesso')
     expect(outcome.value.media[0]).toMatchObject({ id: ID, state: 'ready' })
     expect(outcome.value.nextCursor).toBe(`1:${ID}`)
-    expect(outcome.value.capacity).toEqual({ limit: 100, consumed: 1, remaining: 99 })
+    expect(outcome.value.capacity).toEqual({
+      limit: 100,
+      consumed: 1,
+      remaining: 99,
+      includesTombstones: true,
+    })
   })
 
   it('formato inesperado vira falha, nunca um item "meio válido"', () => {
@@ -81,8 +97,8 @@ describe('listagem', () => {
         page({ capacity: { limit: 100, consumed: 1, remaining: 5, includesTombstones: true } }),
       ],
       [
-        'sem tombstones na conta',
-        page({ capacity: { limit: 100, consumed: 1, remaining: 99, includesTombstones: false } }),
+        'política de capacidade inválida',
+        page({ capacity: { limit: 100, consumed: 1, remaining: 99, includesTombstones: 'false' } }),
       ],
       ['cursor enorme', page({ nextCursor: 'x'.repeat(81) })],
       ['chave extra no envelope', { ...page(), debug: true }],

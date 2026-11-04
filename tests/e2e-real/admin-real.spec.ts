@@ -829,7 +829,7 @@ test.describe('F4A.2A: disposable private media library', () => {
       limit: 100,
       consumed: 1,
       remaining: 99,
-      includesTombstones: true,
+      includesTombstones: false,
     })
     expect(listing.media).toEqual([
       {

@@ -113,16 +113,20 @@ describe('apresentação', () => {
     expect(formatBytes(1)).toBe('1 KB')
   })
   it('cota: usado, restante e nível (baixa em 10, esgotada em 0)', () => {
-    expect(capacityView({ limit: 100, consumed: 7, remaining: 93 })).toMatchObject({
+    expect(
+      capacityView({ limit: 100, consumed: 7, remaining: 93, includesTombstones: true }),
+    ).toMatchObject({
       used: '7 de 100 registros usados',
       remaining: '93 envios restantes',
       level: 'ok',
     })
-    expect(capacityView({ limit: 100, consumed: 90, remaining: 10 }).level).toBe('low')
-    expect(capacityView({ limit: 100, consumed: 99, remaining: 1 }).remaining).toBe(
-      '1 envio restante',
-    )
-    const full = capacityView({ limit: 100, consumed: 100, remaining: 0 })
+    expect(
+      capacityView({ limit: 100, consumed: 90, remaining: 10, includesTombstones: true }).level,
+    ).toBe('low')
+    expect(
+      capacityView({ limit: 100, consumed: 99, remaining: 1, includesTombstones: true }).remaining,
+    ).toBe('1 envio restante')
+    const full = capacityView({ limit: 100, consumed: 100, remaining: 0, includesTombstones: true })
     expect(full.level).toBe('full')
     expect(full.remaining).toBe('Nenhum envio restante')
     expect(full.note).toMatch(/vitalícia/)
@@ -177,4 +181,11 @@ describe('textos de falha dizem o que aconteceu', () => {
     expect(uploadFailureText({ kind: 'failed-record' }).text).toMatch(/cota/)
     expect(uploadFailureText({ kind: 'unsupported' }).title).toMatch(/não está disponível/)
   })
+})
+
+it('capacidade reutilizável informa liberação só após exclusão concluída e preservação histórica', () => {
+  const view = capacityView({ limit: 100, consumed: 4, remaining: 96, includesTombstones: false })
+  expect(view.remaining).toBe('96 envios restantes')
+  expect(view.note).toContain('exclusões concluídas liberam vagas')
+  expect(view.note).toContain('referências históricas continuam protegidas')
 })
