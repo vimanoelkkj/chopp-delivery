@@ -1,2 +1,4 @@
 import { handleLocalMedia } from '../../../server/cms/media-library'
-export const onRequest: PagesFunction<Env> = ({ request, env }) => handleLocalMedia(request, env)
+import { handleMediaList } from '../../../server/cms/media-queries'
+export const onRequest: PagesFunction<Env> = ({ request, env }) =>
+  request.method === 'GET' ? handleMediaList(request, env) : handleLocalMedia(request, env)

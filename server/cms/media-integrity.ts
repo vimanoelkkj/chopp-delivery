@@ -3,7 +3,7 @@ import { type CmsDerivative, MEDIA_LIMITS, MEDIA_PROFILES } from './media-contra
 import type { MediaBucket } from './media-library'
 
 /** Evidence of this read, never a guarantee of future object availability. No historical rewrite. */
-export async function verifyMediaObjects(
+export async function readVerifiedMediaObjects(
   db: D1Database,
   bucket: MediaBucket,
   id: string,
@@ -11,6 +11,7 @@ export async function verifyMediaObjects(
 ) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const checkId = crypto.randomUUID()
+  const objects = new Map<keyof typeof MEDIA_PROFILES, Uint8Array<ArrayBuffer>>()
   const verification = async () => {
     const parsed = JSON.parse(manifest) as Record<string, CmsDerivative>
     if (!parsed || Array.isArray(parsed) || Object.keys(parsed).sort().join(',') !== 'hero,section')
@@ -49,6 +50,7 @@ export async function verifyMediaObjects(
       const info = inspectImage(bytes, 'image/webp', true)
       if (info.width !== d.width || info.height !== d.height)
         throw new Error('MEDIA_OBJECT_INTEGRITY')
+      objects.set(profile, bytes)
     }
   }
   let valid = false
@@ -69,5 +71,15 @@ export async function verifyMediaObjects(
       .bind(checkId, id, manifest, valid ? 1 : 0)
       .run()
   }
-  return checkId
+  return { checkId, objects }
+}
+
+/** Legacy callers retain the check ID API; byte delivery uses the same verified buffers. */
+export async function verifyMediaObjects(
+  db: D1Database,
+  bucket: MediaBucket,
+  id: string,
+  manifest: string,
+) {
+  return (await readVerifiedMediaObjects(db, bucket, id, manifest)).checkId
 }

@@ -770,7 +770,7 @@ test('F4A.1: rascunho autenticado, resposta perdida, replay, CSRF e catálogo is
 
 test.describe('F4A.2A: disposable private media library', () => {
   test.use({ mediaLab: true })
-  test('Chrome uploads through Pages, recovers receipt, protects references and exposes no bytes', async ({
+  test('Chrome uploads through Pages, queries receipts, serves private derivatives and protects references', async ({
     page,
     integration,
   }) => {
@@ -805,6 +805,12 @@ test.describe('F4A.2A: disposable private media library', () => {
         { encoded, operation },
       )
     expect((await post()).status).toBe(401)
+    for (const path of [
+      '/api/admin/media',
+      `/api/admin/media/${id}/hero`,
+      `/api/admin/media/commands/${operation}`,
+    ])
+      expect((await page.request.get(path)).status()).toBe(401)
     await login(page, integration)
     await page.route('**/api/admin/media', async (route) => {
       const response = await route.fetch()
@@ -813,6 +819,35 @@ test.describe('F4A.2A: disposable private media library', () => {
     })
     await expect(post()).rejects.toThrow()
     await page.unroute('**/api/admin/media')
+    // Recover the lost upload response by GET, without needing to upload its bytes again.
+    const recovered = await page.request.get(`/api/admin/media/commands/${operation}`)
+    expect(recovered.status()).toBe(200)
+    expect((await recovered.json()).operation).toEqual({ id: operation, status: 'done' })
+    expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media_jobs').n).toBe(1)
+    const listing = await (await page.request.get('/api/admin/media?limit=1')).json()
+    expect(listing.capacity).toEqual({
+      limit: 100,
+      consumed: 1,
+      remaining: 99,
+      includesTombstones: true,
+    })
+    expect(listing.media).toEqual([
+      {
+        id,
+        state: 'ready',
+        revision: operation,
+        profiles: ['hero', 'section'],
+        integrity: 'not_checked',
+      },
+    ])
+    for (const profile of ['hero', 'section']) {
+      const image = await page.request.get(`/api/admin/media/${id}/${profile}`)
+      expect(image.status()).toBe(200)
+      expect(image.headers()['content-type']).toBe('image/webp')
+      expect(image.headers()['cache-control']).toBe('no-store')
+      expect(image.headers()['x-content-type-options']).toBe('nosniff')
+      expect((await sharp(await image.body()).metadata()).format).toBe('webp')
+    }
     const response = await post()
     expect(response.status).toBe(200)
     expect(response.body.media.state).toBe('ready')

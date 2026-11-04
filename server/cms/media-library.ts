@@ -49,24 +49,32 @@ type Job = {
 const nowSql = "CAST(unixepoch('subsec') * 1000 AS INTEGER)"
 const error = (code: string, status: number) => authJson({ error: { code } }, status)
 
+/** Shared capability gate: never enables a remote origin or a normal runtime. */
+export function localMediaEnabled(
+  request: Request,
+  env: LocalMediaEnv,
+): env is LocalMediaEnv & {
+  CMS_MEDIA_BUCKET: MediaBucket
+  CMS_MEDIA_PROCESSOR: Pick<Fetcher, 'fetch'>
+} {
+  const url = new URL(request.url)
+  return (
+    env.CMS_MEDIA_LOCAL === 'disposable-v1' &&
+    env.ADMIN_ALLOW_INSECURE_LOCAL === '1' &&
+    url.protocol === 'http:' &&
+    ['127.0.0.1', 'localhost'].includes(url.hostname) &&
+    Boolean(env.CMS_MEDIA_BUCKET && env.CMS_MEDIA_PROCESSOR)
+  )
+}
+
 export async function handleLocalMedia(
   request: Request,
   env: LocalMediaEnv,
   id?: string,
   reconcile = false,
 ): Promise<Response> {
-  // A production origin or a missing capability fails closed even if a flag is copied.
-  const url = new URL(request.url)
-  if (
-    env.CMS_MEDIA_LOCAL !== 'disposable-v1' ||
-    env.ADMIN_ALLOW_INSECURE_LOCAL !== '1' ||
-    url.protocol !== 'http:' ||
-    !['127.0.0.1', 'localhost'].includes(url.hostname) ||
-    !env.CMS_MEDIA_BUCKET ||
-    !env.CMS_MEDIA_PROCESSOR
-  )
-    return error('NOT_FOUND', 404)
-  const allowed = reconcile ? 'POST' : id ? 'GET, DELETE' : 'POST'
+  if (!localMediaEnabled(request, env)) return error('NOT_FOUND', 404)
+  const allowed = reconcile ? 'POST' : id ? 'GET, DELETE' : 'GET, POST'
   if (!(reconcile ? ['POST'] : id ? ['GET', 'DELETE'] : ['POST']).includes(request.method))
     return wrongMethod(request, allowed)
   const auth = await requireAdmin(request, env)
