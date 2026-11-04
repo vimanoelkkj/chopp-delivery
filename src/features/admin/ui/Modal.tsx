@@ -17,6 +17,8 @@ type ModalProps = {
   titleId: string
   /** Depois que o modal fechou de vez (foco já devolvido): lugar certo para mover o foco adiante. */
   onClosed?: () => void
+  /** Janela larga (galerias, formulários). No celular continua sendo a folha inferior. */
+  wide?: boolean
   children: ReactNode
 }
 
@@ -31,6 +33,7 @@ export function Modal({
   dismissible = true,
   titleId,
   onClosed,
+  wide = false,
   children,
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -74,7 +77,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={styles.dialog}
+      className={wide ? `${styles.dialog} ${styles.wide}` : styles.dialog}
       data-state={open ? 'open' : 'closing'}
       aria-labelledby={titleId}
       onCancel={(event) => {
@@ -90,7 +93,7 @@ export function Modal({
         if (event.key !== 'Tab') return
         const focusable = [
           ...event.currentTarget.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), a[href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+            'button:not(:disabled), a[href], input:not(:disabled):not([type="file"]), [tabindex]:not([tabindex="-1"])',
           ),
         ]
         const first = focusable[0]

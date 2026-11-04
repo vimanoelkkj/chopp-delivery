@@ -76,9 +76,10 @@ test.describe('Página inicial: leitura do documento v2', () => {
     await sectionList(page)
       .getByRole('button', { name: /Rascunho privado P4/ })
       .click()
-    await expect(
-      page.getByRole('region', { name: 'Rascunho privado P4' }).getByText('Indisponível').first(),
-    ).toBeVisible()
+    // M2B: a imagem da abertura deixou de ser "Indisponível": agora é escolhida na biblioteca
+    const hero = page.getByRole('region', { name: 'Rascunho privado P4' })
+    await expect(hero.getByRole('button', { name: 'Escolher imagem' })).toBeVisible()
+    await expect(hero.getByText('Indisponível')).toHaveCount(0)
   })
 
   test('seção obrigatória tem visibilidade somente leitura e a oculta aparece como "Oculta"', async ({

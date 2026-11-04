@@ -158,7 +158,7 @@ describe('describeSection: situação de cada campo pelo contrato real', () => {
     expect(find(rows('faq').structure, 'visible').status).toBe('editable')
   })
 
-  it('textos são editáveis depois, com o limite do contrato; mídia fica indisponível', () => {
+  it('textos são editáveis, com o limite do contrato; a imagem da abertura é escolhida na biblioteca', () => {
     const hero = rows('hero')
     expect(find(hero.content, 'heading')).toMatchObject({
       status: 'editable',
@@ -168,7 +168,7 @@ describe('describeSection: situação de cada campo pelo contrato real', () => {
       status: 'editable',
       hint: 'até 2000 caracteres',
     })
-    expect(find(hero.content, 'media')).toMatchObject({ status: 'unavailable', value: null })
+    expect(find(hero.content, 'media')).toMatchObject({ status: 'editable', value: null })
   })
 
   it('vitrine: os barris vêm do catálogo (somente leitura) e a ordem do documento é mantida', () => {

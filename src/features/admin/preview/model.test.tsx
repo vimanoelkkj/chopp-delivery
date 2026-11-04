@@ -162,7 +162,7 @@ describe('P4: strict read-only preview model', () => {
     expect(html).not.toContain('href="#faq"')
     expect(JSON.stringify(s)).toBe(before)
   })
-  it('uses private-media placeholders without exposing keys or resolving carousel.media', () => {
+  it('resolves saved images through the authenticated ID/profile route, never storage keys, and keeps carousel.media diagnostic-only', () => {
     const s = snapshot()
     const ref = { id: 'media_12345678-1234-4123-8123-123456789012', alt: 'Privada' }
     Object.assign(s.draft.document.modules[0].content, { media: ref })
@@ -175,9 +175,16 @@ describe('P4: strict read-only preview model', () => {
     const html = renderToStaticMarkup(
       <PreviewRenderer value={value} catalog={catalog} retry={() => {}} />,
     )
-    expect(html).toContain('Mídia privada não carregada')
+    // hero usa o perfil hero; seção institucional e imagem de barril, o perfil section
+    expect(html).toContain(`src="/api/admin/media/${ref.id}/hero"`)
+    expect(html).toContain(`src="/api/admin/media/${ref.id}/section"`)
+    expect(html).toContain('alt="Privada"')
     expect(html).toContain('carousel.media preservada sem representação visual definida')
-    expect(html).not.toContain(ref.id)
+    // carousel.media segue sem representação visual: só a abertura usa o perfil hero
+    // (o React também emite um <link rel="preload"> por imagem; conta-se só a tag <img>)
+    expect((html.match(/<img[^>]*\/api\/admin\/media\/[^"]+\/hero"/g) ?? []).length).toBe(1)
+    expect((html.match(/<img[^>]*\/api\/admin\/media\/[^"]+\/section"/g) ?? []).length).toBe(1)
+    expect(html).not.toMatch(/cms\/derived|objectKey|sha256|quarantine/)
   })
   it('only permits the exact frame path; nested frames, external scripts/ancestors remain blocked', () => {
     const parent = previewHeaders('http://localhost:4185', false),

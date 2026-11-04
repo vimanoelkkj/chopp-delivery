@@ -53,9 +53,14 @@ export type Outcome<T> = { ok: true; value: T } | { ok: false; failure: Failure 
 const TIMEOUT_MS = 15000
 const BODY_LIMIT = 250000
 
-async function send(url: string, init: RequestInit): Promise<{ status: number; body: unknown }> {
+/** Uma requisição JSON com tempo limite; também usada pela biblioteca de mídia (`media/mediaApi.ts`). */
+export async function send(
+  url: string,
+  init: RequestInit,
+  timeoutMs = TIMEOUT_MS,
+): Promise<{ status: number; body: unknown }> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(url, {
       credentials: 'same-origin',
@@ -77,7 +82,7 @@ async function send(url: string, init: RequestInit): Promise<{ status: number; b
   }
 }
 
-const errorCode = (body: unknown): string | undefined => {
+export const errorCode = (body: unknown): string | undefined => {
   if (typeof body !== 'object' || body === null || !('error' in body)) return undefined
   const error = (body as { error: unknown }).error
   return typeof error === 'object' && error !== null && 'code' in error

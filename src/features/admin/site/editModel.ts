@@ -12,21 +12,30 @@ import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
  * as mensagens abaixo só explicam, em português, por que o validador do contrato recusaria o texto.
  */
 
-export type FieldKind = 'heading' | 'text'
+export type FieldKind = 'heading' | 'text' | 'alt'
 
-const LIMIT: Record<FieldKind, number> = { heading: CMS_LIMITS.heading, text: CMS_LIMITS.text }
+/** O contrato (`media()` em primitives.ts) aceita até 200 caracteres no texto alternativo. */
+export const ALT_LIMIT = 200
+
+const LIMIT: Record<FieldKind, number> = {
+  heading: CMS_LIMITS.heading,
+  text: CMS_LIMITS.text,
+  alt: ALT_LIMIT,
+}
 
 /** Quantos caracteres o contrato conta (pontos de código, como o validador). */
 export const countChars = (value: string) => [...value].length
 
 /** Campos de linha única usam o limite de título; os demais, o de texto. */
 export const kindOf = (key: string): FieldKind =>
-  key === 'heading' ||
-  (key.startsWith('items.') && !key.endsWith('.answer')) ||
-  key.endsWith('.title') ||
-  key.endsWith('.question')
-    ? 'heading'
-    : 'text'
+  key === 'media.alt'
+    ? 'alt'
+    : key === 'heading' ||
+        (key.startsWith('items.') && !key.endsWith('.answer')) ||
+        key.endsWith('.title') ||
+        key.endsWith('.question')
+      ? 'heading'
+      : 'text'
 
 export const limitOf = (kind: FieldKind) => LIMIT[kind]
 
@@ -76,6 +85,7 @@ const editableKey = (module: CmsModuleV2, key: string): boolean => {
     contact: ['heading', 'body'],
   }
   if (fields[module.template].includes(key)) return true
+  if (key === 'media.alt') return hasMediaSlot(module)
   if (module.template === 'ticker') return /^items\.(0|[1-9]\d*)$/.test(key)
   if (module.template === 'how') return /^steps\.(0|[1-9]\d*)\.(title|body)$/.test(key)
   return module.template === 'faq' && /^items\.(0|[1-9]\d*)\.(question|answer)$/.test(key)
@@ -115,6 +125,48 @@ export function setField(
   cursor[parts[parts.length - 1]] = value
   return replaceModule(doc, found.index, { ...found.module, content } as CmsModuleV2)
 }
+
+/**
+ * Seções cuja imagem o administrador pode escolher. A vitrine (`carousel`) fica de fora de propósito:
+ * o contrato a descreve como "função visual não definida", e as imagens de cada barril acompanham
+ * entradas que vêm do catálogo. Essas referências são preservadas, nunca alteradas por aqui.
+ */
+const MEDIA_SLOT_TEMPLATES = ['hero', 'about', 'highlight'] as const
+export const hasMediaSlot = (module: CmsModuleV2): module is MediaSlotModule =>
+  (MEDIA_SLOT_TEMPLATES as readonly string[]).includes(module.template)
+
+export type MediaSlotModule = Extract<CmsModuleV2, { template: 'hero' | 'about' | 'highlight' }>
+export type MediaRef = { id: string; alt: string }
+
+/** Imagem associada à seção, ou `null` se não houver (ou se a seção não aceita imagem). */
+export const readMedia = (module: CmsModuleV2): MediaRef | null =>
+  hasMediaSlot(module) ? module.content.media : null
+
+const withMedia = (
+  doc: CmsDocumentV2,
+  moduleId: string,
+  change: (current: MediaRef | null) => MediaRef | null,
+): CmsDocumentV2 => {
+  const found = locate(doc, moduleId)
+  if (!found || !hasMediaSlot(found.module)) return doc
+  const current = found.module.content.media
+  const next = change(current)
+  if (JSON.stringify(next) === JSON.stringify(current)) return doc
+  const content = { ...found.module.content, media: next }
+  return replaceModule(doc, found.index, { ...found.module, content } as CmsModuleV2)
+}
+
+/**
+ * Associa uma imagem da biblioteca à seção. Trocar a imagem usa sempre outro ID de mídia (os bytes de
+ * uma mídia existente nunca são substituídos). O texto alternativo já escrito é mantido para o
+ * administrador conferir; uma primeira associação começa sem texto alternativo.
+ */
+export const setMedia = (doc: CmsDocumentV2, moduleId: string, id: string): CmsDocumentV2 =>
+  withMedia(doc, moduleId, (current) => ({ id, alt: current?.alt ?? '' }))
+
+/** Tira a imagem da seção (o rascunho aceita seção sem imagem; a publicação, no futuro, exigirá). */
+export const clearMedia = (doc: CmsDocumentV2, moduleId: string): CmsDocumentV2 =>
+  withMedia(doc, moduleId, () => null)
 
 export const MANDATORY_TEMPLATES = ['hero', 'catalog', 'contact'] as const
 export const isMandatory = (module: CmsModuleV2) =>
@@ -197,7 +249,10 @@ export function checkDocument(doc: CmsDocumentV2): EditCheck {
   for (const module of doc.modules) {
     const content = asBag(module.content)
     for (const [name, value] of Object.entries(content)) {
-      if (typeof value === 'string') visit(module, name, value)
+      if (name === 'media') {
+        const alt = value !== null && typeof value === 'object' ? asBag(value).alt : undefined
+        if (typeof alt === 'string') visit(module, 'media.alt', alt)
+      } else if (typeof value === 'string') visit(module, name, value)
       else if (Array.isArray(value))
         value.forEach((item, index) => {
           if (typeof item === 'string') visit(module, `${name}.${index}`, item)

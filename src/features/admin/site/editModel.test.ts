@@ -3,18 +3,23 @@ import { CMS_LIMITS } from '../../../../shared/cms/common'
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
 import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
 import {
+  ALT_LIMIT,
   addItem,
   canSave,
   checkDocument,
+  clearMedia,
   countChars,
   fieldProblem,
+  hasMediaSlot,
   isDirty,
   kindOf,
   listLength,
   problemKey,
   readField,
+  readMedia,
   removeItem,
   setField,
+  setMedia,
   setVisible,
 } from './editModel'
 import { buildInitialDocument } from './initialDocument'
@@ -227,7 +232,124 @@ it('E6.2: caminhos aninhados de mídia e catálogo permanecem protegidos', () =>
   if (hero.template !== 'hero' || carousel.template !== 'carousel') throw new Error('fixture')
   hero.content.media = { id: 'media_12345678-1234-4123-8123-123456789012', alt: 'Original' }
   carousel.content.entries = [{ itemId: 'dronken', media: { ...hero.content.media } }]
-  for (const key of ['media.id', 'media.alt']) expect(setField(d, hero.id, key, 'intruso')).toBe(d)
+  // o ID de uma mídia nunca muda por campo de texto (trocar a imagem usa setMedia, com outro ID)
+  expect(setField(d, hero.id, 'media.id', 'intruso')).toBe(d)
+  // o texto alternativo é editorial: edita só o alt, mantendo o ID
+  const edited = setField(d, hero.id, 'media.alt', 'Barril de chopp')
+  const editedHero = byTemplate(edited, 'hero')
+  if (editedHero.template !== 'hero') throw new Error('fixture')
+  expect(editedHero.content.media).toEqual({ id: hero.content.media.id, alt: 'Barril de chopp' })
+  expect(hero.content.media?.alt).toBe('Original')
+  // a vitrine preserva o alt da capa: nenhuma edição de texto chega nela
+  expect(setField(d, carousel.id, 'media.alt', 'intruso')).toBe(d)
   for (const key of ['entries.0.itemId', 'entries.0.media.id', 'entries.0.media.alt'])
     expect(setField(d, carousel.id, key, 'intruso')).toBe(d)
+})
+
+describe('M2B: imagem da seção e texto alternativo', () => {
+  const ID = 'media_12345678-1234-4123-8123-123456789012'
+  const OTHER = 'media_22222222-1234-4123-8123-123456789012'
+
+  it('hero, sobre e destaque aceitam imagem; as demais seções, e a vitrine, não', () => {
+    const d = doc()
+    for (const template of ['hero', 'about'])
+      expect(hasMediaSlot(byTemplate(d, template)), template).toBe(true)
+    for (const template of ['carousel', 'ticker', 'catalog', 'how', 'faq', 'contact'])
+      expect(hasMediaSlot(byTemplate(d, template)), template).toBe(false)
+  })
+
+  it('escolher uma imagem grava só {id, alt} e o contrato continua aceitando o rascunho', () => {
+    const d = doc()
+    const hero = byTemplate(d, 'hero')
+    const next = setMedia(d, hero.id, ID)
+    expect(readMedia(byTemplate(next, 'hero'))).toEqual({ id: ID, alt: '' })
+    expect(accepted(next)).toBe(true)
+    expect(Object.keys(readMedia(byTemplate(next, 'hero')) ?? {}).sort()).toEqual(['alt', 'id'])
+    // o documento original não é alterado e o resto fica idêntico
+    expect(readMedia(hero)).toBeNull()
+    expect(next.commercial).toEqual(d.commercial)
+    expect(next.modules.map((m) => m.id)).toEqual(d.modules.map((m) => m.id))
+    expect(next.modules.slice(1)).toEqual(d.modules.slice(1))
+  })
+
+  it('trocar a imagem usa outro ID, mantém o texto alternativo para conferência e não toca nas demais', () => {
+    let d = setMedia(doc(), byTemplate(doc(), 'hero').id, ID)
+    const heroId = byTemplate(d, 'hero').id
+    d = setField(d, heroId, 'media.alt', 'Barril sobre o balcão')
+    const swapped = setMedia(d, heroId, OTHER)
+    expect(readMedia(byTemplate(swapped, 'hero'))).toEqual({
+      id: OTHER,
+      alt: 'Barril sobre o balcão',
+    })
+    // escolher a mesma imagem de novo não altera nada (referência igual, sem sujar o rascunho)
+    expect(setMedia(d, heroId, ID)).toBe(d)
+    expect(isDirty(d, swapped)).toBe(true)
+  })
+
+  it('remover deixa a seção sem imagem; remover de novo não muda nada', () => {
+    const d = setMedia(doc(), byTemplate(doc(), 'about').id, ID)
+    const aboutId = byTemplate(d, 'about').id
+    const cleared = clearMedia(d, aboutId)
+    expect(readMedia(byTemplate(cleared, 'about'))).toBeNull()
+    expect(accepted(cleared)).toBe(true)
+    expect(clearMedia(cleared, aboutId)).toBe(cleared)
+  })
+
+  it('seções sem espaço de imagem, e a vitrine, nunca recebem mídia', () => {
+    const d = doc()
+    for (const template of ['carousel', 'faq', 'contact', 'catalog', 'ticker', 'how']) {
+      const id = byTemplate(d, template).id
+      expect(setMedia(d, id, ID), template).toBe(d)
+      expect(clearMedia(d, id), template).toBe(d)
+    }
+    expect(setMedia(d, 'inexistente', ID)).toBe(d)
+  })
+
+  it('texto alternativo: 200 passa, 201 não; links, < > e quebra de linha são recusados com explicação', () => {
+    expect(kindOf('media.alt')).toBe('alt')
+    expect(ALT_LIMIT).toBe(200)
+    expect(fieldProblem('a'.repeat(200), 'alt')).toBeNull()
+    expect(fieldProblem('a'.repeat(201), 'alt')).toMatch(/Sobra 1 caractere: o limite é 200/)
+    expect(fieldProblem('veja https://exemplo.com', 'alt')).toMatch(/links/)
+    expect(fieldProblem('oi <b>', 'alt')).toMatch(/símbolos/)
+    expect(fieldProblem('duas\nlinhas', 'alt')).toMatch(/uma linha só/)
+    // vazio é aceito no rascunho (a publicação exigirá texto)
+    expect(fieldProblem('', 'alt')).toBeNull()
+  })
+
+  it('checkDocument aponta o texto alternativo inválido pela chave do campo e bloqueia o salvamento', () => {
+    let d = setMedia(doc(), byTemplate(doc(), 'hero').id, ID)
+    const heroId = byTemplate(d, 'hero').id
+    d = setField(d, heroId, 'media.alt', 'a'.repeat(201))
+    const check = checkDocument(d)
+    expect([...check.problems.keys()]).toEqual([problemKey(heroId, 'media.alt')])
+    expect(check.sections.has(heroId)).toBe(true)
+    expect(canSave(check)).toBe(false)
+    d = setField(d, heroId, 'media.alt', 'a'.repeat(200))
+    expect(canSave(checkDocument(d))).toBe(true)
+    expect(accepted(d)).toBe(true)
+  })
+
+  it('o contrato aceita exatamente o que o modelo aceita no alt (200) e recusa 201', () => {
+    for (const [length, ok] of [
+      [200, true],
+      [201, false],
+    ] as const) {
+      const d = setField(
+        setMedia(doc(), byTemplate(doc(), 'hero').id, ID),
+        'hero',
+        'media.alt',
+        'x'.repeat(length),
+      )
+      expect(accepted(d), String(length)).toBe(ok)
+    }
+  })
+
+  it('imagem e texto alternativo contam como alteração do rascunho', () => {
+    const d = doc()
+    const withMedia = setMedia(d, byTemplate(d, 'hero').id, ID)
+    expect(isDirty(d, withMedia)).toBe(true)
+    expect(isDirty(withMedia, clearMedia(withMedia, byTemplate(withMedia, 'hero').id))).toBe(true)
+    expect(isDirty(d, clearMedia(withMedia, byTemplate(withMedia, 'hero').id))).toBe(false)
+  })
 })

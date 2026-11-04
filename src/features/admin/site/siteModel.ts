@@ -161,19 +161,29 @@ const text = (
   depth,
 })
 
-const MEDIA_HINT = 'Sem envio de imagens nem resolução de arquivo nesta etapa.'
+const MEDIA_EDIT_HINT =
+  'Escolha uma imagem da biblioteca. A associação só vale no rascunho depois de salvar.'
+const MEDIA_KEPT_HINT =
+  'Preservada no rascunho. A função visual desta imagem ainda não está definida; ela não pode ser trocada por aqui.'
+const ENTRY_MEDIA_HINT =
+  'Preservada no rascunho. As imagens dos barris acompanham as entradas da vitrine, que vêm do catálogo.'
+
+/**
+ * Linha de imagem. Em `hero`, `about` e `highlight` o administrador escolhe a imagem (`editable`);
+ * na vitrine ela é só preservada (`readonly`), porque o contrato não define sua função visual.
+ */
 function mediaRow(
   key: string,
   label: string,
   ref: { id: string; alt: string } | null,
-  depth: 0 | 1 = 0,
+  { editable, depth = 0, hint }: { editable: boolean; depth?: 0 | 1; hint: string },
 ): FieldRow {
   return {
     key,
     label,
     value: ref === null ? null : `${ref.id}\nTexto alternativo: ${ref.alt}`,
-    status: 'unavailable',
-    hint: MEDIA_HINT,
+    status: editable ? 'editable' : 'readonly',
+    hint,
     long: true,
     depth,
   }
@@ -200,7 +210,13 @@ function entryRows(entries: CmsCarouselEntry[]): FieldRow[] {
     },
     ...(entry.media === null
       ? []
-      : [mediaRow(`entries.${index}.media`, `Imagem do barril ${index + 1}`, entry.media, 1)]),
+      : [
+          mediaRow(`entries.${index}.media`, `Imagem do barril ${index + 1}`, entry.media, {
+            editable: false,
+            depth: 1,
+            hint: ENTRY_MEDIA_HINT,
+          }),
+        ]),
   ])
 }
 
@@ -210,13 +226,19 @@ function contentRows(module: CmsModuleV2): FieldRow[] {
       return [
         text('heading', 'Título', module.content.heading, headingHint),
         text('summary', 'Resumo', module.content.summary, textHint, true),
-        mediaRow('media', 'Imagem', module.content.media),
+        mediaRow('media', 'Imagem', module.content.media, {
+          editable: true,
+          hint: MEDIA_EDIT_HINT,
+        }),
       ]
     case 'carousel':
       return [
         text('heading', 'Título', module.content.heading, headingHint),
         text('lead', 'Texto de apoio', module.content.lead, textHint, true),
-        mediaRow('media', 'Imagem', module.content.media),
+        mediaRow('media', 'Imagem', module.content.media, {
+          editable: false,
+          hint: MEDIA_KEPT_HINT,
+        }),
         group(
           'entries',
           `Barris da vitrine (${module.content.entries.length} de ${CMS_LIMITS.list})`,
@@ -268,7 +290,10 @@ function contentRows(module: CmsModuleV2): FieldRow[] {
       return [
         text('heading', 'Título', module.content.heading, headingHint),
         text('body', 'Texto', module.content.body, textHint, true),
-        mediaRow('media', 'Imagem', module.content.media),
+        mediaRow('media', 'Imagem', module.content.media, {
+          editable: true,
+          hint: MEDIA_EDIT_HINT,
+        }),
       ]
     case 'faq':
       return [

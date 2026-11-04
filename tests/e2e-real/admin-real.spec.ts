@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { test as base, expect, type Locator, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page, type Route } from '@playwright/test'
 import { childEnv, SENSITIVE_NAME } from '../../scripts/clean-env.mts'
 import { integrationPort } from '../../scripts/integration-port.mts'
 import { cmsDocument } from '../backend/cms-document-fixture'
@@ -1971,8 +1971,15 @@ test('P4: frame API corruption clears private DOM and missing/hidden products ar
   await expect(
     frame.getByRole('button', { name: 'Pedir Barril Dronken no WhatsApp' }),
   ).toBeDisabled()
+  // M2B: a prévia pede cada imagem salva à rota autenticada por ID e perfil. Sem laboratório de mídia
+  // o servidor responde 404 e a prévia cai no espaço reservado, sem quebrar a página.
   await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(3)
-  expect(mediaRequests).toEqual([])
+  expect(mediaRequests.length).toBeGreaterThan(0)
+  for (const url of mediaRequests)
+    expect(new URL(url).pathname).toMatch(
+      /^\/api\/admin\/media\/media_12345678-1234-4123-8123-123456789012\/(hero|section)$/,
+    )
+  for (const url of mediaRequests) expect(new URL(url).search).toBe('')
   const fraction = frame.getByRole('button', { name: /Selecionar.*1,5.*123,45/ })
   await expect(fraction).not.toHaveClass(/priceSelected/)
   await fraction.click()
@@ -2000,4 +2007,482 @@ test('P4: frame API corruption clears private DOM and missing/hidden products ar
   await expect(
     page.getByText('Sua sessão expirou. Entre novamente.', { exact: true }),
   ).toBeVisible()
+})
+
+// ---------------------------------------------------------------------------------------------
+// M2B: biblioteca visual de imagens, em D1 e R2 locais descartáveis (laboratório de mídia)
+// ---------------------------------------------------------------------------------------------
+
+type MediaDoc = {
+  modules: {
+    id: string
+    template: string
+    content: { media?: { id: string; alt: string } | null }
+  }[]
+}
+
+async function photo(
+  format: 'png' | 'jpeg' | 'webp',
+  color = '#c8693f',
+  width = 800,
+  height = 600,
+) {
+  const sharp = (await import('sharp')).default
+  const base = sharp({ create: { width, height, channels: 3, background: color } })
+  return format === 'png'
+    ? base.png().toBuffer()
+    : format === 'jpeg'
+      ? base.jpeg().toBuffer()
+      : base.webp().toBuffer()
+}
+const file = (name: string, mimeType: string, buffer: Buffer) => ({ name, mimeType, buffer })
+
+/** Envio direto pela API (para montar a biblioteca sem passar pela interface). */
+async function apiUpload(page: Page, instance: Integration, buffer: Buffer, mime = 'image/png') {
+  const operationId = crypto.randomUUID()
+  const response = await page.request.post('/api/admin/media', {
+    headers: {
+      Origin: instance.origin,
+      'Content-Type': mime,
+      'X-Operation-Id': operationId,
+      'If-None-Match': '*',
+    },
+    data: buffer,
+  })
+  return { operationId, id: `media_${operationId}`, status: response.status() }
+}
+
+const mediaPicker = (page: Page) => page.getByRole('dialog', { name: 'Escolher imagem' })
+const mediaTile = (page: Page, id: string) =>
+  mediaPicker(page).getByRole('radio', { name: new RegExp(`Imagem ${id.slice(6, 14)}`) })
+const heroSlot = (page: Page) => page.locator('[data-media-slot]')
+const altField = (page: Page) => page.getByRole('textbox', { name: 'Texto alternativo da imagem' })
+const pickerUse = (page: Page) =>
+  mediaPicker(page).getByRole('button', { name: 'Usar esta imagem' })
+/** Confirma a escolha e espera a janela terminar de fechar (a página volta a aceitar digitação). */
+const confirmImage = async (page: Page) => {
+  await pickerUse(page).click()
+  await expect(mediaPicker(page)).toBeHidden()
+}
+const mediaFile = (page: Page) => mediaPicker(page).locator('input[type="file"]')
+const uploaded = (page: Page) =>
+  mediaPicker(page)
+    .locator('[role="status"], [role="alert"]')
+    .filter({ hasText: /Imagem [0-9a-f]{8} enviada/ })
+const mediaCount = (instance: Integration) =>
+  row<{ n: number }>(instance, 'SELECT count(*) n FROM cms_media').n
+const draftHero = async (page: Page) => {
+  const site = await (await page.request.get('/api/admin/site')).json()
+  const doc = site.draft.document as MediaDoc
+  return {
+    revision: site.draft.revision as string,
+    media: doc.modules.find((m) => m.id === 'hero')?.content.media ?? null,
+  }
+}
+async function openMediaPicker(page: Page) {
+  await page.getByRole('button', { name: /^(Escolher|Trocar) imagem$/ }).click()
+  await expect(mediaPicker(page)).toBeVisible()
+}
+const injectHeroMedia = (media: { id: string; alt: string }) => async (route: Route) => {
+  if (route.request().method() !== 'GET') return route.continue()
+  const response = await route.fetch()
+  const body = await response.json()
+  body.draft.document.modules.find((m: { id: string }) => m.id === 'hero').content.media = media
+  return route.fulfill({ response, json: body })
+}
+
+test.describe('M2B: biblioteca visual de imagens', () => {
+  test.use({ mediaLab: true })
+
+  test('envio, miniatura real, associação, salvamento e prévia com a imagem salva (e só ela)', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    const writes = trackWrites(page)
+    const mediaPosts: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/media')
+        mediaPosts.push(request.url())
+    })
+    await page.goto('/admin#pagina-inicial')
+    await expect(heroTitle(page)).toHaveValue('Rascunho privado P4')
+
+    // biblioteca vazia, cota intacta
+    await openMediaPicker(page)
+    await expect(mediaPicker(page).getByText('Ainda não há imagens na biblioteca.')).toBeVisible()
+    await expect(mediaPicker(page).getByText('0 de 100 registros usados').first()).toBeVisible()
+
+    // envio real: bytes de JPEG do projeto, processados em WebP pelo processador local
+    const jpeg = await readFile('public/images/kegs/keg-hero-50l.jpg')
+    await mediaFile(page).setInputFiles(file('barril.jpg', 'image/jpeg', jpeg))
+    await expect(uploaded(page)).toBeVisible({ timeout: 30_000 })
+    expect(mediaPosts).toHaveLength(1)
+    expect(mediaCount(integration)).toBe(1)
+    const stored = row<{ media_id: string; state: string }>(
+      integration,
+      'SELECT media_id,state FROM cms_media',
+    )
+    expect(stored.state).toBe('ready')
+    const tile = mediaTile(page, stored.media_id)
+    await expect(tile).toBeChecked()
+    await expect(tile).toBeEnabled()
+    await expect(mediaPicker(page).getByText('1 de 100 registros usados').first()).toBeVisible()
+    // a miniatura é a imagem entregue de verdade pelo servidor (WebP decodificado no navegador)
+    await expect
+      .poll(() =>
+        mediaPicker(page)
+          .locator('img')
+          .first()
+          .evaluate((img: HTMLImageElement) => img.naturalWidth),
+      )
+      .toBeGreaterThan(0)
+    // enviar não grava o documento editorial
+    expect(writes).toEqual([])
+    expect((await draftHero(page)).media).toBeNull()
+
+    await confirmImage(page)
+    await expect(altField(page)).toBeFocused()
+    await altField(page).fill('Barril de chopp em aço escovado')
+    await expect(heroSlot(page).locator('img')).toBeVisible()
+    expect(writes).toEqual([])
+    expect((await draftHero(page)).media).toBeNull()
+
+    await saveDraftButton(page).click()
+    await expect(savedNotice(page)).toBeVisible()
+    expect(writes).toHaveLength(1)
+    expect(writes[0]).toMatchObject({ method: 'PUT', path: '/api/admin/site/draft' })
+    expect((await draftHero(page)).media).toEqual({
+      id: stored.media_id,
+      alt: 'Barril de chopp em aço escovado',
+    })
+    expect(
+      row<{ published_version_id: string | null }>(
+        integration,
+        'SELECT published_version_id FROM cms_state',
+      ).published_version_id,
+    ).toBeNull()
+
+    // segunda imagem: escolhida mas NÃO salva
+    const second = await apiUpload(page, integration, await photo('png', '#9db89a'))
+    expect(second.status).toBe(200)
+    await openMediaPicker(page)
+    await expect(mediaPicker(page).getByText('Em uso nesta página')).toHaveCount(1)
+    await mediaTile(page, second.id).check()
+    await confirmImage(page)
+    await expect(altField(page)).toHaveValue('Barril de chopp em aço escovado')
+
+    // a prévia autenticada mostra a imagem SALVA (a primeira), não a escolha local
+    const preview = await page.context().newPage()
+    await preview.goto('/admin/preview')
+    const frame = preview.frameLocator('iframe[title="Rascunho CMS v2"]')
+    const image = frame.getByRole('img', { name: 'Barril de chopp em aço escovado' })
+    await expect(image).toBeVisible()
+    await expect(image).toHaveAttribute('src', `/api/admin/media/${stored.media_id}/hero`)
+    await expect
+      .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0)
+    const html = await frame.locator('body').innerHTML()
+    expect(html).not.toContain(second.id)
+    expect(html).not.toMatch(/cms\/derived|objectKey|sha256/)
+    await preview.close()
+
+    // salvar a segunda troca a imagem; a antiga continua na biblioteca, intacta
+    await saveDraftButton(page).click()
+    await expect(savedNotice(page)).toBeVisible()
+    expect((await draftHero(page)).media?.id).toBe(second.id)
+    expect(mediaCount(integration)).toBe(2)
+    expect(
+      row<{ state: string }>(
+        integration,
+        'SELECT state FROM cms_media WHERE media_id=?',
+        stored.media_id,
+      ).state,
+    ).toBe('ready')
+    const after = await page.context().newPage()
+    await after.goto('/admin/preview')
+    await expect(
+      after
+        .frameLocator('iframe[title="Rascunho CMS v2"]')
+        .getByRole('img', { name: 'Barril de chopp em aço escovado' }),
+    ).toHaveAttribute('src', `/api/admin/media/${second.id}/hero`)
+    await after.close()
+  })
+
+  test('os três formatos (PNG, JPEG e WebP) são aceitos e processados', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    const samples = [
+      file('a.png', 'image/png', await photo('png', '#c8693f')),
+      file('b.jpg', 'image/jpeg', await photo('jpeg', '#8fb3cf')),
+      file('c.webp', 'image/webp', await photo('webp', '#9db89a')),
+    ]
+    for (const [index, sample] of samples.entries()) {
+      await mediaFile(page).setInputFiles(sample)
+      await expect(
+        mediaPicker(page)
+          .getByText(`${index + 1} de 100 registros usados`)
+          .first(),
+      ).toBeVisible({ timeout: 30_000 })
+      await expect(uploaded(page)).toBeVisible()
+    }
+    expect(
+      row<{ n: number }>(integration, "SELECT count(*) n FROM cms_media WHERE state='ready'").n,
+    ).toBe(3)
+    await expect(mediaPicker(page).getByText('Pronta', { exact: true })).toHaveCount(3)
+  })
+
+  test('paginação real: 12 por página e a próxima pelo cursor, com a cota consumida', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(240_000)
+    await seedPreview(page, integration)
+    const tiny = await photo('png', '#c8693f', 64, 48)
+    for (let i = 0; i < 13; i++) expect((await apiUpload(page, integration, tiny)).status).toBe(200)
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    await expect(mediaPicker(page).getByRole('radio')).toHaveCount(12)
+    await expect(mediaPicker(page).getByText('13 de 100 registros usados').first()).toBeVisible()
+    await expect(mediaPicker(page).getByText('87 envios restantes')).toBeVisible()
+    await mediaPicker(page).getByRole('button', { name: 'Carregar mais imagens' }).click()
+    await expect(mediaPicker(page).getByRole('radio')).toHaveCount(13)
+    await expect(
+      mediaPicker(page).getByRole('button', { name: 'Carregar mais imagens' }),
+    ).toHaveCount(0)
+  })
+
+  test('mídia recusada ou excluída aparece bloqueada e nunca é oferecida como pronta', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    const good = await apiUpload(page, integration, await photo('png', '#c8693f'))
+    const doomed = await apiUpload(page, integration, await photo('png', '#8fb3cf'))
+    // o servidor recusa bytes que não são imagem, e a tentativa consome um registro da cota
+    const bad = await apiUpload(page, integration, Buffer.from('isto não é uma imagem'))
+    expect(bad.status).toBe(400)
+    expect(
+      row<{ state: string }>(integration, 'SELECT state FROM cms_media WHERE media_id=?', bad.id)
+        .state,
+    ).toBe('rejected')
+    // exclui uma imagem que nada referencia: vira tombstone (a cota não volta)
+    const removed = await page.request.delete(`/api/admin/media/${doomed.id}`, {
+      headers: {
+        Origin: integration.origin,
+        'X-Operation-Id': crypto.randomUUID(),
+        'If-Match': `"${doomed.operationId}"`,
+      },
+    })
+    expect(removed.status()).toBe(200)
+
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    await expect(mediaPicker(page).getByText('3 de 100 registros usados').first()).toBeVisible()
+    await expect(mediaTile(page, good.id)).toBeEnabled()
+    await expect(mediaTile(page, bad.id)).toBeDisabled()
+    await expect(mediaTile(page, doomed.id)).toBeDisabled()
+    await expect(mediaPicker(page).getByText('Recusada', { exact: true })).toHaveCount(1)
+    await expect(mediaPicker(page).getByText('Excluída', { exact: true })).toHaveCount(1)
+    await expect(pickerUse(page)).toBeDisabled()
+    // a entrega confirma: o servidor não serve o que não está pronto
+    expect((await page.request.get(`/api/admin/media/${doomed.id}/section`)).status()).toBe(404)
+    expect((await page.request.get(`/api/admin/media/${bad.id}/section`)).status()).toBe(404)
+  })
+
+  test('imagem salva que sumiu: o campo avisa e a prévia mostra o espaço reservado, sem quebrar', async ({
+    page,
+    integration,
+  }) => {
+    await seedPreview(page, integration)
+    const ghost = { id: 'media_12345678-1234-4123-8123-123456789012', alt: 'Imagem fantasma' }
+    await page.route('**/api/admin/site', injectHeroMedia(ghost))
+    await page.goto('/admin#pagina-inicial')
+    await expect(heroSlot(page)).toBeVisible()
+    await expect(heroSlot(page).getByRole('alert')).toContainText(
+      'Esta imagem não está disponível agora',
+    )
+    await expect(altField(page)).toHaveValue('Imagem fantasma')
+    const preview = await page.context().newPage()
+    await preview.route('**/api/admin/site', injectHeroMedia(ghost))
+    await preview.goto('/admin/preview')
+    const frame = preview.frameLocator('iframe[title="Rascunho CMS v2"]')
+    await expect(
+      frame.getByRole('heading', { level: 1, name: 'Rascunho privado P4' }),
+    ).toBeVisible()
+    await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(1)
+    await preview.close()
+  })
+
+  test('conflito de revisão: a associação não sobrescreve a versão nova e permanece local', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    const seeded = await seedPreview(page, integration)
+    const before = seeded.site.draft as { revision: string; document: SiteDoc }
+    const image = await apiUpload(page, integration, await photo('png'))
+    const writes = trackWrites(page)
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    await mediaTile(page, image.id).check()
+    await confirmImage(page)
+    await altField(page).fill('Minha imagem')
+
+    // outra sessão salva primeiro
+    const other = JSON.parse(JSON.stringify(before.document)) as SiteDoc
+    other.modules[0].content.heading = 'Edição da outra sessão'
+    expect((await putDraft(page, integration, before.revision, other)).status()).toBe(200)
+    const current = await (await page.request.get('/api/admin/site')).json()
+
+    await saveDraftButton(page).click()
+    const alert = page.getByRole('alert').filter({ hasText: 'O rascunho mudou em outro lugar' })
+    await expect(alert).toContainText('Nada foi gravado')
+    expect(writes).toHaveLength(1)
+    await expect(altField(page)).toHaveValue('Minha imagem')
+    await expect(saveDraftButton(page)).toBeDisabled()
+    // a versão da outra sessão continua intacta, sem a imagem
+    expect(await (await page.request.get('/api/admin/site')).json()).toEqual(current)
+    expect((await draftHero(page)).media).toBeNull()
+  })
+
+  test('sessão expirada ao abrir a biblioteca e durante o envio: nada é gravado e as edições voltam', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    await page.goto('/admin#pagina-inicial')
+    await expect(heroTitle(page)).toHaveValue('Rascunho privado P4')
+    await heroTitle(page).fill('Escrito antes de a sessão cair')
+    await page.context().clearCookies()
+    await page.getByRole('button', { name: /^(Escolher|Trocar) imagem$/ }).click()
+    await expect(page.getByLabel('Usuário')).toBeVisible()
+    await page.getByLabel('Usuário').fill(integration.username)
+    await page.getByLabel('Senha', { exact: true }).fill(integration.password)
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await expect(page.getByText('Suas alterações foram restauradas depois do login')).toBeVisible()
+    await expect(heroTitle(page)).toHaveValue('Escrito antes de a sessão cair')
+
+    // agora a sessão cai com a janela aberta, no meio de um envio
+    await openMediaPicker(page)
+    await expect(mediaPicker(page).getByText('0 de 100 registros usados').first()).toBeVisible()
+    await page.context().clearCookies()
+    await mediaFile(page).setInputFiles(file('x.png', 'image/png', await photo('png')))
+    await expect(page.getByLabel('Usuário')).toBeVisible()
+    expect(mediaCount(integration)).toBe(0)
+    expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media_jobs').n).toBe(0)
+    await page.getByLabel('Usuário').fill(integration.username)
+    await page.getByLabel('Senha', { exact: true }).fill(integration.password)
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+    await expect(heroTitle(page)).toHaveValue('Escrito antes de a sessão cair')
+    expect((await draftHero(page)).media).toBeNull()
+  })
+
+  test('resposta de envio perdida: o recibo confirma e há um único envio e um único registro', async ({
+    page,
+    integration,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    let posts = 0
+    await page.route('**/api/admin/media', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      posts++
+      const response = await route.fetch()
+      expect(response.status()).toBe(200)
+      await route.abort('failed')
+    })
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    await mediaFile(page).setInputFiles(file('perdida.png', 'image/png', await photo('png')))
+    await expect(uploaded(page)).toBeVisible({ timeout: 30_000 })
+    expect(posts).toBe(1)
+    await page.waitForTimeout(500)
+    expect(posts).toBe(1)
+    expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media_jobs').n).toBe(1)
+    expect(mediaCount(integration)).toBe(1)
+    await expect(mediaPicker(page).getByText('1 de 100 registros usados').first()).toBeVisible()
+  })
+
+  test('a homepage pública segue independente: sem requisições de mídia, catálogo e rotas públicas intactos', async ({
+    page,
+    integration,
+    browser,
+  }) => {
+    test.setTimeout(120_000)
+    await seedPreview(page, integration)
+    const before = await (await page.request.get('/api/catalog')).json()
+    const image = await apiUpload(page, integration, await photo('png'))
+    await page.goto('/admin#pagina-inicial')
+    await openMediaPicker(page)
+    await mediaTile(page, image.id).check()
+    await confirmImage(page)
+    await altField(page).fill('Imagem salva no rascunho')
+    await saveDraftButton(page).click()
+    await expect(savedNotice(page)).toBeVisible()
+
+    const visitor = await browser.newContext({ baseURL: integration.origin })
+    try {
+      const publicPage = await visitor.newPage()
+      const requested: string[] = []
+      publicPage.on('request', (request) => requested.push(new URL(request.url()).pathname))
+      await publicPage.goto('/')
+      await expect(publicPage.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await publicPage.waitForLoadState('networkidle')
+      expect(requested.filter((path) => path.startsWith('/api/admin'))).toEqual([])
+      expect(await publicPage.content()).not.toContain(image.id)
+      // as imagens são privadas: sem sessão, nada é entregue
+      for (const path of [
+        `/api/admin/media/${image.id}/hero`,
+        `/api/admin/media/${image.id}/section`,
+        '/api/admin/media',
+        `/api/media/${image.id}`,
+      ]) {
+        const status = (await visitor.request.get(path)).status()
+        expect([401, 404], path).toContain(status)
+      }
+    } finally {
+      await visitor.close()
+    }
+    expect(await (await page.request.get('/api/catalog')).json()).toEqual(before)
+    expect(
+      row<{ published_version_id: string | null }>(
+        integration,
+        'SELECT published_version_id FROM cms_state',
+      ).published_version_id,
+    ).toBeNull()
+    for (const path of ['/api/site', '/api/cms', '/api/admin/site/publish'])
+      expect([404, 405], path).toContain((await page.request.get(path)).status())
+  })
+})
+
+test('M2B: sem laboratório de mídia (ambiente normal) a biblioteca explica e o texto segue editável', async ({
+  page,
+  integration,
+}) => {
+  test.setTimeout(120_000)
+  await seedPreview(page, integration)
+  await page.goto('/admin#pagina-inicial')
+  await expect(heroTitle(page)).toHaveValue('Rascunho privado P4')
+  await page.getByRole('button', { name: /^(Escolher|Trocar) imagem$/ }).click()
+  await expect(
+    mediaPicker(page)
+      .getByRole('alert')
+      .filter({ hasText: 'A biblioteca de imagens não está disponível aqui' }),
+  ).toBeVisible()
+  await expect(mediaPicker(page).getByRole('button', { name: 'Escolher arquivo…' })).toHaveCount(0)
+  await mediaPicker(page).getByRole('button', { name: 'Cancelar' }).click()
+  await expect(mediaPicker(page)).toBeHidden()
+  await heroTitle(page).fill('Texto continua editável')
+  await saveDraftButton(page).click()
+  await expect(savedNotice(page)).toBeVisible()
+  expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media').n).toBe(0)
 })

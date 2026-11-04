@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from 'react'
+import { type MouseEvent, type ReactNode, useState } from 'react'
 import type { CmsModuleV2 } from '../../../../shared/cms/v2'
 import pageStyles from '../../../pages/landing/LandingPage.module.css'
 import { AboutSection } from '../../../pages/landing/sections/AboutSection'
@@ -13,6 +13,7 @@ import { SiteHeader } from '../../../pages/landing/sections/SiteHeader'
 import { Ticker } from '../../../pages/landing/sections/Ticker'
 import type { CatalogState } from '../../catalog/useCatalog'
 import { CommercialPreviewContext } from '../../contact/CommercialPreviewContext'
+import { type MediaProfile, mediaPath } from '../mediaPath'
 import { type PreviewDocument, previewCarousel } from './model'
 import styles from './Preview.module.css'
 
@@ -28,6 +29,32 @@ function Placeholder() {
     <div role="img" aria-label="Mídia privada não carregada" className={styles.placeholder}>
       Mídia privada · Placeholder da prévia
     </div>
+  )
+}
+
+/**
+ * Imagem privada já SALVA no rascunho, entregue pela rota autenticada por ID e perfil (nunca por chave
+ * de armazenamento). Ausente, em processamento, excluída ou corrompida: o servidor responde erro e a
+ * prévia mostra o espaço reservado, sem quebrar a página. Use  para reiniciar ao trocar.
+ */
+function PreviewMedia({
+  media,
+  profile,
+}: {
+  media: { id: string; alt: string }
+  profile: MediaProfile
+}) {
+  const [failed, setFailed] = useState(false)
+  const path = mediaPath(media.id, profile)
+  if (!path || failed) return <Placeholder />
+  return (
+    <img
+      className={styles.media}
+      src={path}
+      alt={media.alt}
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
   )
 }
 
@@ -58,15 +85,23 @@ export function PreviewRenderer({
             state={catalog}
             editorial={module.content}
             carouselHref={layout.heroCarouselHref}
-            mediaFallback={module.content.media ? <Placeholder /> : undefined}
+            mediaFallback={
+              module.content.media ? (
+                <PreviewMedia
+                  key={module.content.media.id}
+                  media={module.content.media}
+                  profile="hero"
+                />
+              ) : undefined
+            }
           />
         )
       case 'carousel': {
         const selection = previewCarousel(module.content.entries, catalog)
-        const media = new Set(
-          module.content.entries
-            .filter((entry) => entry.media !== null)
-            .map((entry) => entry.itemId),
+        const media = new Map(
+          module.content.entries.flatMap((entry) =>
+            entry.media ? [[entry.itemId, entry.media] as const] : [],
+          ),
         )
         return (
           <>
@@ -84,7 +119,10 @@ export function PreviewRenderer({
               state={selection.state}
               editorial={module.content}
               sectionNumber={sectionNumber}
-              renderItemMedia={(id) => (media.has(id) ? <Placeholder /> : undefined)}
+              renderItemMedia={(id) => {
+                const ref = media.get(id)
+                return ref ? <PreviewMedia key={ref.id} media={ref} profile="section" /> : undefined
+              }}
             />
           </>
         )
@@ -107,13 +145,27 @@ export function PreviewRenderer({
           <AboutSection
             editorial={module.content}
             sectionNumber={sectionNumber}
-            mediaFallback={module.content.media ? <Placeholder /> : undefined}
+            mediaFallback={
+              module.content.media ? (
+                <PreviewMedia
+                  key={module.content.media.id}
+                  media={module.content.media}
+                  profile="section"
+                />
+              ) : undefined
+            }
           />
         )
       case 'highlight':
         return (
           <>
-            {module.content.media && <Placeholder />}
+            {module.content.media && (
+              <PreviewMedia
+                key={module.content.media.id}
+                media={module.content.media}
+                profile="section"
+              />
+            )}
             <PromoSection editorial={module.content} headingId={`${module.id}-title`} />
           </>
         )

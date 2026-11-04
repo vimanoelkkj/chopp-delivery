@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CMS_LIMITS } from '../../../../shared/cms/common'
 import { deriveLayout } from '../../../../shared/cms/layout'
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
@@ -6,11 +6,13 @@ import { AdminButton } from '../ui/AdminButton'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Switch } from '../ui/Switch'
 import type { Failure } from './cmsCommands'
+import { EditorField } from './EditorField'
 import {
   addItem,
   canSave,
   checkDocument,
-  countChars,
+  clearMedia,
+  hasMediaSlot,
   isDirty,
   isMandatory,
   kindOf,
@@ -19,11 +21,16 @@ import {
   listOf,
   problemKey,
   readField,
+  readMedia,
   removeItem,
   setField,
+  setMedia,
   setVisible,
 } from './editModel'
 import styles from './HomeEditor.module.css'
+import { MediaPicker } from './media/MediaPicker'
+import { MediaSlot } from './media/MediaSlot'
+import { usedMediaIds } from './media/mediaModel'
 import view from './SiteView.module.css'
 import {
   describeDocument,
@@ -143,93 +150,6 @@ function SectionItem({
 }
 
 // ---------------------------------------------------------------------------------------------
-// Campo de texto com contador e erro acessíveis
-// ---------------------------------------------------------------------------------------------
-
-function EditorField({
-  fieldKey,
-  label,
-  value,
-  long,
-  limit,
-  hint,
-  problem,
-  disabled,
-  onChange,
-  action,
-}: {
-  fieldKey: string
-  label: string
-  value: string
-  long: boolean
-  limit: number
-  hint?: string
-  problem?: string
-  disabled: boolean
-  onChange: (value: string) => void
-  action?: ReactNode
-}) {
-  const id = useId()
-  const count = countChars(value)
-  const describedBy = [hint ? `${id}-hint` : null, `${id}-count`, problem ? `${id}-error` : null]
-    .filter(Boolean)
-    .join(' ')
-  const common = {
-    id,
-    name: fieldKey,
-    'data-field': fieldKey,
-    value,
-    disabled,
-    className: `${styles.input} ${long ? styles.area : ''}`,
-    'aria-invalid': problem ? true : undefined,
-    'aria-describedby': describedBy,
-    spellCheck: true,
-    lang: 'pt-BR',
-  }
-  return (
-    <div className={styles.field} data-invalid={Boolean(problem)}>
-      <div className={styles.fieldHead}>
-        <label htmlFor={id} className={styles.label}>
-          {label}
-        </label>
-        {action}
-      </div>
-      {long ? (
-        <textarea {...common} rows={4} onChange={(event) => onChange(event.target.value)} />
-      ) : (
-        <input
-          {...common}
-          type="text"
-          autoComplete="off"
-          onChange={(event) => onChange(event.target.value)}
-        />
-      )}
-      <div className={styles.fieldFoot}>
-        <span>
-          {problem ? (
-            <span id={`${id}-error`} className={styles.error} role="alert">
-              {problem}
-            </span>
-          ) : null}
-          {hint ? (
-            <small id={`${id}-hint`} className={styles.hint}>
-              {hint}
-            </small>
-          ) : null}
-        </span>
-        <small
-          id={`${id}-count`}
-          className={count > limit ? styles.countOver : styles.count}
-          data-testid="char-count"
-        >
-          {count} de {limit}
-        </small>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------------------------
 // Resultado do salvamento: sempre diz se algo foi gravado e o que dá para fazer
 // ---------------------------------------------------------------------------------------------
 
@@ -285,6 +205,7 @@ function SectionEditor({
   problems,
   disabled,
   edit,
+  onPickMedia,
 }: {
   doc: CmsDocumentV2
   layout: ReturnType<typeof deriveLayout>
@@ -292,6 +213,7 @@ function SectionEditor({
   problems: Map<string, string>
   disabled: boolean
   edit: Edit
+  onPickMedia: (moduleId: string) => void
 }) {
   const detail = describeSection(doc, layout, moduleId)
   const module = doc.modules.find((m) => m.id === moduleId)
@@ -353,6 +275,22 @@ function SectionEditor({
                   </AdminButton>
                 ) : null}
               </div>
+            )
+          if (row.key === 'media' && row.status === 'editable' && hasMediaSlot(module))
+            return (
+              <MediaSlot
+                key={row.key}
+                moduleId={moduleId}
+                template={module.template}
+                media={readMedia(module)}
+                problem={problems.get(problemKey(moduleId, 'media.alt'))}
+                disabled={disabled}
+                onChoose={() => onPickMedia(moduleId)}
+                onClear={() => edit((current) => clearMedia(current, moduleId), `pick:${moduleId}`)}
+                onAltChange={(alt) =>
+                  edit((current) => setField(current, moduleId, 'media.alt', alt))
+                }
+              />
             )
           if (row.status !== 'editable' || readField(module, row.key) === null)
             return (
@@ -434,6 +372,10 @@ export function HomeEditor({
   }
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<'discard' | 'reload' | null>(null)
+  // Seção que está escolhendo imagem. O ID fica depois de fechar para o título não piscar na animação.
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const afterPicker = useRef<string | null>(null)
   const detailRef = useRef<HTMLElement>(null)
   const alertRef = useRef<HTMLDivElement>(null)
   const focusAfter = useRef<string | null>(null)
@@ -455,17 +397,19 @@ export function HomeEditor({
   useEffect(() => onDirty.current(dirty), [dirty])
   useEffect(() => () => onDirty.current(false), [])
 
+  // Sessão expirada (ao salvar ou na biblioteca de imagens): as edições locais vão para o resgate em memória.
+  const expireWithRescue = () =>
+    onExpired({
+      document: doc,
+      revision: recoveryConflict ? (restore?.revision ?? read.revision) : read.revision,
+    })
   const resetRun = useRef<() => void>(() => {})
   const { phase, run, retry, verify, reset } = useCommandRun({
     onApplied: (receipt) => {
       resetRun.current()
       onApplied(receipt.read, 'Rascunho salvo. Nada foi publicado.')
     },
-    onExpired: () =>
-      onExpired({
-        document: doc,
-        revision: recoveryConflict ? (restore?.revision ?? read.revision) : read.revision,
-      }),
+    onExpired: expireWithRescue,
   })
   resetRun.current = reset
 
@@ -511,9 +455,30 @@ export function HomeEditor({
     focusAfter.current = null
     const selector = target.startsWith('add:')
       ? `[data-add="${target.slice(4)}"]`
-      : `[data-field="${target}"]`
+      : target.startsWith('pick:')
+        ? `[data-pick="${target.slice(5)}"]`
+        : `[data-field="${target}"]`
     document.querySelector<HTMLElement>(selector)?.focus()
   })
+
+  const usedImages = useMemo(() => usedMediaIds(doc), [doc])
+  const pickerModule = doc.modules.find((m) => m.id === pickerFor)
+  const pickerTitle = pickerModule
+    ? summarizeSections(doc, layout).find((s) => s.id === pickerModule.id)?.title
+    : undefined
+  const pickMedia = (moduleId: string) => {
+    if (locked) return
+    setPickerFor(moduleId)
+    setPickerOpen(true)
+  }
+  const chooseMedia = (id: string) => {
+    if (pickerFor) {
+      const moduleId = pickerFor
+      edit((current) => setMedia(current, moduleId, id))
+      afterPicker.current = problemKey(moduleId, 'media.alt')
+    }
+    setPickerOpen(false)
+  }
 
   const sections = summarizeSections(doc, layout)
   const selected = sections.find((s) => s.id === selectedId) ?? sections[0]
@@ -645,6 +610,7 @@ export function HomeEditor({
                 problems={check.problems}
                 disabled={locked}
                 edit={edit}
+                onPickMedia={pickMedia}
               />
             </fieldset>
           </section>
@@ -706,6 +672,20 @@ export function HomeEditor({
         </div>
       </div>
 
+      <MediaPicker
+        open={pickerOpen}
+        target={pickerTitle ?? 'a seção'}
+        used={usedImages}
+        onClose={() => setPickerOpen(false)}
+        onClosed={() => {
+          // O foco volta ao botão que abriu a janela; ao escolher, segue para o texto alternativo.
+          const next = afterPicker.current
+          afterPicker.current = null
+          if (next) document.querySelector<HTMLElement>(`[data-field="${next}"]`)?.focus()
+        }}
+        onChoose={chooseMedia}
+        onExpired={expireWithRescue}
+      />
       <ConfirmDialog
         open={confirm === 'discard'}
         title="Descartar as alterações?"

@@ -10,6 +10,10 @@
   overflow: visible;
 }
 
+.wide {
+  width: min(56rem, calc(100vw - 2rem));
+}
+
 /* ::backdrop não herda os tokens do painel em todos os navegadores: cor literal. */
 .dialog::backdrop {
   background: rgb(34 40 42 / 0.45);
