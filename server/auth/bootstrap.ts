@@ -1,12 +1,6 @@
 import { hashPassword } from './password.ts'
 
-/** Só cria o primeiro proprietário; não redefine credenciais existentes. */
-export async function bootstrapOwner(
-  db: D1Database,
-  username: string,
-  password: string,
-  pepper: string,
-): Promise<boolean> {
+export function validateOwnerCredentials(username: string, password: string): void {
   if (
     !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username) ||
     [...password].length < 15 ||
@@ -15,6 +9,16 @@ export async function bootstrapOwner(
   ) {
     throw new Error('Credenciais de bootstrap inválidas')
   }
+}
+
+/** Só cria o primeiro proprietário; não redefine credenciais existentes. */
+export async function bootstrapOwner(
+  db: D1Database,
+  username: string,
+  password: string,
+  pepper: string,
+): Promise<boolean> {
+  validateOwnerCredentials(username, password)
   const hash = await hashPassword(password, pepper)
   const result = await db
     .prepare(`INSERT INTO admin_users (id, username, password_hash)
