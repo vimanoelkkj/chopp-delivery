@@ -91,6 +91,44 @@ export async function handleLocalMedia(
   const auth = await requireAdmin(request, env)
   if (auth.error) return auth.error
   if (id && !cmsMediaId(id)) return error('INVALID_REQUEST', 400)
+  const started = Date.now()
+  let stage = 'handler.start',
+    stageStarted = started,
+    currentProfile: keyof typeof MEDIA_PROFILES | null = null
+  const at = (next: string) => {
+    stage = next
+    stageStarted = Date.now()
+  }
+  const report = (cause: unknown, event = 'CMS_MEDIA_FAILURE') => {
+    // Only fixed codes/context leave this handler. Never log the error, SQL, keys or request.
+    try {
+      const message = cause instanceof Error ? cause.message : ''
+      const source = stage.split('.')[0]
+      let code =
+        message.match(
+          /\b(MEDIA_LEASE|MEDIA_BUSY|MEDIA_OBJECT_CONFLICT|MEDIA_CONFLICT|MEDIA_DIVERGENCE_OR_LEASE|MEDIA_PROCESSING_TIMEOUT|MEDIA_TIMEOUT|MEDIA_UNAUTHORIZED|MEDIA_PRECONDITION|MEDIA_OBJECT_INTEGRITY|MEDIA_PROCESSOR|MEDIA_INVALID|MEDIA_BYTES|MEDIA_QUOTA)\b/,
+        )?.[1] ?? 'UNCLASSIFIED'
+      // verification.objects mixes D1 and R2; these SQLite-only messages still identify D1.
+      const sqlStage = source === 'd1' || source === 'verification'
+      if (sqlStage && /\bSQLITE_(?:BUSY|LOCKED)(?:_[A-Z]+)?\b/.test(message)) code = 'D1_CONTENTION'
+      else if (sqlStage && /UNIQUE constraint/.test(message)) code = 'D1_UNIQUE_CONSTRAINT'
+      else if (message === 'MEDIA_LEASE' && stage === 'd1.intake_check') code = 'MEDIA_INTAKE_LEASE'
+      else if (message === 'MEDIA_LEASE' && stage === 'd1.job_check') code = 'MEDIA_JOB_LEASE'
+      else if (message === 'MEDIA_BUSY' && stage === 'd1.intake_claim') code = 'MEDIA_INTAKE_BUSY'
+      else if (message === 'MEDIA_BUSY' && stage === 'handler.identity') code = 'MEDIA_JOB_RUNNING'
+      const now = Date.now()
+      console.error(event, {
+        source,
+        stage,
+        code,
+        profile: currentProfile,
+        elapsedMs: Math.max(0, now - started),
+        stageMs: Math.max(0, now - stageStarted),
+      })
+    } catch {
+      // Telemetry must never affect receipts, recovery or the public response.
+    }
+  }
   const db = env.DELEGAS_DB,
     bucket = env.CMS_MEDIA_BUCKET,
     processor = env.CMS_MEDIA_PROCESSOR
@@ -98,14 +136,17 @@ export async function handleLocalMedia(
   const sql = (query: string, values: unknown[] = []) =>
     db.prepare(query).bind(...values, ...proof.values)
   const authorized = async () => {
+    at('d1.authorize')
     if (!(await sql(`SELECT 1 AS ok WHERE ${proof.sql}`).first()))
       throw new Error('MEDIA_UNAUTHORIZED')
   }
-  const row = () =>
-    sql(
+  const row = () => {
+    at('d1.media_read')
+    return sql(
       `SELECT media_id,state,revision,derivatives_json FROM cms_media WHERE media_id=? AND ${proof.sql}`,
       [id],
     ).first<MediaRow>()
+  }
   const present = (record: MediaRow | null, job?: Job) =>
     record
       ? authJson(
@@ -131,6 +172,7 @@ export async function handleLocalMedia(
     hash: string | null = null,
     mediaId: string | null = null,
   ) => {
+    at(`d1.command_${transition}`)
     await db
       .prepare(
         `UPDATE cms_media_command SET transition=?,manifest_json=?,check_id=?,request_hash=?,actor_id=?,session_hash=?,origin=?,media_id=COALESCE(?,media_id) WHERE operation_id=?`,
@@ -149,7 +191,9 @@ export async function handleLocalMedia(
       .run()
   }
   const observe = async (record: MediaRow) => {
+    at('verification.objects')
     await verifyMediaObjects(db, bucket, record.media_id, record.derivatives_json ?? '')
+    at('d1.completed_check')
     const completed = await sql(
       `SELECT 1 FROM cms_media_jobs j JOIN cms_media_receipts r USING(operation_id)
       WHERE j.media_id=? AND j.operation_id=? AND j.action='upload' AND j.status='done' AND ${proof.sql}`,
@@ -172,6 +216,7 @@ export async function handleLocalMedia(
   }
   const receipt = async (operation: string) => {
     await authorized()
+    at('d1.receipt')
     const result = await sql(
       `SELECT r.result_json FROM cms_media_receipts r JOIN cms_media_jobs j USING(operation_id) WHERE operation_id=? AND j.actor_id=? AND ${proof.sql}`,
       [operation, auth.principal.user.id],
@@ -204,10 +249,12 @@ export async function handleLocalMedia(
     )
       return error('INVALID_PRECONDITION', 400)
     const target = action === 'upload' ? `media_${token}` : (id ?? null)
+    at('d1.job_lookup')
     const existing = await sql(
       `SELECT * FROM cms_media_jobs WHERE operation_id=? AND ${proof.sql}`,
       [token],
     ).first<Job>()
+    at('handler.identity')
     if (
       existing &&
       (existing.expected_revision !== precondition.slice(1, -1) ||
@@ -216,7 +263,10 @@ export async function handleLocalMedia(
         existing.actor_id !== auth.principal.user.id)
     )
       throw new Error('MEDIA_CONFLICT')
-    if (existing?.status === 'running') return error('MEDIA_BUSY', 409)
+    if (existing?.status === 'running') {
+      report(new Error('MEDIA_BUSY'))
+      return error('MEDIA_BUSY', 409)
+    }
     const mime = request.headers.get('content-type') ?? ''
     if (action === 'upload') {
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime) || !request.body)
@@ -225,6 +275,7 @@ export async function handleLocalMedia(
       if (length && (!/^\d+$/.test(length) || Number(length) > MEDIA_LIMITS.inputBytes))
         return error('MEDIA_BYTES', 413)
       intake = crypto.randomUUID()
+      at('d1.intake_claim')
       const claimed = await sql(
         `INSERT INTO cms_media_intake(singleton,owner,expires_at) SELECT 1,?,${nowSql}+20000 WHERE ${proof.sql}
         ON CONFLICT(singleton) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at WHERE cms_media_intake.expires_at<=${nowSql}`,
@@ -234,11 +285,13 @@ export async function handleLocalMedia(
     }
     if (!existing) {
       if (action === 'reconcile') {
+        at('d1.expired_jobs')
         const expired = await sql(
           `SELECT * FROM cms_media_jobs WHERE status='running' AND expires_at<=${nowSql} AND ${proof.sql}`,
         ).all<Job>()
         for (const stale of expired.results) await command(stale.operation_id, 'expire')
       }
+      at('d1.job_start')
       await db
         .prepare(
           `UPDATE cms_media_start SET operation_id=?,action=?,media_id=?,actor_id=?,session_hash=?,origin=?,expected_revision=? WHERE singleton=1`,
@@ -253,6 +306,7 @@ export async function handleLocalMedia(
           precondition.slice(1, -1),
         )
         .run()
+      at('d1.job_read')
       job = await sql(`SELECT * FROM cms_media_jobs WHERE operation_id=? AND ${proof.sql}`, [
         token,
       ]).first<Job>()
@@ -260,6 +314,7 @@ export async function handleLocalMedia(
     } else job = existing
     const active = async () => {
       await authorized()
+      at('d1.intake_check')
       if (
         intake &&
         !(await sql(
@@ -268,6 +323,7 @@ export async function handleLocalMedia(
         ).first())
       )
         throw new Error('MEDIA_LEASE')
+      at('d1.job_check')
       if (
         !(await sql(
           `SELECT 1 FROM cms_media_jobs WHERE operation_id=? AND status='running' AND expires_at>${nowSql} AND ${proof.sql}`,
@@ -277,11 +333,14 @@ export async function handleLocalMedia(
         throw new Error('MEDIA_LEASE')
     }
     if (action === 'upload') {
+      at('input.read')
       const input = await readMediaBytes(request.body as ReadableStream<Uint8Array>)
+      at('input.hash')
       const hash = await mediaHash(
         new TextEncoder().encode(`${mime}:${precondition}:${await mediaHash(input)}`),
       )
       if (existing) {
+        at('handler.replay')
         if (existing.status !== 'done' || existing.request_hash !== hash)
           throw new Error('MEDIA_CONFLICT')
         id = target ?? undefined
@@ -289,6 +348,7 @@ export async function handleLocalMedia(
         if (current?.state === 'ready') await observe(current)
         return await receipt(token)
       }
+      at('input.inspect')
       inspectImage(input, mime)
       await active()
       await command(token, 'process', null, null, hash)
@@ -303,7 +363,9 @@ export async function handleLocalMedia(
       })
       try {
         for (const profile of Object.keys(MEDIA_PROFILES) as (keyof typeof MEDIA_PROFILES)[]) {
+          currentProfile = profile
           await active()
+          at('processor.transform')
           const data = await Promise.race([
             (async () => {
               const response = await processor.fetch(`http://media.internal/${profile}`, {
@@ -326,6 +388,7 @@ export async function handleLocalMedia(
             })(),
             deadline,
           ])
+          at('input.derivative_inspect')
           const info = inspectImage(data, 'image/webp', true),
             bounds = MEDIA_PROFILES[profile]
           if (info.width > bounds.width || info.height > bounds.height)
@@ -333,6 +396,7 @@ export async function handleLocalMedia(
           const sha256 = await mediaHash(data),
             objectKey = `cms/derived/${target}/${sha256}/${profile}.webp`
           await active()
+          at('r2.put')
           // A conditionally created content-addressed object is never overwritten.
           const written = await Promise.race([
             bucket.put(objectKey, data, {
@@ -342,6 +406,7 @@ export async function handleLocalMedia(
             deadline,
           ])
           if (!written) throw new Error('MEDIA_OBJECT_CONFLICT')
+          at('r2.verify_read')
           const stored = await Promise.race([bucket.get(objectKey), deadline])
           if (
             !stored ||
@@ -365,8 +430,10 @@ export async function handleLocalMedia(
         clearTimeout(timeout)
         controller.abort()
       }
+      currentProfile = null
       await active()
       const manifest = JSON.stringify(derivatives)
+      at('verification.objects')
       const check = await verifyMediaObjects(db, bucket, target as string, manifest)
       await command(token, 'finish', manifest, check)
     } else if (action === 'delete') {
@@ -377,11 +444,13 @@ export async function handleLocalMedia(
       let cursor: string | undefined
       do {
         await active()
+        at('r2.list')
         const objects = await bounded(() =>
           bucket.list({ prefix: `cms/derived/${target}/`, cursor, limit: 100 }),
         )
         for (const object of objects.objects) {
           await active()
+          at('r2.delete')
           await bounded(() => bucket.delete(object.key))
         }
         cursor = objects.truncated ? objects.cursor : undefined
@@ -393,6 +462,7 @@ export async function handleLocalMedia(
         return await receipt(token)
       }
       await active()
+      at('d1.ready_media')
       const ready = await sql(
         `SELECT * FROM cms_media WHERE state='ready' AND ${proof.sql}`,
       ).all<MediaRow>()
@@ -400,11 +470,13 @@ export async function handleLocalMedia(
       let cursor: string | undefined
       do {
         await active()
+        at('r2.list')
         const objects = await bounded(() =>
           bucket.list({ prefix: 'cms/derived/', cursor, limit: 100 }),
         )
         for (const object of objects.objects) {
           await active()
+          at('d1.object_owner')
           const owner = await sql(
             `SELECT state,derivatives_json FROM cms_media WHERE media_id=? AND ${proof.sql}`,
             [object.key.split('/')[2]],
@@ -414,10 +486,14 @@ export async function handleLocalMedia(
             Object.values(
               JSON.parse(owner.derivatives_json ?? '{}') as Record<string, CmsDerivative>,
             ).some((d) => d.objectKey === object.key)
-          if (!keep) await bounded(() => bucket.delete(object.key))
+          if (!keep) {
+            at('r2.delete')
+            await bounded(() => bucket.delete(object.key))
+          }
         }
         cursor = objects.truncated ? objects.cursor : undefined
       } while (cursor)
+      at('d1.deleting_media')
       const deleting = await sql(
         `SELECT * FROM cms_media WHERE state='deleting' AND ${proof.sql}`,
       ).all<MediaRow>()
@@ -428,20 +504,23 @@ export async function handleLocalMedia(
     return await receipt(token)
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : ''
+    report(cause)
     if (job?.status === 'running') {
       try {
+        at('d1.recovery_status')
         const persisted = await sql(
           `SELECT status FROM cms_media_jobs WHERE operation_id=? AND ${proof.sql}`,
           [token],
         ).first<string>('status')
         if (persisted === 'done') return await receipt(token)
+        at('d1.recovery_expiry')
         const expired = await sql(
           `SELECT 1 FROM cms_media_jobs WHERE operation_id=? AND expires_at<=${nowSql} AND ${proof.sql}`,
           [token],
         ).first()
         await command(token, expired ? 'expire' : 'fail')
-      } catch {
-        console.error('CMS_MEDIA_RECOVERY_REQUIRED')
+      } catch (recoveryCause) {
+        report(recoveryCause, 'CMS_MEDIA_RECOVERY_REQUIRED')
       }
     }
     if (/UNAUTHORIZED/.test(message)) return error('UNAUTHENTICATED', 401)
@@ -458,9 +537,10 @@ export async function handleLocalMedia(
   } finally {
     if (intake) {
       try {
+        at('d1.intake_release')
         await sql(`DELETE FROM cms_media_intake WHERE owner=? AND ${proof.sql}`, [intake]).run()
-      } catch {
-        console.error('CMS_MEDIA_INTAKE_RECOVERY_REQUIRED')
+      } catch (releaseCause) {
+        report(releaseCause, 'CMS_MEDIA_INTAKE_RECOVERY_REQUIRED')
       }
     }
   }

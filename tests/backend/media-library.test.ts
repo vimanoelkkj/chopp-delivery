@@ -78,6 +78,20 @@ describe('private local media lifecycle with real D1, R2, Images emulator and F2
       ...(method === 'GET' || method === 'DELETE' || !body ? {} : { body }),
     })
   const upload = () => handleLocalMedia(request(), env)
+  const capture = async (run: () => Promise<Response>, loggingFails = false) => {
+    const records: unknown[][] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => {
+      records.push(args)
+      if (loggingFails) throw Error('injected logging failure')
+    }
+    try {
+      return { response: await run(), records }
+    } finally {
+      console.error = original
+    }
+  }
+  const captureUpload = (loggingFails = false) => capture(upload, loggingFails)
   const media = () =>
     f.db
       .prepare('SELECT * FROM cms_media WHERE media_id=?')
@@ -226,6 +240,292 @@ describe('private local media lifecycle with real D1, R2, Images emulator and F2
     expect((await jobs()).results).toHaveLength(1)
     expect((await upload()).status).toBe(200)
   })
+  it.each(['intake', 'job', 'object-conflict', 'processor-timeout'] as const)(
+    'diagnoses %s after hero persistence without promoting a partial upload',
+    async (fault) => {
+      const bucket = env.CMS_MEDIA_BUCKET as MediaBucket
+      const processor = env.CMS_MEDIA_PROCESSOR as Pick<Fetcher, 'fetch'>
+      const profiles: string[] = []
+      env.CMS_MEDIA_PROCESSOR = {
+        fetch: async (input, init) => {
+          const profile = new URL(String(input)).pathname
+          profiles.push(profile)
+          if (fault === 'processor-timeout' && profile === '/section') return new Promise(() => {})
+          return processor.fetch(input, init)
+        },
+      }
+      env.CMS_MEDIA_BUCKET = new Proxy(bucket, {
+        get(target, key) {
+          if (key === 'put')
+            return async (...args: Parameters<MediaBucket['put']>) => {
+              // Inject a competing creator, then exercise the real R2 conditional conflict.
+              if (fault === 'object-conflict') await target.put(...args)
+              const result = await target.put(...args)
+              if (args[0].endsWith('/hero.webp')) {
+                // Expire durable leases deterministically; JS fake timers do not advance D1 time.
+                if (fault === 'intake')
+                  await f.db.prepare('UPDATE cms_media_intake SET expires_at=1').run()
+                if (fault === 'job')
+                  await f.db
+                    .prepare('UPDATE cms_media_jobs SET expires_at=1 WHERE operation_id=?')
+                    .bind(operation)
+                    .run()
+              }
+              return result
+            }
+          const value = Reflect.get(target, key)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      const { response, records } = await captureUpload()
+      expect(response.status).toBe(fault === 'processor-timeout' ? 408 : 409)
+      expect(await response.json()).toEqual({
+        error: { code: fault === 'processor-timeout' ? 'MEDIA_TIMEOUT' : 'MEDIA_BUSY_OR_CONFLICT' },
+      })
+      const [source, stage, code, profile] = {
+        intake: ['d1', 'd1.intake_check', 'MEDIA_INTAKE_LEASE', 'section'],
+        job: ['d1', 'd1.job_check', 'MEDIA_JOB_LEASE', 'section'],
+        'object-conflict': ['r2', 'r2.put', 'MEDIA_OBJECT_CONFLICT', 'hero'],
+        'processor-timeout': [
+          'processor',
+          'processor.transform',
+          'MEDIA_PROCESSING_TIMEOUT',
+          'section',
+        ],
+      }[fault]
+      expect(records).toEqual([
+        [
+          'CMS_MEDIA_FAILURE',
+          {
+            source,
+            stage,
+            code,
+            profile,
+            elapsedMs: expect.any(Number),
+            stageMs: expect.any(Number),
+          },
+        ],
+      ])
+      const timing = records[0][1] as { elapsedMs: number; stageMs: number }
+      expect(timing.stageMs).toBeGreaterThanOrEqual(0)
+      expect(timing.elapsedMs).toBeGreaterThanOrEqual(timing.stageMs)
+      for (const sensitive of [operation, f.cookie, `cms/derived/media_${operation}`])
+        expect(JSON.stringify(records)).not.toContain(sensitive)
+      expect(profiles).toEqual(fault === 'processor-timeout' ? ['/hero', '/section'] : ['/hero'])
+      const partial = (await objects())?.objects
+      expect(partial).toHaveLength(1)
+      expect(partial?.[0].key).toMatch(/\/hero\.webp$/)
+      expect(await media()).toMatchObject({ state: 'rejected', derivatives_json: null })
+      expect((await jobs()).results).toMatchObject([{ status: 'failed' }])
+      expect(
+        JSON.parse(
+          (await f.db
+            .prepare('SELECT result_json FROM cms_media_receipts WHERE operation_id=?')
+            .bind(operation)
+            .first<string>('result_json')) ?? '{}',
+        ),
+      ).toMatchObject({
+        media: { state: 'rejected', profiles: [] },
+        operation: { status: 'failed' },
+      })
+      expect(await f.db.prepare('SELECT count(*) n FROM cms_media_intake').first('n')).toBe(0)
+      expect((await upload()).status).toBe(409)
+      expect((await objects())?.objects).toEqual(partial)
+      expect((await reconcile()).status).toBe(200)
+      expect((await objects())?.objects).toHaveLength(0)
+      expect((await media())?.state).toBe('rejected')
+    },
+    10000,
+  )
+  it.each([
+    ['SQLITE_BUSY', 'D1_CONTENTION', 409],
+    ['SQLITE_LOCKED', 'D1_CONTENTION', 503],
+    ['UNIQUE constraint failed', 'D1_UNIQUE_CONSTRAINT', 409],
+    ['unrecognized provider error', 'UNCLASSIFIED', 503],
+  ] as const)(
+    'sanitizes D1 %s without changing the public error',
+    async (internal, code, status) => {
+      const sensitive = `PRIVATE_SENTINEL Authorization=Bearer fake cookie=fake cms/derived/media_${operation}/private/hero.webp payload=private user=private`
+      const db = env.DELEGAS_DB
+      env.DELEGAS_DB = new Proxy(db, {
+        get(target, key) {
+          if (key === 'prepare')
+            return (query: string) => {
+              if (query.includes('UPDATE cms_media_start'))
+                throw Error(`D1_ERROR: ${internal} ${sensitive}`, { cause: Error(sensitive) })
+              return target.prepare(query)
+            }
+          const value = Reflect.get(target, key)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      const { response, records } = await captureUpload()
+      expect(response.status).toBe(status)
+      expect(await response.json()).toEqual({
+        error: { code: status === 409 ? 'MEDIA_BUSY_OR_CONFLICT' : 'MEDIA_UNAVAILABLE' },
+      })
+      expect(records[0]).toEqual([
+        'CMS_MEDIA_FAILURE',
+        {
+          source: 'd1',
+          stage: 'd1.job_start',
+          code,
+          profile: null,
+          elapsedMs: expect.any(Number),
+          stageMs: expect.any(Number),
+        },
+      ])
+      expect(records).toHaveLength(status === 503 ? 2 : 1)
+      expect(JSON.stringify(records)).not.toMatch(
+        /PRIVATE_SENTINEL|Authorization|Bearer|cookie=|cms\/derived|payload=|user=|D1_ERROR/,
+      )
+      expect(await media()).toBeNull()
+      expect((await jobs()).results).toHaveLength(0)
+      expect(await f.db.prepare('SELECT count(*) n FROM cms_media_intake').first('n')).toBe(0)
+    },
+  )
+  it('preserves recovery and public response when structured logging throws', async () => {
+    env.CMS_MEDIA_PROCESSOR = {
+      fetch: async () => {
+        throw Error('MEDIA_CONFLICT')
+      },
+    }
+    const { response } = await captureUpload(true)
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: { code: 'MEDIA_BUSY_OR_CONFLICT' } })
+    expect(await media()).toMatchObject({ state: 'rejected', derivatives_json: null })
+    expect((await jobs()).results).toMatchObject([{ status: 'failed' }])
+    expect(await f.db.prepare('SELECT count(*) n FROM cms_media_receipts').first('n')).toBe(1)
+    expect(await f.db.prepare('SELECT count(*) n FROM cms_media_intake').first('n')).toBe(0)
+  })
+  it('reports recovery failure separately from the original processor failure', async () => {
+    await f.db
+      .prepare(
+        "CREATE TRIGGER log_recovery BEFORE UPDATE ON cms_media WHEN NEW.state='rejected' BEGIN SELECT RAISE(ABORT,'SQLITE_BUSY PRIVATE_SENTINEL'); END",
+      )
+      .run()
+    env.CMS_MEDIA_PROCESSOR = {
+      fetch: async () => {
+        throw Error('SQLITE_BUSY PRIVATE_SENTINEL')
+      },
+    }
+    const { response, records } = await captureUpload()
+    expect(response.status).toBe(409)
+    expect(records).toHaveLength(2)
+    expect(records[0]).toEqual([
+      'CMS_MEDIA_FAILURE',
+      expect.objectContaining({
+        source: 'processor',
+        stage: 'processor.transform',
+        code: 'UNCLASSIFIED',
+      }),
+    ])
+    expect(records[1]).toEqual([
+      'CMS_MEDIA_RECOVERY_REQUIRED',
+      expect.objectContaining({
+        source: 'd1',
+        stage: 'd1.command_fail',
+        code: 'D1_CONTENTION',
+      }),
+    ])
+    expect(JSON.stringify(records)).not.toContain('PRIVATE_SENTINEL')
+    expect((await media())?.state).toBe('processing')
+    expect((await jobs()).results).toMatchObject([{ status: 'running' }])
+  })
+  it('reports intake cleanup failure without changing a completed receipt', async () => {
+    const db = env.DELEGAS_DB
+    env.DELEGAS_DB = new Proxy(db, {
+      get(target, key) {
+        if (key === 'prepare')
+          return (query: string) => {
+            if (query.includes('DELETE FROM cms_media_intake'))
+              throw Error('D1_ERROR: SQLITE_BUSY PRIVATE_SENTINEL')
+            return target.prepare(query)
+          }
+        const value = Reflect.get(target, key)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    const { response, records } = await captureUpload()
+    expect(response.status).toBe(200)
+    expect(records).toEqual([
+      [
+        'CMS_MEDIA_INTAKE_RECOVERY_REQUIRED',
+        expect.objectContaining({
+          source: 'd1',
+          stage: 'd1.intake_release',
+          code: 'D1_CONTENTION',
+        }),
+      ],
+    ])
+    expect(JSON.stringify(records)).not.toContain('PRIVATE_SENTINEL')
+    expect((await media())?.state).toBe('ready')
+    expect((await jobs()).results).toMatchObject([{ status: 'done' }])
+    expect(await f.db.prepare('SELECT count(*) n FROM cms_media_receipts').first('n')).toBe(1)
+    expect(await f.db.prepare('SELECT count(*) n FROM cms_media_intake').first('n')).toBe(1)
+  })
+  it('classifies D1 contention during verification.objects without leaking details', async () => {
+    const db = env.DELEGAS_DB
+    env.DELEGAS_DB = new Proxy(db, {
+      get(target, key) {
+        if (key === 'prepare')
+          return (query: string) => {
+            if (query.includes('INSERT INTO cms_media_checks'))
+              throw Error('D1_ERROR: SQLITE_BUSY PRIVATE_SENTINEL')
+            return target.prepare(query)
+          }
+        const value = Reflect.get(target, key)
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    const { response, records } = await captureUpload()
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: { code: 'MEDIA_BUSY_OR_CONFLICT' } })
+    expect(records).toEqual([
+      [
+        'CMS_MEDIA_FAILURE',
+        expect.objectContaining({
+          source: 'verification',
+          stage: 'verification.objects',
+          code: 'D1_CONTENTION',
+        }),
+      ],
+    ])
+    expect(JSON.stringify(records)).not.toContain('PRIVATE_SENTINEL')
+    expect((await media())?.state).toBe('rejected')
+    expect((await jobs()).results).toMatchObject([{ status: 'failed' }])
+  })
+  it.each(['delete', 'reconcile'] as const)(
+    'reports R2 failure during %s as unclassified R2, not D1',
+    async (flow) => {
+      const bucket = env.CMS_MEDIA_BUCKET as MediaBucket
+      if (flow === 'delete') expect((await upload()).status).toBe(200)
+      else await bucket.put('cms/derived/media_orphan/x/hero.webp', new Uint8Array([1]))
+      env.CMS_MEDIA_BUCKET = new Proxy(bucket, {
+        get(target, key) {
+          if (key === 'delete')
+            return async () => {
+              throw Error('SQLITE_BUSY PRIVATE_SENTINEL cms/derived/secret')
+            }
+          const value = Reflect.get(target, key)
+          return typeof value === 'function' ? value.bind(target) : value
+        },
+      })
+      const { response, records } = await capture(() =>
+        flow === 'delete' ? deletion() : reconcile(),
+      )
+      expect(response.status).toBe(409)
+      expect(records).toEqual([
+        [
+          'CMS_MEDIA_FAILURE',
+          expect.objectContaining({ source: 'r2', stage: 'r2.delete', profile: null }),
+        ],
+      ])
+      expect((records[0][1] as { code: string }).code).not.toBe('D1_CONTENTION')
+      expect(JSON.stringify(records)).not.toMatch(/PRIVATE_SENTINEL|cms\/derived/)
+      expect((await jobs()).results.at(-1)).toMatchObject({ status: 'failed' })
+    },
+  )
   it('blocks deletion referenced solely by a hidden module in an immutable draft', async () => {
     expect((await upload()).status).toBe(200)
     const cmd = f.command()
