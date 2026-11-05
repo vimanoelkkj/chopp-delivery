@@ -184,6 +184,7 @@ export function PreviewRenderer({
         onAuxClickCapture={blockNavigation}
       >
         <SiteHeader
+          deliveryRegion={doc.modules.find((m) => m.template === 'hero')?.content.deliveryRegion}
           links={layout.navigation.map((link) => ({
             href: link.href,
             label: labels[link.template] ?? 'Seção',

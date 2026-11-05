@@ -18,14 +18,11 @@ function Offer({
   lowest: number | null
 }) {
   const price = product.prices[size]
-  const other: BarrelSize = size === 30 ? 50 : 30
 
   if (price === null) {
     return (
       <td className={styles.offer} data-label={`${size} L`}>
-        <span className={styles.unavailable}>
-          {product.prices[other] !== null ? `Só em ${other} L` : 'Indisponível'}
-        </span>
+        <span className={styles.unavailable}>Indisponível</span>
         <span className="visually-hidden">{` não disponível em ${size} litros`}</span>
       </td>
     )
@@ -55,8 +52,8 @@ function Offer({
 
 /**
  * Tabela única de comparação: 30 L e 50 L lado a lado, com pedido por volume. Substitui a grade
- * de cards e a tabela antiga, que repetiam os mesmos barris. Tamanho não vendido mostra o que
- * existe em vez de um traço solto; o produto oculto nem chega aqui (o chamador filtra).
+ * de cards e a tabela antiga, que repetiam os mesmos barris. Tamanho não vendido permanece
+ * na tabela como indisponível, sem preço ou pedido; o produto oculto nem chega aqui (o chamador filtra).
  */
 export function PriceComparison({ products }: { products: Product[] }) {
   const lowest: Record<BarrelSize, number | null> = {

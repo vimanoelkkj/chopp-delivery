@@ -87,6 +87,17 @@ export function parseCmsDocument(input: unknown, mode: Mode = 'draft'): Result<C
     rank = rule.rank
     if (rank === 4 && ++institutions > 6) return failure('modules.institutional')
     const required = mode === 'publish' && m.visible
+    if (template === 'hero') {
+      const c = m.content
+      const hasRegion = typeof c === 'object' && c !== null && Object.hasOwn(c, 'deliveryRegion')
+      if (
+        !exact(c, ['heading', 'summary', 'media', ...(hasRegion ? ['deliveryRegion'] : [])]) ||
+        !content('hero', { heading: c.heading, summary: c.summary, media: c.media }, required) ||
+        (hasRegion && !text(c.deliveryRegion, CMS_LIMITS.heading, required))
+      )
+        return failure(`${path}.content`)
+      continue
+    }
     if (template !== 'carousel') {
       if (!content(template, m.content, required)) return failure(`${path}.content`)
       continue

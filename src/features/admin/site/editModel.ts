@@ -1,6 +1,10 @@
 import { CMS_LIMITS } from '../../../../shared/cms/common'
 import { text as contractText } from '../../../../shared/cms/primitives'
-import type { CmsDocumentV2, CmsModuleV2 } from '../../../../shared/cms/v2'
+import {
+  CMS_DEFAULT_DELIVERY_REGION,
+  type CmsDocumentV2,
+  type CmsModuleV2,
+} from '../../../../shared/cms/v2'
 import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
 
 /**
@@ -31,6 +35,7 @@ export const kindOf = (key: string): FieldKind =>
   key === 'media.alt'
     ? 'alt'
     : key === 'heading' ||
+        key === 'deliveryRegion' ||
         (key.startsWith('items.') && !key.endsWith('.answer')) ||
         key.endsWith('.title') ||
         key.endsWith('.question')
@@ -74,7 +79,7 @@ const asBag = (value: unknown): Bag => value as Bag
 /** Valor de texto do campo `key` (`heading`, `items.2`, `steps.0.title`…) ou `null` se não for um texto editável. */
 const editableKey = (module: CmsModuleV2, key: string): boolean => {
   const fields: Record<CmsModuleV2['template'], readonly string[]> = {
-    hero: ['heading', 'summary'],
+    hero: ['heading', 'summary', 'deliveryRegion'],
     carousel: ['heading', 'lead'],
     catalog: ['heading', 'intro'],
     ticker: [],
@@ -93,6 +98,8 @@ const editableKey = (module: CmsModuleV2, key: string): boolean => {
 
 export function readField(module: CmsModuleV2, key: string): string | null {
   if (!editableKey(module, key)) return null
+  if (module.template === 'hero' && key === 'deliveryRegion')
+    return module.content.deliveryRegion ?? CMS_DEFAULT_DELIVERY_REGION
   const parts = key.split('.')
   let cursor: unknown = module.content
   for (const part of parts) {
@@ -109,7 +116,7 @@ const clone = (value: unknown): unknown =>
       ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clone(v)]))
       : value
 
-/** Troca um texto editorial. Recusa qualquer caminho que não seja um texto já existente. */
+/** Troca um texto editorial. Aceita apenas textos editoriais, incluindo a região opcional do Hero. */
 export function setField(
   doc: CmsDocumentV2,
   moduleId: string,

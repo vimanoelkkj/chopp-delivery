@@ -2,6 +2,7 @@ import { CMS_LIMITS } from '../../../../shared/cms/common'
 import { type DerivedCmsLayout, deriveLayout } from '../../../../shared/cms/layout'
 import { cmsRevision, exact } from '../../../../shared/cms/primitives'
 import {
+  CMS_DEFAULT_DELIVERY_REGION,
   CMS_RULES_V2,
   type CmsCarouselEntry,
   type CmsDocumentV2,
@@ -226,6 +227,12 @@ function contentRows(module: CmsModuleV2): FieldRow[] {
       return [
         text('heading', 'Título', module.content.heading, headingHint),
         text('summary', 'Resumo', module.content.summary, textHint, true),
+        text(
+          'deliveryRegion',
+          'Região de entrega',
+          module.content.deliveryRegion ?? CMS_DEFAULT_DELIVERY_REGION,
+          'Texto da faixa superior. Não define frete ou regras de atendimento.',
+        ),
         mediaRow('media', 'Imagem', module.content.media, {
           editable: true,
           hint: MEDIA_EDIT_HINT,
