@@ -1,4 +1,4 @@
-import { bootstrapOwner } from './bootstrap'
+import { type BootstrapStage, bootstrapOwner } from './bootstrap'
 import { authConfig } from './http'
 import { recoverOwnerCredentials } from './recovery'
 
@@ -13,6 +13,18 @@ export type MaintenanceEnv = {
   ADMIN_ALLOW_INSECURE_LOCAL?: string
   CMS_MEDIA_LOCAL?: string
 }
+type MaintenanceStage =
+  | BootstrapStage
+  | 'environment'
+  | 'origin'
+  | 'command'
+  | 'inspect_read'
+  | 'inspect_validate'
+  | 'password_presence'
+  | 'auth_config'
+  | 'bootstrap'
+  | 'recovery'
+
 type Command = { commandId: string; environment: 'homologation' } & (
   | { action: 'inspect' }
   | {
@@ -59,6 +71,7 @@ export default {
     event.noRetry()
     if (env.MAINTENANCE_ENABLED !== 'armed-v1') return
     let commandId: string | undefined
+    let stage: MaintenanceStage = 'environment'
     try {
       if (
         env.MAINTENANCE_ENVIRONMENT !== 'homologation' ||
@@ -68,6 +81,7 @@ export default {
         !env.ADMIN_ORIGIN
       )
         throw new Error('INVALID_ENVIRONMENT')
+      stage = 'origin'
       const origin = new URL(env.ADMIN_ORIGIN)
       if (
         origin.protocol !== 'https:' ||
@@ -75,12 +89,15 @@ export default {
         ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
       )
         throw new Error('INVALID_ENVIRONMENT')
+      stage = 'command'
       const command = commandOf(env.MAINTENANCE_COMMAND ?? '')
       commandId = command.commandId
       if (command.action === 'inspect') {
+        stage = 'inspect_read'
         const rows = await env.DELEGAS_DB.prepare(
           'SELECT id, username, active, auth_version FROM admin_users LIMIT 2',
         ).all<{ id: string; username: string; active: number; auth_version: number }>()
+        stage = 'inspect_validate'
         if (rows.success !== true || !Array.isArray(rows.results) || rows.results.length > 1)
           throw new Error('INVALID_OWNER_METADATA')
         const row = rows.results[0]
@@ -111,8 +128,11 @@ export default {
         })
         return
       }
+      stage = 'password_presence'
       if (!env.MAINTENANCE_PASSWORD) throw new Error('INVALID_ENVIRONMENT')
+      stage = 'auth_config'
       authConfig(new Request(env.ADMIN_ORIGIN), env)
+      stage = command.action === 'bootstrap' ? 'bootstrap' : 'recovery'
       const applied =
         command.action === 'bootstrap'
           ? await bootstrapOwner(
@@ -120,6 +140,9 @@ export default {
               command.username,
               env.MAINTENANCE_PASSWORD,
               env.ADMIN_PASSWORD_PEPPER ?? '',
+              (current) => {
+                stage = current
+              },
             )
           : await recoverOwnerCredentials(
               env.DELEGAS_DB,
@@ -137,6 +160,7 @@ export default {
       console.error('ADMIN_MAINTENANCE', {
         ...(commandId ? { commandId } : {}),
         result: 'UNCONFIRMED',
+        stage,
       })
     }
   },

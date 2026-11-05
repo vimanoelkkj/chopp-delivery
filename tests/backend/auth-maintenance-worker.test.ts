@@ -98,6 +98,7 @@ describe('M3D.1 scheduled-only maintenance boundary', () => {
       'owner',
       password,
       pepper,
+      expect.any(Function),
     )
     expect(recoverOwnerCredentials).not.toHaveBeenCalled()
     vi.mocked(bootstrapOwner).mockClear()
@@ -126,6 +127,29 @@ describe('M3D.1 scheduled-only maintenance boundary', () => {
       result: 'NOT_APPLIED',
     })
   })
+  it('reports the fixed bootstrap stage without serializing a crypto failure', async () => {
+    vi.mocked(bootstrapOwner).mockImplementationOnce(
+      async (_db, _username, _password, _pepper, onStage) => {
+        onStage?.('password_hash')
+        throw new Error(`${password} ${pepper} CRYPTO_INTERNAL_SENTINEL`)
+      },
+    )
+    await worker.scheduled(event(), {
+      ...env(),
+      MAINTENANCE_COMMAND: JSON.stringify(command('bootstrap', 0)),
+    })
+    expect(bootstrapOwner).toHaveBeenCalledTimes(1)
+    expect(recoverOwnerCredentials).not.toHaveBeenCalled()
+    expect(console.error).toHaveBeenCalledExactlyOnceWith('ADMIN_MAINTENANCE', {
+      commandId: id,
+      result: 'UNCONFIRMED',
+      stage: 'password_hash',
+    })
+    const logs = JSON.stringify(vi.mocked(console.error).mock.calls)
+    for (const secret of [password, pepper, 'CRYPTO_INTERNAL_SENTINEL'])
+      expect(logs).not.toContain(secret)
+  })
+
   it('lost responses/SQL errors remain unconfirmed and never leak secrets or trigger another command', async () => {
     vi.mocked(recoverOwnerCredentials).mockRejectedValue(
       new Error(`${password} ${pepper} database details`),
@@ -135,6 +159,7 @@ describe('M3D.1 scheduled-only maintenance boundary', () => {
     expect(console.error).toHaveBeenCalledExactlyOnceWith('ADMIN_MAINTENANCE', {
       commandId: id,
       result: 'UNCONFIRMED',
+      stage: 'recovery',
     })
     const logs = JSON.stringify(vi.mocked(console.error).mock.calls)
     expect(logs).not.toContain(password)
@@ -217,6 +242,7 @@ describe('M3F private metadata inspection', () => {
       expect(console.error).toHaveBeenCalledWith('ADMIN_MAINTENANCE', {
         commandId: id,
         result: 'UNCONFIRMED',
+        stage: 'inspect_validate',
       })
     },
   )
