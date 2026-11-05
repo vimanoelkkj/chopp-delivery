@@ -159,6 +159,7 @@ export async function cmsV2Fixture(
         modules: true,
         compatibilityDate: '2026-08-06',
         images: { binding: 'IMAGES' },
+        bindings: { CMS_MEDIA_PROCESSOR_ENABLED: 'enabled' },
         script: localImageWorker,
       },
     ],

@@ -36,6 +36,7 @@ describe('private local media lifecycle with real D1, R2, Images emulator and F2
           modules: true,
           compatibilityDate: '2026-08-06',
           images: { binding: 'IMAGES' },
+          bindings: { CMS_MEDIA_PROCESSOR_ENABLED: 'enabled' },
           script: localImageWorker,
         },
       ],

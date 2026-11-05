@@ -1,0 +1,18 @@
+{
+  "name": "chopp-cms-image-processor-homologation",
+  "main": "../../server/cms/image-worker.mjs",
+  "compatibility_date": "2026-08-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "triggers": {
+    "crons": []
+  },
+  "images": {
+    "binding": "IMAGES",
+    "remote": false
+  },
+  "vars": {
+    "CMS_MEDIA_PROCESSOR_ENABLED": "disabled"
+  }
+}

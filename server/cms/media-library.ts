@@ -6,7 +6,7 @@ import { type CmsDerivative, MEDIA_LIMITS, MEDIA_PROFILES } from './media-contra
 import { verifyMediaObjects } from './media-integrity'
 import { cmsMediaId, cmsUuid } from './validation'
 
-// Optional capabilities exist only in the disposable runtime, not in wrangler.jsonc.
+// Optional media capabilities remain absent from normal/public runtime configuration.
 export type MediaBucket = {
   put(
     key: string,
@@ -28,6 +28,8 @@ export type MediaBucket = {
 }
 export type LocalMediaEnv = AuthEnv & {
   CMS_MEDIA_LOCAL?: string
+  CMS_MEDIA_ENVIRONMENT?: string
+  CMS_MEDIA_ENABLED?: string
   CMS_MEDIA_BUCKET?: MediaBucket
   CMS_MEDIA_PROCESSOR?: Pick<Fetcher, 'fetch'>
 }
@@ -49,7 +51,7 @@ type Job = {
 const nowSql = "CAST(unixepoch('subsec') * 1000 AS INTEGER)"
 const error = (code: string, status: number) => authJson({ error: { code } }, status)
 
-/** Shared capability gate: never enables a remote origin or a normal runtime. */
+/** Shared capability gate. Legacy name retained; remote use requires an isolated opt-in. */
 export function localMediaEnabled(
   request: Request,
   env: LocalMediaEnv,
@@ -58,11 +60,20 @@ export function localMediaEnabled(
   CMS_MEDIA_PROCESSOR: Pick<Fetcher, 'fetch'>
 } {
   const url = new URL(request.url)
+  const homologationOrigin = 'https://chopp-delivery-homolog.pages.dev'
+  const homologation =
+    env.CMS_MEDIA_ENVIRONMENT === 'homologation' &&
+    env.CMS_MEDIA_ENABLED === 'enabled' &&
+    env.ADMIN_ORIGIN === homologationOrigin &&
+    url.origin === homologationOrigin &&
+    !env.ADMIN_ALLOW_INSECURE_LOCAL &&
+    !env.CMS_MEDIA_LOCAL
   return (
-    env.CMS_MEDIA_LOCAL === 'disposable-v1' &&
-    env.ADMIN_ALLOW_INSECURE_LOCAL === '1' &&
-    url.protocol === 'http:' &&
-    ['127.0.0.1', 'localhost'].includes(url.hostname) &&
+    (homologation ||
+      (env.CMS_MEDIA_LOCAL === 'disposable-v1' &&
+        env.ADMIN_ALLOW_INSECURE_LOCAL === '1' &&
+        url.protocol === 'http:' &&
+        ['127.0.0.1', 'localhost'].includes(url.hostname))) &&
     Boolean(env.CMS_MEDIA_BUCKET && env.CMS_MEDIA_PROCESSOR)
   )
 }
