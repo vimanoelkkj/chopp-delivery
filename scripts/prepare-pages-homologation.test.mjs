@@ -46,6 +46,94 @@ test('constructs a standalone release-only config without production bindings or
   for (const key of Object.keys(config).filter((key) => key !== '$schema'))
     assert.ok(key in schema.definitions.RawConfig.properties, key)
 })
+const mediaInventory = () => ({
+  ...inventory(),
+  projectName: 'chopp-delivery-homolog',
+  origin: 'https://chopp-delivery-homolog.pages.dev',
+  media: {
+    bucketName: 'chopp-media-homolog-private',
+    processorService: 'chopp-cms-image-processor-homologation',
+    productionBucketNames: ['chopp-media-prod'],
+    productionServices: ['chopp-cms-image-processor-prod'],
+  },
+})
+test('media bindings are declared only for the canonical homologation, closed and not in preview', () => {
+  const input = mediaInventory(),
+    config = pagesHomologationConfig(input)
+  assert.deepEqual(config.r2_buckets, [
+    { binding: 'CMS_MEDIA_BUCKET', bucket_name: 'chopp-media-homolog-private' },
+  ])
+  assert.deepEqual(config.services, [
+    { binding: 'CMS_MEDIA_PROCESSOR', service: 'chopp-cms-image-processor-homologation' },
+  ])
+  assert.equal(config.vars.CMS_MEDIA_ENABLED, 'disabled')
+  assert.equal(config.vars.CMS_MEDIA_ENVIRONMENT, 'homologation')
+  assert.equal(config.d1_databases[0].database_id, input.databaseId)
+  assert.deepEqual(config.env.preview, { d1_databases: [], vars: {}, r2_buckets: [], services: [] })
+  assert.ok(!JSON.stringify(config).includes('prod'))
+})
+test('without a media inventory no media binding or variable is produced', () => {
+  const config = pagesHomologationConfig(inventory())
+  assert.deepEqual(config.vars, { ADMIN_ORIGIN: 'https://homologation-fixture.pages.dev' })
+})
+for (const [label, change] of [
+  [
+    'non-canonical origin',
+    (i) =>
+      Object.assign(i, {
+        projectName: 'homologation-fixture',
+        origin: 'https://homologation-fixture.pages.dev',
+      }),
+  ],
+  [
+    'placeholder bucket',
+    (i) => {
+      i.media.bucketName = 'replace-me-bucket'
+    },
+  ],
+  [
+    'placeholder service',
+    (i) => {
+      i.media.processorService = 'placeholder-service'
+    },
+  ],
+  [
+    'production bucket reuse',
+    (i) => {
+      i.media.bucketName = i.media.productionBucketNames[0]
+    },
+  ],
+  [
+    'production service reuse',
+    (i) => {
+      i.media.processorService = i.media.productionServices[0]
+    },
+  ],
+  [
+    'service equal to Pages project',
+    (i) => {
+      i.media.processorService = i.projectName
+    },
+  ],
+  [
+    'missing production media inventory',
+    (i) => {
+      delete i.media.productionBucketNames
+    },
+  ],
+  [
+    'extra media key (enable flag)',
+    (i) => {
+      i.media.enabled = true
+    },
+  ],
+]) {
+  test(`media rejects ${label}`, () => {
+    const input = mediaInventory()
+    change(input)
+    assert.throws(() => pagesHomologationConfig(input))
+  })
+}
 for (const [label, change] of [
   [
     'missing operator inventory',

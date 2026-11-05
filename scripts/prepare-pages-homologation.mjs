@@ -36,12 +36,18 @@ function validOrigin(value) {
     return false
   }
 }
+const mediaOrigin = 'https://chopp-delivery-homolog.pages.dev'
+const placeholder = /(replace|placeholder|changeme|todo|example|fixture|dummy|sample|your-)/
+const resourceName = (value) =>
+  typeof value === 'string' && value.length >= 3 && name.test(value) && !placeholder.test(value)
 const validId = (value) =>
   typeof value === 'string' && uuid.test(value) && new Set(value.replaceAll('-', '')).size > 1
 
 /** Construct from explicit operator inventory only; never read the default Wrangler config. */
 export function pagesHomologationConfig(input) {
-  exactKeys(input, [
+  // Optional remote-media inventory; absent means media stays unbound and disabled.
+  const { media, ...base } = input ?? {}
+  exactKeys(base, [
     'environment',
     'projectName',
     'origin',
@@ -50,6 +56,13 @@ export function pagesHomologationConfig(input) {
     'production',
     'acknowledgeDedicatedResources',
   ])
+  if (media !== undefined)
+    exactKeys(media, [
+      'bucketName',
+      'processorService',
+      'productionBucketNames',
+      'productionServices',
+    ])
   exactKeys(input.production, ['projectNames', 'databaseIds', 'origins'])
   if (
     input.environment !== 'homologation' ||
@@ -73,6 +86,24 @@ export function pagesHomologationConfig(input) {
     fail()
   const host = new URL(input.origin).hostname
   if (host.endsWith('.pages.dev') && host !== `${input.projectName}.pages.dev`) fail()
+  if (media !== undefined) {
+    // Only the canonical homologation project may carry media bindings, with explicit real names
+    // that are provably distinct from every declared production resource.
+    list(media.productionBucketNames, resourceName)
+    list(media.productionServices, resourceName)
+    if (
+      input.origin !== mediaOrigin ||
+      host !== `${input.projectName}.pages.dev` ||
+      !resourceName(media.bucketName) ||
+      !resourceName(media.processorService) ||
+      media.bucketName === media.processorService ||
+      media.processorService === input.projectName ||
+      media.productionBucketNames.includes(media.bucketName) ||
+      media.productionServices.includes(media.processorService) ||
+      input.production.projectNames.includes(media.processorService)
+    )
+      fail()
+  }
   return {
     $schema: './node_modules/wrangler/config-schema.json',
     name: input.projectName,
@@ -86,9 +117,14 @@ export function pagesHomologationConfig(input) {
         migrations_dir: 'migrations',
       },
     ],
-    vars: { ADMIN_ORIGIN: input.origin },
-    r2_buckets: [],
-    services: [],
+    // Media remains closed: bindings are declared, but the explicit enable flag stays disabled.
+    vars: {
+      ADMIN_ORIGIN: input.origin,
+      ...(media && { CMS_MEDIA_ENVIRONMENT: 'homologation', CMS_MEDIA_ENABLED: 'disabled' }),
+    },
+    r2_buckets: media ? [{ binding: 'CMS_MEDIA_BUCKET', bucket_name: media.bucketName }] : [],
+    services: media ? [{ binding: 'CMS_MEDIA_PROCESSOR', service: media.processorService }] : [],
+    // Preview never inherits administrative bindings or media variables.
     env: { preview: { d1_databases: [], vars: {}, r2_buckets: [], services: [] } },
   }
 }
