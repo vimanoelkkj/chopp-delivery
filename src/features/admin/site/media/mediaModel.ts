@@ -96,6 +96,26 @@ export function capacityView(capacity: MediaCapacity): CapacityView {
 
 /** Resultado do carregamento da miniatura (a entrega do arquivo verifica ambos os perfis). */
 export type ThumbState = 'loading' | 'ready' | 'failed'
+
+/** CSS cover crops only when the scaled, delivered derivative exceeds its actual frame. */
+export function frameCrops(
+  fit: 'contain' | 'cover',
+  frame: { width: number; height: number } | null,
+  image: { width: number; height: number } | null,
+): boolean | null {
+  if (
+    !frame ||
+    !image ||
+    ![frame.width, frame.height, image.width, image.height].every(
+      (n) => Number.isFinite(n) && n > 0,
+    )
+  )
+    return null
+  if (fit === 'contain') return false
+  const scale = Math.max(frame.width / image.width, frame.height / image.height)
+  // Ignore subpixel overflow from responsive sizing and the sample frame's border.
+  return image.width * scale - frame.width > 1 || image.height * scale - frame.height > 1
+}
 export type TileView = { label: string; selectable: boolean; tone: 'ok' | 'wait' | 'bad' }
 
 /**

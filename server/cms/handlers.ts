@@ -3,7 +3,7 @@ import { type AuthEnv, authError, authJson, wrongMethod } from '../auth/http'
 import { parseCmsConversion } from './commands'
 import { readCmsBody } from './http'
 import { cmsRevision, cmsUuid } from './primitives'
-import { cmsRepository } from './repository'
+import { cmsRepository, loadPublishedCms } from './repository'
 import { parseCmsMutation } from './validation-v2'
 
 const errorJson = (code: string, message: string, status: number) =>
@@ -23,6 +23,8 @@ function failure(error: unknown): Response {
     CMS_ALREADY_V2: 409,
     CMS_REVISION_CONFLICT: 409,
     CMS_OPERATION_CONFLICT: 409,
+    CMS_DRAFT_MISMATCH: 409,
+    CMS_DOCUMENT_INVALID: 400,
     CMS_ACKNOWLEDGEMENT_REQUIRED: 409,
     CMS_SCHEMA_UNAVAILABLE: 503,
     CMS_WRITE_INCOMPLETE: 503,
@@ -86,6 +88,42 @@ export async function handleCmsDraft(request: Request, env: AuthEnv): Promise<Re
   try {
     const result = await cmsRepository(env.DELEGAS_DB, auth).save(parsed.value)
     return authJson(result, 200, { ETag: `"${result.command.revision}"` })
+  } catch (error) {
+    return failure(error)
+  }
+}
+export async function handleCmsPublish(request: Request, env: AuthEnv): Promise<Response> {
+  if (request.method !== 'POST') return wrongMethod(request, 'POST')
+  const auth = await requireAdmin(request, env)
+  if (auth.error) return auth.error
+  const input = await mutationInput(request)
+  if (input.error) return input.error
+  const parsed = parseCmsMutation(input.value)
+  if (
+    parsed.value?.action !== 'publish' ||
+    parsed.value.document.schemaVersion !== 2 ||
+    parsed.value.expectedRevision !== input.revision
+  )
+    return errorJson(
+      'VALIDATION_ERROR',
+      'Publicação exige documento v2 válido e revisão igual a If-Match.',
+      400,
+    )
+  try {
+    const result = await cmsRepository(env.DELEGAS_DB, auth).publish(parsed.value)
+    return authJson(result, 200, { ETag: `"${result.command.revision}"` })
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+export async function handlePublicCms(request: Request, env: AuthEnv): Promise<Response> {
+  if (request.method !== 'GET') return wrongMethod(request, 'GET')
+  try {
+    const result = await loadPublishedCms(env.DELEGAS_DB)
+    return result
+      ? authJson(result.document, 200, { ETag: `"${result.revision}"` })
+      : errorJson('CMS_NOT_PUBLISHED', 'Nenhum conteúdo publicado.', 404)
   } catch (error) {
     return failure(error)
   }

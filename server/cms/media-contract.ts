@@ -48,24 +48,32 @@ export function publicationMediaErrors(
     const record = inventory.get(id)
     if (!cmsMediaId(id) || record?.id !== id || record.state !== 'ready' || !record.derivatives)
       return true
-    return (Object.keys(MEDIA_PROFILES) as (keyof typeof MEDIA_PROFILES)[]).some((profile) => {
-      const d = record.derivatives?.[profile]
-      const bounds = MEDIA_PROFILES[profile]
-      return (
-        !d ||
-        !/^[0-9a-f]{64}$/.test(d.sha256) ||
-        d.objectKey !== `cms/derived/${id}/${d.sha256}/${profile}.webp` ||
-        d.contentType !== 'image/webp' ||
-        !Number.isSafeInteger(d.bytes) ||
-        d.bytes < 1 ||
-        d.bytes > MEDIA_LIMITS.outputBytes ||
-        !Number.isSafeInteger(d.width) ||
-        !Number.isSafeInteger(d.height) ||
-        d.width < 1 ||
-        d.height < 1 ||
-        d.width > bounds.width ||
-        d.height > bounds.height
-      )
-    })
+    return (Object.keys(MEDIA_PROFILES) as (keyof typeof MEDIA_PROFILES)[]).some(
+      (profile) => !isValidDerivative(id, profile, record.derivatives?.[profile]),
+    )
   })
+}
+
+/** Shape, bounds and content-addressed key of one derivative. Does not prove the R2 object exists. */
+export function isValidDerivative(
+  id: string,
+  profile: keyof typeof MEDIA_PROFILES,
+  d: CmsDerivative | null | undefined,
+): d is CmsDerivative {
+  const bounds = MEDIA_PROFILES[profile]
+  return (
+    !!d &&
+    /^[0-9a-f]{64}$/.test(d.sha256) &&
+    d.objectKey === `cms/derived/${id}/${d.sha256}/${profile}.webp` &&
+    d.contentType === 'image/webp' &&
+    Number.isSafeInteger(d.bytes) &&
+    d.bytes >= 1 &&
+    d.bytes <= MEDIA_LIMITS.outputBytes &&
+    Number.isSafeInteger(d.width) &&
+    Number.isSafeInteger(d.height) &&
+    d.width >= 1 &&
+    d.height >= 1 &&
+    d.width <= bounds.width &&
+    d.height <= bounds.height
+  )
 }

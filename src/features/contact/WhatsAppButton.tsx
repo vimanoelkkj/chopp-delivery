@@ -5,6 +5,7 @@ import { CommercialPreviewContext } from './CommercialPreviewContext'
 import { contact } from './config'
 import { type MessageKey, messages } from './messages'
 import styles from './WhatsAppButton.module.css'
+import { WhatsAppNumberContext } from './WhatsAppNumberContext'
 
 type WhatsAppButtonProps = {
   message?: MessageKey
@@ -33,8 +34,9 @@ export function WhatsAppButton({
   ...style
 }: WhatsAppButtonProps) {
   const preview = useContext(CommercialPreviewContext)
+  const publishedNumber = useContext(WhatsAppNumberContext)
   const text = customText ?? messages[message]
-  const url = buildWhatsAppUrl(contact.whatsappNumber, text)
+  const url = buildWhatsAppUrl(publishedNumber ?? contact.whatsappNumber, text)
   const noticeId = useId()
   const [showNotice, setShowNotice] = useState(false)
   const timer = useRef<number | undefined>(undefined)

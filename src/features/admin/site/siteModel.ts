@@ -10,7 +10,7 @@ import {
   type CmsTemplateV2,
   type CmsVersionedCommandResult,
 } from '../../../../shared/cms/v2'
-import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
+import { parseCmsDocument, readCmsPublished } from '../../../../shared/cms/validation-v2'
 
 /**
  * Leitura da "Página inicial" (E5): modelo puro, sem rede e sem DOM. Nada aqui escreve, converte ou
@@ -41,11 +41,16 @@ export function readSiteSnapshot(value: unknown): SiteRead {
     !exact(value, keys) ||
     !exact(value.draft, ['revision', 'document']) ||
     !cmsRevision(value.draft.revision) ||
-    value.published !== null ||
     ('warnings' in value &&
       (!Array.isArray(value.warnings) || !value.warnings.every((w) => typeof w === 'string')))
   )
     throw new Error('INVALID_SITE')
+  if (value.published !== null && value.schema !== 2) throw new Error('INVALID_SITE')
+  try {
+    readCmsPublished(value.published)
+  } catch {
+    throw new Error('INVALID_SITE')
+  }
   const revision = value.draft.revision
   if (value.schema === null && value.draft.document === null) return { kind: 'none', revision }
   if (
@@ -540,7 +545,7 @@ export function readCommandResult(value: unknown): CommandReceipt {
     !exact(value, ['command', 'site']) ||
     !exact(value.command, ['operationId', 'action', 'expectedRevision', 'revision', 'versionId']) ||
     !isText(value.command.operationId) ||
-    !['startV2', 'convertToV2', 'saveDraft'].includes(value.command.action as string) ||
+    !['startV2', 'convertToV2', 'saveDraft', 'publish'].includes(value.command.action as string) ||
     !cmsRevision(value.command.expectedRevision) ||
     !cmsRevision(value.command.revision) ||
     !isText(value.command.versionId)
@@ -549,6 +554,16 @@ export function readCommandResult(value: unknown): CommandReceipt {
   const read = readSiteSnapshot(value.site)
   if (read.kind !== 'v2' || read.revision !== value.command.revision)
     throw new Error('INVALID_RECEIPT')
+  if (value.command.action === 'publish') {
+    const published = readCmsPublished((value.site as { published: unknown }).published)
+    if (
+      !published ||
+      published.versionId !== value.command.versionId ||
+      published.revision !== value.command.revision ||
+      JSON.stringify(published.document) !== JSON.stringify(read.document)
+    )
+      throw new Error('INVALID_RECEIPT')
+  }
   return { command: value.command as CmsVersionedCommandResult['command'], read }
 }
 

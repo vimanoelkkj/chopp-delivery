@@ -198,4 +198,24 @@ describe('P4: strict read-only preview model', () => {
     expect(frame['Content-Security-Policy']).toContain("form-action 'none'")
     for (const policy of [parent, frame]) expect(policy['Cache-Control']).toBe('no-store')
   })
+  it('Hero e Sobre usam apenas mídia privada nos palcos originais, com contain e cover', () => {
+    const s = snapshot()
+    for (const module of s.draft.document.modules)
+      if (module.template === 'hero' || module.template === 'about')
+        module.content.media = {
+          id: 'media_12345678-1234-4123-8123-123456789012',
+          alt: `Privada ${module.template}`,
+        }
+    const value = readPreviewSnapshot(s)
+    if (!value) throw Error('Expected v2 snapshot')
+    const html = renderToStaticMarkup(
+      <PreviewRenderer value={value} catalog={catalog} retry={() => {}} />,
+    )
+    expect(html).toContain('data-media-fit="contain"')
+    expect(html).toContain('data-media-fit="cover"')
+    expect(html).toContain('/api/admin/media/media_12345678-1234-4123-8123-123456789012/hero')
+    expect(html).toContain('/api/admin/media/media_12345678-1234-4123-8123-123456789012/section')
+    expect(html).not.toContain('/api/site/media/')
+    expect(html).not.toContain('publishedMedia')
+  })
 })

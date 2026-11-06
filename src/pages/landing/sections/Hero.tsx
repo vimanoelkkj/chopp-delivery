@@ -6,12 +6,15 @@ import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { Container } from '@/shared/ui/Container'
 import { KegCutout } from '@/shared/ui/KegCutout'
+import { PublishedMedia } from '@/shared/ui/PublishedMedia'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './Hero.module.css'
 
 type HeroProps = {
   carouselHref?: string | null
   mediaFallback?: ReactNode
+  /** Mídia da publicação vigente; ausente no preview/rascunho, que nunca consulta o endpoint público. */
+  publishedMedia?: { id: string; alt: string } | null
   editorial?: Pick<CmsContentsV2['hero'], 'heading' | 'summary'>
   state?: CatalogState
   ctaRef?: Ref<HTMLDivElement>
@@ -23,6 +26,7 @@ export function Hero({
   editorial,
   carouselHref = '#barris',
   mediaFallback,
+  publishedMedia,
 }: HeroProps) {
   // Deriva o menor preço real da API dinamicamente (A04 / P1-D)
   const products = state?.status === 'ready' ? state.catalog.products : []
@@ -51,9 +55,16 @@ export function Hero({
 
         <div className={styles.heroVisual}>
           <div className={styles.kegStage}>
-            {mediaFallback ?? (
-              <KegCutout photo="hero50" alt="Barril de chopp em aço inox escovado, 50 litros" />
-            )}
+            <PublishedMedia
+              media={publishedMedia}
+              profile="hero"
+              fit="contain"
+              fallback={
+                mediaFallback ?? (
+                  <KegCutout photo="hero50" alt="Barril de chopp em aço inox escovado, 50 litros" />
+                )
+              }
+            />
           </div>
 
           {minPrice !== null && (

@@ -173,3 +173,20 @@ export function projectPublicCmsV2(input: unknown): PublicCmsV2 {
       })) as PublicCmsV2['modules'],
   }
 }
+
+/** Validate the published envelope without ever substituting the current draft. */
+export function readCmsPublished(input: unknown) {
+  if (input === null) return null
+  if (
+    !exact(input, ['versionId', 'revision', 'document']) ||
+    typeof input.versionId !== 'string' ||
+    !input.versionId.startsWith('version_') ||
+    !cmsUuid(input.versionId.slice(8)) ||
+    !cmsRevision(input.revision) ||
+    !input.revision.startsWith('c2_')
+  )
+    throw Error('CMS_STATE_INVALID')
+  const parsed = parseCmsDocument(input.document, 'publish')
+  if (parsed.value?.schemaVersion !== 2) throw Error('CMS_STATE_INVALID')
+  return { versionId: input.versionId, revision: input.revision, document: parsed.value }
+}

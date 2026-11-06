@@ -2,6 +2,7 @@ import { type MouseEvent, type ReactNode, useState } from 'react'
 import type { CmsModuleV2 } from '../../../../shared/cms/v2'
 import pageStyles from '../../../pages/landing/LandingPage.module.css'
 import { AboutSection } from '../../../pages/landing/sections/AboutSection'
+import aboutStyles from '../../../pages/landing/sections/AboutSection.module.css'
 import { BarrelsSection } from '../../../pages/landing/sections/BarrelsSection'
 import { CatalogSection } from '../../../pages/landing/sections/CatalogSection'
 import { ContactSection } from '../../../pages/landing/sections/ContactSection'
@@ -14,6 +15,7 @@ import { Ticker } from '../../../pages/landing/sections/Ticker'
 import type { CatalogState } from '../../catalog/useCatalog'
 import { CommercialPreviewContext } from '../../contact/CommercialPreviewContext'
 import { type MediaProfile, mediaPath } from '../mediaPath'
+import { MediaFrame } from '../site/media/MediaFrame'
 import { type PreviewDocument, previewCarousel } from './model'
 import styles from './Preview.module.css'
 
@@ -87,10 +89,11 @@ export function PreviewRenderer({
             carouselHref={layout.heroCarouselHref}
             mediaFallback={
               module.content.media ? (
-                <PreviewMedia
+                <MediaFrame
                   key={module.content.media.id}
                   media={module.content.media}
                   profile="hero"
+                  fit="contain"
                 />
               ) : undefined
             }
@@ -147,11 +150,14 @@ export function PreviewRenderer({
             sectionNumber={sectionNumber}
             mediaFallback={
               module.content.media ? (
-                <PreviewMedia
-                  key={module.content.media.id}
-                  media={module.content.media}
-                  profile="section"
-                />
+                <div className={aboutStyles.stage}>
+                  <MediaFrame
+                    key={module.content.media.id}
+                    media={module.content.media}
+                    profile="section"
+                    fit="cover"
+                  />
+                </div>
               ) : undefined
             }
           />

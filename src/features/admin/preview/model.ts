@@ -1,7 +1,7 @@
 import { deriveLayout } from '../../../../shared/cms/layout'
 import { cmsRevision, exact } from '../../../../shared/cms/primitives'
 import type { CmsCarouselEntry, CmsDocumentV2 } from '../../../../shared/cms/v2'
-import { parseCmsDocument } from '../../../../shared/cms/validation-v2'
+import { parseCmsDocument, readCmsPublished } from '../../../../shared/cms/validation-v2'
 import type { CatalogState } from '../../catalog/useCatalog'
 
 export type PreviewDocument = {
@@ -18,11 +18,16 @@ export function readPreviewSnapshot(value: unknown): PreviewDocument | null {
     !exact(value, keys) ||
     !exact(value.draft, ['revision', 'document']) ||
     !cmsRevision(value.draft.revision) ||
-    value.published !== null ||
     ('warnings' in value &&
       (!Array.isArray(value.warnings) || !value.warnings.every((w) => typeof w === 'string')))
   )
     throw new Error('INVALID_PREVIEW')
+  if (value.published !== null && value.schema !== 2) throw new Error('INVALID_PREVIEW')
+  try {
+    readCmsPublished(value.published)
+  } catch {
+    throw new Error('INVALID_PREVIEW')
+  }
   if (value.schema === null && value.draft.document === null) return null
   if (
     value.schema === 1 &&

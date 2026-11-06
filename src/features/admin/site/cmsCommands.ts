@@ -8,15 +8,20 @@ import {
 } from './siteModel'
 
 /**
- * Cliente dos comandos do CMS v2 (`POST /api/admin/site/convert` e `GET /api/admin/site/commands/:id`).
- * Só reutiliza os endpoints existentes. Regras que esta camada garante:
+ * Cliente dos comandos do CMS v2, incluindo publicação do rascunho salvo.
+ * Regras que esta camada garante:
  * - uma chamada, uma requisição: nunca reenvia por conta própria (quem decide é a tela, com o administrador);
  * - `If-Match` sempre igual à `expectedRevision`, como o contrato exige;
  * - toda falha vira uma categoria: o que a tela precisa saber é se a operação pode ter sido gravada.
  */
 
 export type CommandInput =
-  | { action: 'saveDraft'; expectedRevision: string; operationId: string; document: CmsDocumentV2 }
+  | {
+      action: 'saveDraft' | 'publish'
+      expectedRevision: string
+      operationId: string
+      document: CmsDocumentV2
+    }
   | { action: 'previewConversion'; expectedRevision: string; operationId: string }
   | {
       action: 'convertToV2'
@@ -114,20 +119,27 @@ function bodyOf(input: CommandInput) {
     ...(input.action === 'convertToV2' && input.acknowledge
       ? { acknowledge: input.acknowledge }
       : {}),
-    ...(input.action === 'startV2' || input.action === 'saveDraft'
+    ...(input.action === 'startV2' || input.action === 'saveDraft' || input.action === 'publish'
       ? { document: input.document }
       : {}),
   }
 }
 
 async function post(input: CommandInput) {
-  // Salvar rascunho usa o endpoint próprio do contrato (PUT); os demais comandos, o de conversão.
+  // Salvar e publicar têm endpoints próprios; a conversão mantém seu contrato.
   const save = input.action === 'saveDraft'
-  return send(save ? '/api/admin/site/draft' : '/api/admin/site/convert', {
-    method: save ? 'PUT' : 'POST',
-    headers: { 'Content-Type': 'application/json', 'If-Match': `"${input.expectedRevision}"` },
-    body: JSON.stringify(bodyOf(input)),
-  })
+  return send(
+    save
+      ? '/api/admin/site/draft'
+      : input.action === 'publish'
+        ? '/api/admin/site/publish'
+        : '/api/admin/site/convert',
+    {
+      method: save ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', 'If-Match': `"${input.expectedRevision}"` },
+      body: JSON.stringify(bodyOf(input)),
+    },
+  )
 }
 
 /** Prévia da conversão v1 para v2. Não escreve nada: só calcula e responde. */
@@ -148,7 +160,7 @@ export async function previewConversion(
   }
 }
 
-/** `startV2`, `convertToV2` ou `saveDraft`: escrita. Uma só tentativa; o desfecho incerto é tratado por quem chama. */
+/** Escrita de conversão, rascunho ou publicação. Uma tentativa; nunca reenvia automaticamente. */
 export async function runCommand(
   input: Exclude<CommandInput, { action: 'previewConversion' }>,
 ): Promise<Outcome<CommandReceipt>> {

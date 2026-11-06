@@ -69,7 +69,7 @@ describe('readSiteSnapshot', () => {
 
   it.each([
     [
-      'publicado não nulo (publicação segue desativada)',
+      'metadados de publicação incompletos',
       { ...snapshot(previewFixture()), published: { versionId: 'x' } },
     ],
     ['chave extra no envelope', { ...snapshot(previewFixture()), extra: 1 }],

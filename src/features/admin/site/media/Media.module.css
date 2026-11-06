@@ -51,6 +51,14 @@
   background: var(--a-sage);
 }
 
+.framedPreview {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+}
+
 .previewEmpty {
   padding: 1rem;
   font-size: 0.875rem;

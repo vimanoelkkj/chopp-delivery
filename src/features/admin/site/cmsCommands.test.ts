@@ -27,6 +27,35 @@ const stub = (impl: (url: string, init: RequestInit) => Promise<Response>) => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('forma da requisição', () => {
+  it('publish: POST condicional com recibo publicado, sem reenvio automático', async () => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = '5531999999999'
+    const hero = document.modules.find((m) => m.template === 'hero')
+    if (hero?.template !== 'hero') throw Error('Fixture hero missing')
+    hero.content.media = { id: `media_${OP}`, alt: 'Imagem publicada' }
+    const result = {
+      ...receipt('publish'),
+      site: {
+        schema: 2,
+        draft: { revision: REV2, document },
+        published: { versionId: `version_${REV2.slice(3)}`, revision: REV2, document },
+      },
+    }
+    const fetchMock = stub(async () => json(200, result))
+    const input = { action: 'publish' as const, expectedRevision: REV2, operationId: OP, document }
+    expect((await runCommand(input)).ok).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/admin/site/publish')
+    expect(init.method).toBe('POST')
+    expect((init.headers as Record<string, string>)['If-Match']).toBe(`"${REV2}"`)
+    expect(JSON.parse(init.body as string)).toEqual(input)
+    expect(init.credentials).toBe('same-origin')
+    fetchMock.mockImplementation(async () =>
+      json(200, { ...result, site: { ...result.site, published: null } }),
+    )
+    expect(await runCommand(input)).toEqual({ ok: false, failure: { kind: 'unknown' } })
+  })
   it('startV2: POST em /api/admin/site/convert com If-Match igual à revisão e o corpo exato do contrato', async () => {
     const fetchMock = stub(async () => json(200, receipt()))
     const document = buildInitialDocument()

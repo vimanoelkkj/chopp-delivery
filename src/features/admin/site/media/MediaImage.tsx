@@ -13,12 +13,14 @@ export function MediaImage({
   alt,
   className,
   onState,
+  onSize,
 }: {
   id: string
   profile: MediaProfile
   alt: string
   className?: string
   onState?: (state: ThumbState) => void
+  onSize?: (size: { width: number; height: number }) => void
 }) {
   const path = mediaPath(id, profile)
   const [state, setState] = useState<ThumbState>(path ? 'loading' : 'failed')
@@ -34,7 +36,11 @@ export function MediaImage({
       loading="lazy"
       decoding="async"
       data-media-state={state}
-      onLoad={() => setState('ready')}
+      onLoad={(event) => {
+        const image = event.currentTarget
+        onSize?.({ width: image.naturalWidth, height: image.naturalHeight })
+        setState('ready')
+      }}
       onError={() => setState('failed')}
     />
   )

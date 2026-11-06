@@ -59,7 +59,7 @@ export type CmsMutationV2 = {
 export type CmsVersionedCommandResult = {
   command: {
     operationId: string
-    action: 'saveDraft' | 'convertToV2' | 'startV2'
+    action: 'saveDraft' | 'convertToV2' | 'startV2' | 'publish'
     expectedRevision: string
     revision: string
     versionId: string

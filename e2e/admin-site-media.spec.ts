@@ -22,6 +22,7 @@ type Item = {
   color: 'terracotta' | 'sage' | 'blue'
   /** Como a entrega do arquivo se comporta (a listagem não prova nada). */
   delivery?: 'ok' | 'fail'
+  image?: Buffer
 }
 type Post = {
   operationId: string
@@ -218,7 +219,7 @@ async function openEditor(
         status: 200,
         headers: { 'Cache-Control': 'no-store' },
         contentType: 'image/png',
-        body: images[item.color],
+        body: item.image ?? images[item.color],
       })
     },
   )
@@ -255,6 +256,104 @@ async function associate(page: Page, n: number) {
   await tile(page, n).check()
   await confirmPick(page).click()
   await expect(picker(page)).toBeHidden()
+}
+
+for (const width of [390, 1440]) {
+  test(`3C: Hero e Sobre associam, trocam e desassociam sem publicar; enquadramento real em ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 })
+    const wide = await sharp({
+      create: { width: 1600, height: 400, channels: 3, background: '#c8693f' },
+    })
+      .png()
+      .toBuffer()
+    const portrait = await sharp({
+      create: { width: 400, height: 1600, channels: 3, background: '#8fb3cf' },
+    })
+      .png()
+      .toBuffer()
+    const writes: string[] = []
+    page.on('request', (request) => {
+      if (!['GET', 'HEAD'].includes(request.method()))
+        writes.push(`${request.method()} ${new URL(request.url()).pathname}`)
+    })
+    const { server, media } = await openEditor(page, {
+      media: {
+        items: [
+          { ...readyItem(1), image: wide },
+          { ...readyItem(2, 'blue'), image: portrait },
+          readyItem(3),
+        ],
+      },
+    })
+    await associate(page, 1)
+    const slot = page.locator('[data-media-slot]')
+    await expect(slot.locator('[data-media-fit="contain"]')).toHaveAttribute(
+      'data-media-cropped',
+      'false',
+    )
+    await alt(page).fill('Hero de teste')
+    expect(server.puts).toHaveLength(0)
+    await saveButton(page).click()
+    await expect(saved(page)).toBeVisible()
+    await section(page, /História editorial/).click()
+    await associate(page, 3)
+    await expect(slot.locator('[data-media-fit="cover"]')).toHaveAttribute(
+      'data-media-cropped',
+      'false',
+    )
+    await alt(page).fill('Sobre de teste')
+    await associate(page, 2)
+    await expect(alt(page)).toHaveValue('Sobre de teste')
+    await expect(slot.locator('[data-media-fit="cover"]')).toHaveAttribute(
+      'data-media-cropped',
+      'true',
+    )
+    await expect(slot.getByText('Recorte central neste enquadramento')).toBeVisible()
+    await saveButton(page).click()
+    await expect(saved(page)).toBeVisible()
+    await page.getByRole('button', { name: 'Remover imagem', exact: true }).click()
+    await expect(slot.locator('img')).toHaveCount(0)
+    await saveButton(page).click()
+    await expect(saved(page)).toBeVisible()
+    const about = server.document.modules.find((module) => module.template === 'about')
+    if (about?.template !== 'about') throw Error('Missing fixture about')
+    expect(about.content.media).toBeNull()
+    await associate(page, 2)
+    await alt(page).fill('Sobre de teste')
+    await saveButton(page).click()
+    await expect(saved(page)).toBeVisible()
+    expect(server.puts.map((put) => put.expectedRevision)).toEqual([rev(1), rev(2), rev(3), rev(4)])
+    await page.goto('/admin/preview/frame')
+    const heroFrame = page.locator(
+      'section[aria-labelledby="hero-title"] [data-media-fit="contain"]',
+    )
+    const aboutFrame = page.locator('#sobre [data-media-fit="cover"]')
+    await expect(heroFrame).toHaveAttribute('data-media-state', 'ready')
+    await expect(heroFrame).toHaveAttribute('data-media-cropped', 'false')
+    await aboutFrame.scrollIntoViewIfNeeded()
+    await expect(aboutFrame).toHaveAttribute('data-media-state', 'ready')
+    await expect(aboutFrame).toHaveAttribute('data-media-cropped', 'true')
+    await expect(aboutFrame.locator('img')).toHaveCSS('object-fit', 'cover')
+    await expect(heroFrame.locator('img')).toHaveCSS('object-fit', 'contain')
+    for (const frame of [heroFrame, aboutFrame]) {
+      const boxes = await frame.evaluate((node) => {
+        const image = node.querySelector('img')?.getBoundingClientRect()
+        const parent = node.parentElement?.getBoundingClientRect()
+        return {
+          image: image && { w: image.width, h: image.height },
+          parent: parent && { w: parent.width, h: parent.height },
+        }
+      })
+      expect(boxes.image).toEqual(boxes.parent)
+    }
+    await heroFrame.screenshot({ path: testInfo.outputPath('hero-contain.png') })
+    await aboutFrame.screenshot({ path: testInfo.outputPath('sobre-cover.png') })
+    expect(media.posts).toHaveLength(0)
+    expect(writes.every((path) => path === 'PUT /api/admin/site/draft')).toBe(true)
+    expect(await page.locator('img[src^="/api/site/media/"]').count()).toBe(0)
+  })
 }
 
 test.describe('M2B: biblioteca (estados)', () => {

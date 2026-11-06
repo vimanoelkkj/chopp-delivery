@@ -4,6 +4,7 @@ import { AdminButton } from '../../ui/AdminButton'
 import { EditorField } from '../EditorField'
 import { ALT_LIMIT, type MediaRef, problemKey } from '../editModel'
 import styles from './Media.module.css'
+import { MediaFrame } from './MediaFrame'
 import { MediaImage } from './MediaImage'
 import { SELECTED_UNAVAILABLE, shortId, type ThumbState } from './mediaModel'
 
@@ -79,11 +80,26 @@ export function MediaSlot({
 
       {media ? (
         <>
-          <SlotPreview
-            key={media.id}
-            media={media}
-            profile={template === 'hero' ? 'hero' : 'section'}
-          />
+          {template === 'hero' || template === 'about' ? (
+            <>
+              <div className={`${styles.preview} ${styles.framedPreview}`}>
+                <MediaFrame
+                  media={media}
+                  profile={template === 'hero' ? 'hero' : 'section'}
+                  fit={template === 'hero' ? 'contain' : 'cover'}
+                />
+              </div>
+              <p className={styles.slotNote}>
+                {template === 'hero'
+                  ? 'Hero: a imagem cabe inteira, sem recorte.'
+                  : 'Sobre: a imagem preenche o quadro e pode ter recorte central.'}{' '}
+                Esta é uma amostra 4:3. Confira o enquadramento real na prévia da página em desktop
+                e celular depois de salvar o rascunho.
+              </p>
+            </>
+          ) : (
+            <SlotPreview key={media.id} media={media} profile="section" />
+          )}
           <p className={styles.slotNote}>
             Imagem {shortId(media.id)}. Trocar escolhe outra imagem da biblioteca; a atual não é
             alterada nem apagada.
@@ -116,6 +132,12 @@ export function MediaSlot({
       {media === null && template === 'hero' ? (
         <p className={styles.slotNote}>
           A abertura precisará de uma imagem para ser publicada; o rascunho aceita sem.
+        </p>
+      ) : null}
+      {template === 'hero' || template === 'about' ? (
+        <p className={styles.slotNote}>
+          Remover imagem apenas desassocia deste rascunho; não exclui o arquivo da biblioteca. A
+          vitrine mantém a imagem publicada até uma nova publicação.
         </p>
       ) : null}
     </div>

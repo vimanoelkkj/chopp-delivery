@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react'
 import { Container } from '@/shared/ui/Container'
 import { KegCutout } from '@/shared/ui/KegCutout'
+import { PublishedMedia } from '@/shared/ui/PublishedMedia'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './AboutSection.module.css'
 
 export function AboutSection({
   editorial,
   mediaFallback,
+  publishedMedia,
   sectionNumber,
 }: {
+  /** Mídia da publicação vigente; ausente no preview/rascunho. */
+  publishedMedia?: { id: string; alt: string } | null
   sectionNumber?: string
   mediaFallback?: ReactNode
   editorial?: Pick<CmsContentsV2['about'], 'heading' | 'body'>
@@ -42,10 +46,18 @@ export function AboutSection({
         <div className={styles.mediaCard}>
           {mediaFallback ?? (
             <div className={styles.stage}>
-              <KegCutout
-                photo="studio30"
-                alt="Barril de chopp em aço inox escovado"
+              <PublishedMedia
+                media={publishedMedia}
+                profile="section"
+                fit="cover"
                 eager={false}
+                fallback={
+                  <KegCutout
+                    photo="studio30"
+                    alt="Barril de chopp em aço inox escovado"
+                    eager={false}
+                  />
+                }
               />
             </div>
           )}

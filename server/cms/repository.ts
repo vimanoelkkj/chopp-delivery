@@ -13,10 +13,16 @@ import { type AdminPrincipal, adminWriteProof } from '../auth/session'
 import { canonical, commandHash } from './canonical'
 import { parseCmsConversion } from './commands'
 import { convertCmsV1ToV2 } from './convert'
+import { type CmsMediaRecord, publicationMediaErrors } from './media-contract'
 import { collectMediaRefs } from './media-refs'
 import { cmsRevision, cmsUuid } from './primitives'
 import { cmsV1Repository } from './repository-v1'
-import { parseCmsDocument, parseCmsMutation } from './validation-v2'
+import {
+  parseCmsDocument,
+  parseCmsMutation,
+  projectPublicCmsV2,
+  readCmsPublished,
+} from './validation-v2'
 
 type Authorization = { principal: AdminPrincipal; config: AuthConfig }
 type Row = {
@@ -30,9 +36,16 @@ type Row = {
   kind: string
   origin_kind?: 'save' | 'convert' | 'start'
   source_version_id: string | null
+  published_version_id?: string | null
 }
 type Head =
-  | { schema: 2; revision: string; versionId: string; document: CmsDocumentV2 }
+  | {
+      schema: 2
+      revision: string
+      versionId: string
+      document: CmsDocumentV2
+      published: ReturnType<typeof readCmsPublished>
+    }
   | {
       schema: 1 | null
       revision: string
@@ -65,8 +78,8 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
     await access()
     if (!(await available())) throw Error('CMS_SCHEMA_UNAVAILABLE')
   }
-  const document2 = (json: string) => {
-    const r = parseCmsDocument(JSON.parse(json), 'draft')
+  const document2 = (json: string, mode: 'draft' | 'publish' = 'draft') => {
+    const r = parseCmsDocument(JSON.parse(json), mode)
     if (r.value?.schemaVersion !== 2) throw Error('CMS_STATE_INVALID')
     return r.value
   }
@@ -78,10 +91,27 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
       !cmsRevision(r.expected_revision) ||
       !cmsRevision(r.resulting_revision) ||
       !r.resulting_revision.startsWith('c2_') ||
-      r.kind !== 'draft' ||
+      !['draft', 'published'].includes(r.kind) ||
+      (r.kind === 'published' &&
+        (r.origin_kind !== 'save' || r.published_version_id !== r.version_id)) ||
       !['save', 'convert', 'start'].includes(r.origin_kind ?? '')
     )
       throw Error('CMS_STATE_INVALID')
+  }
+  const published = async (id: string | null | undefined, revision?: string) => {
+    if (!id) return null
+    const r = await db
+      .prepare('SELECT * FROM cms_v2_versions WHERE version_id=?')
+      .bind(id)
+      .first<Row>()
+    if (r?.kind !== 'published' || (revision !== undefined && r.resulting_revision !== revision))
+      throw Error('CMS_STATE_INVALID')
+    validateRow(r)
+    return readCmsPublished({
+      versionId: r.version_id,
+      revision: r.resulting_revision,
+      document: document2(r.document_json, 'publish'),
+    })
   }
   const receipt = (r: Row): CmsVersionedCommandResult => {
     validateRow(r)
@@ -89,11 +119,13 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
       command: {
         operationId: r.operation_id,
         action:
-          r.origin_kind === 'convert'
-            ? 'convertToV2'
-            : r.origin_kind === 'start'
-              ? 'startV2'
-              : 'saveDraft',
+          r.kind === 'published'
+            ? 'publish'
+            : r.origin_kind === 'convert'
+              ? 'convertToV2'
+              : r.origin_kind === 'start'
+                ? 'startV2'
+                : 'saveDraft',
         expectedRevision: r.expected_revision,
         revision: r.resulting_revision,
         versionId: r.version_id,
@@ -141,8 +173,7 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
         validateRow(row)
         if (
           row.draft_revision !== row.resulting_revision ||
-          row.published_version_id !== null ||
-          row.published_revision !== null
+          (row.published_version_id === null) !== (row.published_revision === null)
         )
           throw Error('CMS_STATE_INVALID')
         return {
@@ -150,6 +181,10 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
           revision: row.resulting_revision,
           versionId: row.version_id,
           document: document2(row.document_json),
+          published: await published(
+            row.published_version_id as string | null,
+            row.published_revision as string | undefined,
+          ),
         }
       }
     }
@@ -216,6 +251,7 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
   })
   const v2Command = async (row: Row) => {
     const result = receipt(row)
+    if (result.site.schema === 2) result.site.published = await published(row.published_version_id)
     if (row.origin_kind === 'convert') {
       const source = await db
         .prepare('SELECT document_json FROM cms_versions WHERE version_id=?')
@@ -251,6 +287,7 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
     hash: string,
     origin: 'save' | 'convert' | 'start',
     source: string | null,
+    kind: 'draft' | 'published' = 'draft',
   ) => {
     const version = `version_${crypto.randomUUID()}`,
       revision = `c2_${crypto.randomUUID()}`,
@@ -258,7 +295,7 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
     const [write, auth, result] = await db.batch([
       db
         .prepare(
-          `UPDATE cms_v2_write SET version_id=?,operation_id=?,expected_revision=?,resulting_revision=?,document_json=?,command_hash=?,actor_id=?,session_hash=?,origin=?,origin_kind=?,source_version_id=? WHERE singleton=1 AND ${proof.sql}`,
+          `UPDATE cms_v2_write SET version_id=?,operation_id=?,expected_revision=?,resulting_revision=?,document_json=?,command_hash=?,actor_id=?,session_hash=?,origin=?,origin_kind=?,source_version_id=?${kind === 'published' ? ",kind='published'" : ''} WHERE singleton=1 AND ${proof.sql}`,
         )
         .bind(
           version,
@@ -287,7 +324,8 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
       row.document_json !== documentJson ||
       row.expected_revision !== expected ||
       row.origin_kind !== origin ||
-      row.source_version_id !== source
+      row.source_version_id !== source ||
+      row.kind !== kind
     )
       throw Error('CMS_WRITE_INCOMPLETE')
     return v2Command(row)
@@ -315,6 +353,58 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
       throw Error(active.schema !== 2 ? 'CMS_SCHEMA_MISMATCH' : 'CMS_REVISION_CONFLICT')
     }
     return execute(c.document, c.expectedRevision, c.operationId, hash, 'save', null)
+  }
+  const publish = async (input: unknown): Promise<CmsVersionedCommandResult> => {
+    const parsed = parseCmsMutation(input)
+    if (parsed.value?.action !== 'publish' || parsed.value.document.schemaVersion !== 2)
+      throw Error('CMS_INVALID_COMMAND')
+    const c = parsed.value as CmsMutationV2
+    await requireV2()
+    await requirePublicationSchema(db)
+    const hash = await commandHash(c)
+    const replayPublication = async () => {
+      const prior = await lookup(c.operationId)
+      if (!prior) return null
+      if (
+        prior.schema !== 2 ||
+        prior.row.kind !== 'published' ||
+        prior.row.actor_id !== authorization.principal.user.id ||
+        prior.row.command_hash !== hash
+      )
+        throw Error('CMS_OPERATION_CONFLICT')
+      return v2Command(prior.row)
+    }
+    const prior = await replayPublication()
+    if (prior) return prior
+    const active = await head()
+    if (active.schema !== 2 || active.revision !== c.expectedRevision) {
+      const raced = await replayPublication()
+      if (raced) return raced
+      throw Error('CMS_REVISION_CONFLICT')
+    }
+    if (canonical(active.document) !== canonical(c.document)) throw Error('CMS_DRAFT_MISMATCH')
+    const ids = collectMediaRefs(c.document)
+    const inventory = new Map<string, CmsMediaRecord>()
+    if (ids.length) {
+      const rows = await db
+        .prepare(
+          `SELECT media_id,state,derivatives_json FROM cms_media WHERE media_id IN (${ids.map(() => '?').join(',')})`,
+        )
+        .bind(...ids)
+        .all<{
+          media_id: string
+          state: CmsMediaRecord['state']
+          derivatives_json: string | null
+        }>()
+      for (const r of rows.results)
+        inventory.set(r.media_id, {
+          id: r.media_id,
+          state: r.state,
+          derivatives: JSON.parse(r.derivatives_json ?? 'null'),
+        })
+    }
+    if (publicationMediaErrors(c.document, inventory).length) throw Error('CMS_MEDIA_UNAVAILABLE')
+    return execute(c.document, c.expectedRevision, c.operationId, hash, 'save', null, 'published')
   }
   type PreviewResult = {
     preview: { from: { versionId: string; revision: string } } & ReturnType<typeof convertCmsV1ToV2>
@@ -404,7 +494,7 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
         return {
           schema: 2,
           draft: { revision: active.revision, document: active.document },
-          published: null,
+          published: active.published,
           warnings: await warnings(active.document),
         }
       return active.document
@@ -431,8 +521,45 @@ export function cmsRepository(db: D1Database, authorization: Authorization) {
     },
     save,
     saveV2,
+    publish,
     previewConversion: (input: CmsConversionRequest) => conversion(input, 'previewConversion'),
     convertToV2: (input: CmsConversionRequest) => conversion(input, 'convertToV2'),
     startV2: (input: CmsConversionRequest) => conversion(input, 'startV2'),
+  }
+}
+
+export async function requirePublicationSchema(db: D1Database) {
+  if (
+    !(await db
+      .prepare("SELECT 1 FROM sqlite_schema WHERE type='view' AND name='cms_ready_publication'")
+      .first()) ||
+    !(await db.prepare('SELECT 1 FROM cms_ready_publication').first())
+  )
+    throw Error('CMS_SCHEMA_UNAVAILABLE')
+}
+
+/** Public reads follow only the published pointer; never return a draft or internal metadata. */
+export async function loadPublishedCms(db: D1Database) {
+  await requirePublicationSchema(db)
+  const row = await db
+    .prepare(`SELECT s.published_version_id,s.published_revision,v.kind,v.resulting_revision,v.document_json
+    FROM cms_v2_state s LEFT JOIN cms_v2_versions v ON v.version_id=s.published_version_id WHERE s.singleton=1`)
+    .first<{
+      published_version_id: string | null
+      published_revision: string | null
+      kind: string | null
+      resulting_revision: string | null
+      document_json: string | null
+    }>()
+  if (!row || (row.published_version_id === null && row.published_revision === null)) return null
+  if (
+    row.kind !== 'published' ||
+    row.resulting_revision !== row.published_revision ||
+    !row.document_json
+  )
+    throw Error('CMS_STATE_INVALID')
+  return {
+    revision: row.published_revision,
+    document: projectPublicCmsV2(JSON.parse(row.document_json)),
   }
 }

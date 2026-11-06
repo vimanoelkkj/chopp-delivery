@@ -6,6 +6,7 @@ import {
   capacityView,
   dimensionProblem,
   formatBytes,
+  frameCrops,
   MEDIA_UPLOAD_LIMITS,
   preflightFile,
   shortId,
@@ -17,6 +18,28 @@ import {
 } from './mediaModel'
 
 const ID = 'media_12345678-1234-4123-8123-123456789012'
+
+describe('Hero e Sobre: enquadramento da imagem entregue', () => {
+  it('contain preserva imagens horizontais e verticais sem recorte', () => {
+    for (const image of [
+      { width: 1600, height: 400 },
+      { width: 400, height: 1600 },
+    ])
+      expect(frameCrops('contain', { width: 384, height: 288 }, image)).toBe(false)
+  })
+  it('cover detecta recorte central e recalcula quando a largura muda', () => {
+    const image = { width: 640, height: 480 }
+    expect(frameCrops('cover', { width: 280, height: 209.5 }, image)).toBe(false)
+    expect(frameCrops('cover', { width: 384, height: 288 }, image)).toBe(false)
+    expect(frameCrops('cover', { width: 300, height: 288 }, image)).toBe(true)
+    expect(frameCrops('cover', { width: 600, height: 352 }, image)).toBe(true)
+  })
+  it('não presume recorte antes de carregar ou quando as medidas são inválidas', () => {
+    expect(frameCrops('cover', null, { width: 640, height: 480 })).toBeNull()
+    expect(frameCrops('cover', { width: 384, height: 288 }, null)).toBeNull()
+    expect(frameCrops('cover', { width: 0, height: 288 }, { width: 640, height: 480 })).toBeNull()
+  })
+})
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])
 const WEBP = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x45, 0x42, 0x50])
