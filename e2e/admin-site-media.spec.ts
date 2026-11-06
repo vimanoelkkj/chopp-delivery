@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, type Route, test } from '@playwright/test'
 import sharp from 'sharp'
+import { cachaca, products } from '../src/features/catalog/products'
 import { previewFixture } from '../tests/e2e-real/preview-fixture'
 
 /**
@@ -355,6 +356,158 @@ for (const width of [390, 1440]) {
     expect(await page.locator('img[src^="/api/site/media/"]').count()).toBe(0)
   })
 }
+
+test.describe('H5.6A: seleção editorial de barris', () => {
+  const catalog = (empty = false) => ({
+    revision: 'r1',
+    categories: [
+      {
+        id: 'chopes',
+        name: 'Chopes',
+        items: empty
+          ? []
+          : products.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              visible: item.id !== 'villa-alema',
+              variants: ([30, 50] as const).map((size) => ({
+                code: String(size),
+                label: `Barril de ${size} L`,
+                volumeMl: size * 1000,
+                priceCents: item.prices[size] === null ? null : item.prices[size] * 100,
+              })),
+            })),
+      },
+      {
+        id: 'cachacas',
+        name: 'Cachaças',
+        items: [
+          {
+            id: 'cachaca',
+            name: cachaca.title,
+            description: cachaca.description,
+            visible: true,
+            variants: [
+              {
+                code: 'bottle',
+                label: 'Garrafa',
+                volumeMl: cachaca.bottleMl,
+                priceCents: cachaca.price * 100,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+  for (const width of [390, 1440]) {
+    test(`seleciona, ordena, remove e salva apenas o rascunho em ${width}px`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.route('**/api/admin/catalog/v2', (route) => {
+        expect(route.request().method()).toBe('GET')
+        return route.fulfill({ status: 200, json: catalog() })
+      })
+      const document = previewFixture()
+      const carousel = document.modules.find((module) => module.template === 'carousel')
+      if (carousel?.template !== 'carousel') throw Error('Missing carousel')
+      carousel.content.entries = []
+      const writes: string[] = []
+      page.on('request', (request) => {
+        if (request.method() !== 'GET')
+          writes.push(`${request.method()} ${new URL(request.url()).pathname}`)
+      })
+      const { server } = await openEditor(page, { document })
+      await section(page, /Barris do catálogo/).click()
+      const select = page.getByRole('combobox', { name: 'Barris do catálogo', exact: true })
+      await expect(select).toBeEnabled()
+      await expect(
+        select.locator('option[value="villa-alema"], option[value="cachaca"]'),
+      ).toHaveCount(0)
+      for (const id of ['dronken', 'palato-beber', 'heineken']) {
+        await select.selectOption(id)
+        await page.getByRole('button', { name: 'Adicionar barril', exact: true }).click()
+        await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0)
+      }
+      await page.getByRole('button', { name: 'Subir Heineken', exact: true }).click()
+      await page.getByRole('button', { name: 'Remover Dronken', exact: true }).click()
+      const list = page.getByRole('list', { name: 'Barris selecionados' })
+      await expect(list.getByRole('listitem')).toHaveCount(2)
+      await expect(list.getByRole('listitem').nth(0)).toContainText('Heineken')
+      await expect(list.getByRole('listitem').nth(1)).toContainText('Palato Beber')
+      expect(server.puts).toHaveLength(0)
+      await saveButton(page).click()
+      await expect(saved(page)).toBeVisible()
+      expect(server.puts[0].expectedRevision).toBe(rev(1))
+      const stored = server.document.modules.find((module) => module.template === 'carousel')
+      expect(stored?.content).toEqual({
+        ...carousel.content,
+        entries: [
+          { itemId: 'heineken', media: null },
+          { itemId: 'palato-beber', media: null },
+        ],
+      })
+      expect(writes).toEqual(['PUT /api/admin/site/draft'])
+      expect(
+        await page.evaluate(
+          () => window.document.documentElement.scrollWidth <= window.innerWidth + 1,
+        ),
+      ).toBe(true)
+      await page
+        .locator('[aria-labelledby]')
+        .filter({ has: list })
+        .last()
+        .screenshot({ path: testInfo.outputPath(`carousel-editor-${width}.png`) })
+      await page.reload()
+      await section(page, /Barris do catálogo/).click()
+      await expect(list.getByRole('listitem').nth(0)).toContainText('Heineken')
+      await expect(list.getByRole('listitem').nth(1)).toContainText('Palato Beber')
+    })
+  }
+  test('loading, erro e catálogo vazio preservam a seleção e permitem tentar novamente', async ({
+    page,
+  }) => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let mode: 'error' | 'empty' | 'ready' = 'error'
+    await page.route('**/api/admin/catalog/v2', async (route) => {
+      await gate
+      return route.fulfill(
+        mode === 'error'
+          ? error(503, 'UNAVAILABLE')
+          : { status: 200, json: catalog(mode === 'empty') },
+      )
+    })
+    const { server } = await openEditor(page)
+    await section(page, /Barris do catálogo/).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Carregando barris do catálogo' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Adicionar barril', exact: true })).toBeDisabled()
+    release()
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Não foi possível carregar o catálogo' }),
+    ).toBeVisible()
+    const list = page.getByRole('list', { name: 'Barris selecionados' })
+    await expect(list.getByRole('listitem')).toHaveCount(2)
+    mode = 'empty'
+    await page.getByRole('button', { name: 'Tentar carregar catálogo novamente' }).click()
+    await expect(
+      page.getByText('Nenhum produto visível de chopes disponível para selecionar.'),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Adicionar barril', exact: true })).toBeDisabled()
+    mode = 'ready'
+    await page.getByRole('button', { name: 'Atualizar catálogo', exact: true }).click()
+    await expect(
+      page.getByRole('combobox', { name: 'Barris do catálogo', exact: true }),
+    ).toBeEnabled()
+    expect(server.puts).toHaveLength(0)
+  })
+})
 
 test.describe('M2B: biblioteca (estados)', () => {
   test('mostra miniaturas reais, cota consumida/restante e a regra de formato e tamanho', async ({

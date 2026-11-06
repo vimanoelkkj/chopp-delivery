@@ -5,6 +5,8 @@ import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
 import { AdminButton } from '../ui/AdminButton'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Switch } from '../ui/Switch'
+import { CarouselEntries } from './CarouselEntries'
+import { changeCarousel } from './carouselModel'
 import type { Failure } from './cmsCommands'
 import { EditorField } from './EditorField'
 import {
@@ -206,6 +208,7 @@ function SectionEditor({
   disabled,
   edit,
   onPickMedia,
+  onExpired,
 }: {
   doc: CmsDocumentV2
   layout: ReturnType<typeof deriveLayout>
@@ -214,6 +217,7 @@ function SectionEditor({
   disabled: boolean
   edit: Edit
   onPickMedia: (moduleId: string) => void
+  onExpired: () => void
 }) {
   const detail = describeSection(doc, layout, moduleId)
   const module = doc.modules.find((m) => m.id === moduleId)
@@ -255,6 +259,19 @@ function SectionEditor({
       <h3 className={view.groupTitle}>Conteúdo</h3>
       <div className={styles.fields}>
         {detail.content.map((row) => {
+          if (
+            module.template === 'carousel' &&
+            (row.key === 'entries' || row.key.startsWith('entries.'))
+          )
+            return row.key === 'entries' ? (
+              <CarouselEntries
+                key={row.key}
+                entries={module.content.entries}
+                disabled={disabled}
+                onExpired={onExpired}
+                onChange={(action) => edit((current) => changeCarousel(current, moduleId, action))}
+              />
+            ) : null
           if (row.group)
             return (
               <div key={row.key} className={styles.listHead}>
@@ -611,6 +628,7 @@ export function HomeEditor({
                 disabled={locked}
                 edit={edit}
                 onPickMedia={pickMedia}
+                onExpired={expireWithRescue}
               />
             </fieldset>
           </section>
