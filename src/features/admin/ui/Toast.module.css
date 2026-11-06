@@ -11,7 +11,7 @@
 
 .success {
   background: var(--a-ok-bg);
-  border-color: #b9cfb5;
+  border-color: var(--theme-success-border);
   color: var(--a-ok);
 }
 

@@ -14,9 +14,9 @@
   width: min(56rem, calc(100vw - 2rem));
 }
 
-/* ::backdrop não herda os tokens do painel em todos os navegadores: cor literal. */
+/* Scope the backdrop explicitly as older engines may not inherit custom properties here. */
 .dialog::backdrop {
-  background: rgb(34 40 42 / 0.45);
+  background: var(--theme-overlay);
 }
 
 .panel {

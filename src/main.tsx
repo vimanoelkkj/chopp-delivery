@@ -8,11 +8,15 @@ import '@fontsource/hanken-grotesk/latin-900'
 import '@fontsource/ibm-plex-mono/latin-400'
 import '@fontsource/ibm-plex-mono/latin-500'
 import './styles/tokens.css'
+import './styles/themes.css'
 import './styles/base.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
+import { applyEarlyAdminTheme } from './features/admin/adminTheme'
+
+applyEarlyAdminTheme(document.documentElement, window.location, import.meta.env.DEV)
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Elemento #root não encontrado')

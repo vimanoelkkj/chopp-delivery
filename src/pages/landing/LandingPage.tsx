@@ -3,6 +3,7 @@ import { useCatalog } from '@/features/catalog/useCatalog'
 import { WhatsAppNumberContext } from '@/features/contact/WhatsAppNumberContext'
 import { usePublishedSite } from '@/features/site/usePublishedSite'
 import { PASTEL_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
+import { themeAttributes } from '@/shared/lib/theme'
 import { useInView } from '@/shared/lib/useInView'
 import { EditorialSections } from './EditorialSections'
 import styles from './LandingPage.module.css'
@@ -44,7 +45,12 @@ export function LandingPage() {
 
   return (
     <WhatsAppNumberContext value={site?.document.commercial.whatsappNumber ?? null}>
-      <div id="topo" className={styles.page} data-editorial-state={editorial.status}>
+      <div
+        {...themeAttributes('storefront')}
+        id="topo"
+        className={styles.page}
+        data-editorial-state={editorial.status}
+      >
         <SiteHeader links={links} deliveryRegion={hero?.content.deliveryRegion} />
         <p className={styles.editorialStatus} role="status" aria-live="polite" aria-atomic="true">
           {status}

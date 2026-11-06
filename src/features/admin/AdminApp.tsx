@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ADMIN_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
+import { themeAttributes } from '@/shared/lib/theme'
 import './admin.css'
 import styles from './AdminApp.module.css'
 import { AdminShell } from './AdminShell'
@@ -12,10 +13,13 @@ import { useAdminSession } from './session/useAdminSession'
 import type { SiteRescue } from './site/HomeEditor'
 import { AdminButton } from './ui/AdminButton'
 import { BootSplash } from './ui/BootSplash'
+import { AdminThemeContext, useAdminTheme } from './useAdminTheme'
 
 /** Página do painel (rota /admin). Carregada sob demanda: o site público não baixa este código. */
 export default function AdminApp() {
-  useDocumentTheme(ADMIN_THEME)
+  const theme = useAdminTheme()
+  const mode = theme.mode
+  useDocumentTheme(ADMIN_THEME, mode)
   const { state, retry, signedIn, expired, signOut } = useAdminSession()
   // Rascunho guardado só em memória quando a sessão expira no meio da edição (some ao recarregar).
   const rescue = useRef<Rescue | null>(null)
@@ -68,43 +72,45 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <div data-admin className={styles.root}>
-      {import.meta.env.MODE !== 'release' && import.meta.env.MODE !== 'admin-integration' ? (
-        <p role="note">Modo isolado: o catálogo é fictício e não grava no D1.</p>
-      ) : null}
-      {state.status === 'checking' ? <BootSplash /> : null}
-      {state.status === 'unavailable' ? (
-        <main className={styles.unavailable}>
-          <p className={styles.eyebrow}>Sem conexão com o painel</p>
-          <h1 className={styles.title}>Não conseguimos verificar seu acesso</h1>
-          <p className={styles.text}>Tente de novo em instantes.</p>
-          <AdminButton onClick={retry}>Tentar de novo</AdminButton>
-        </main>
-      ) : null}
-      {state.status === 'anonymous' ? (
-        <LoginScreen notice={state.notice} onSignedIn={signedIn} />
-      ) : null}
-      {state.status === 'authenticated' ? (
-        /^\/admin\/preview\/?$/.test(window.location.pathname) ? (
-          <PreviewShell
-            username={state.user.username}
-            onSignOut={signOutAndDiscard}
-            onExpired={onExpired}
-          />
-        ) : (
-          <AdminShell
-            user={state.user}
-            gateway={gateway}
-            onSignOut={signOutAndDiscard}
-            onExpired={onExpired}
-            rescue={rescue.current}
-            onRescueHandled={onRescueHandled}
-            siteRescue={siteRescue.current}
-            onSiteRescue={onSiteRescue}
-            onSiteRescueHandled={onSiteRescueHandled}
-          />
-        )
-      ) : null}
-    </div>
+    <AdminThemeContext.Provider value={theme}>
+      <div {...themeAttributes('admin', mode)} data-admin className={styles.root}>
+        {import.meta.env.MODE !== 'release' && import.meta.env.MODE !== 'admin-integration' ? (
+          <p role="note">Modo isolado: o catálogo é fictício e não grava no D1.</p>
+        ) : null}
+        {state.status === 'checking' ? <BootSplash /> : null}
+        {state.status === 'unavailable' ? (
+          <main className={styles.unavailable}>
+            <p className={styles.eyebrow}>Sem conexão com o painel</p>
+            <h1 className={styles.title}>Não conseguimos verificar seu acesso</h1>
+            <p className={styles.text}>Tente de novo em instantes.</p>
+            <AdminButton onClick={retry}>Tentar de novo</AdminButton>
+          </main>
+        ) : null}
+        {state.status === 'anonymous' ? (
+          <LoginScreen notice={state.notice} onSignedIn={signedIn} />
+        ) : null}
+        {state.status === 'authenticated' ? (
+          /^\/admin\/preview\/?$/.test(window.location.pathname) ? (
+            <PreviewShell
+              username={state.user.username}
+              onSignOut={signOutAndDiscard}
+              onExpired={onExpired}
+            />
+          ) : (
+            <AdminShell
+              user={state.user}
+              gateway={gateway}
+              onSignOut={signOutAndDiscard}
+              onExpired={onExpired}
+              rescue={rescue.current}
+              onRescueHandled={onRescueHandled}
+              siteRescue={siteRescue.current}
+              onSiteRescue={onSiteRescue}
+              onSiteRescueHandled={onSiteRescueHandled}
+            />
+          )
+        ) : null}
+      </div>
+    </AdminThemeContext.Provider>
   )
 }

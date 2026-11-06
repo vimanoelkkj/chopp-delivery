@@ -32,7 +32,7 @@
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: #22282a;
+  background: var(--theme-logo-background);
 }
 
 .name {

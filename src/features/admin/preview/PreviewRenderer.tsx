@@ -12,6 +12,7 @@ import { HowItWorks } from '../../../pages/landing/sections/HowItWorks'
 import { PromoSection } from '../../../pages/landing/sections/PromoSection'
 import { SiteHeader } from '../../../pages/landing/sections/SiteHeader'
 import { Ticker } from '../../../pages/landing/sections/Ticker'
+import { themeAttributes } from '../../../shared/lib/theme'
 import type { CatalogState } from '../../catalog/useCatalog'
 import { CommercialPreviewContext } from '../../contact/CommercialPreviewContext'
 import { type MediaProfile, mediaPath } from '../mediaPath'
@@ -185,6 +186,7 @@ export function PreviewRenderer({
     <CommercialPreviewContext value={true}>
       <div
         id="topo"
+        {...themeAttributes('storefront')}
         className={pageStyles.page}
         onClickCapture={blockNavigation}
         onAuxClickCapture={blockNavigation}

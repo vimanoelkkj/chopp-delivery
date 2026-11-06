@@ -28,7 +28,7 @@
 /* Ação principal: o único uso do pêssego no painel. */
 .gold {
   background: var(--a-peach);
-  color: var(--a-ink);
+  color: var(--theme-on-action);
 }
 
 .gold:hover:not(:disabled) {
@@ -53,12 +53,21 @@
 }
 
 .cream:hover:not(:disabled) {
-  background: #f6d9d5;
+  background: var(--theme-danger-hover);
 }
 
 .button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Dark admin: opacity alone leaves a disabled copper button looking like a dim active one.
+   A flat neutral surface never reads as an action. */
+:global([data-theme-surface='admin'][data-color-mode='dark']) .button:disabled {
+  opacity: 1;
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-disabled);
 }
 
 .pending {

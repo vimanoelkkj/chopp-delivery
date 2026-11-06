@@ -28,7 +28,7 @@
   width: 1.125rem;
   height: 1.125rem;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--theme-switch-thumb);
   transform: translateX(1.25rem);
   transition: transform 0.2s var(--admin-ease);
 }

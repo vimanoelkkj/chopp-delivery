@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react'
 import seal from '@/assets/admin-seal.png'
 import styles from './AdminHeader.module.css'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 type AdminHeaderProps = {
   username: string
@@ -19,6 +20,7 @@ export function AdminHeader({ username, signingOut, onSite, onLogout }: AdminHea
             Painel <span>Delegas</span>
           </p>
         </div>
+        <ThemeSwitcher />
         <nav className={styles.nav} aria-label="Painel">
           <a className={styles.site} href="/" onClick={onSite}>
             Ver o site

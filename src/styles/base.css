@@ -29,14 +29,14 @@ body {
 /*
  * Documento da vitrine pública (Pastel Brewery): o fundo creme cobre o overscroll do celular.
  * Só vale quando uma página ativa o tema em <html data-theme="pastel"> (ver documentTheme.ts);
- * o painel administrativo não ativa e segue com o fundo escuro global acima.
+ * o painel ativa seu próprio escopo. Ambos preservam o fundo claro como padrão inicial.
  */
 html[data-theme='pastel'],
 html[data-theme='pastel'] body,
 html[data-theme='admin'],
 html[data-theme='admin'] body {
-  background: #faf5ea;
-  color: #22282a;
+  background: var(--theme-background);
+  color: var(--theme-text);
 }
 
 h1,

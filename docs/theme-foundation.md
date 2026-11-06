@@ -1,0 +1,10 @@
+# Temas D1 — base local
+
+Vitrine e painel mantêm seus padrões claros atuais. A paleta Pastel Brewery, tipografia, formas, composição e comportamento do Conceito C são preservados.
+
+- `src/styles/themes.css`: paletas semânticas `--theme-*` para fundo, superfícies, texto, bordas, foco (via texto), ações, estados, sombras e carrossel. Cada `[data-theme-surface]` reinicia a paleta clara; somente `[data-color-mode='dark']` aplica a paleta escura. Assim uma prévia clara pode estar dentro de um painel escuro.
+- `themeAttributes(surface, mode)` em `src/shared/lib/theme.ts`: escopos independentes `storefront` e `admin`, ambos com padrão `light`. Os aliases existentes da vitrine e `--a-*` do painel apontam para a paleta compartilhada; os componentes não precisam trocar de contrato.
+- `useDocumentTheme(theme, mode)` mantém fundo/overscroll do documento coerentes com a tela ativa. A pilha usa identidade por instância para limpar corretamente em StrictMode e transições, inclusive com modos diferentes do mesmo tema. IDs legados `pastel`/`admin` continuam compatíveis.
+- `resolveThemeMode('system', preferredMode)` prepara a resolução futura de preferência. Não há consulta a `matchMedia`, listener, media query automática, botão ou persistência. Hoje os pontos de aplicação usam apenas os padrões claros.
+
+Uma futura alternância deve fornecer o mesmo modo ao escopo da tela e ao hook do documento; a prévia CMS mantém seu escopo próprio. Antes de expor dark mode, revisar os componentes com cores locais fixas, imagens, estados e contrastes em ambos os modos. O tema escuro administrativo é a **Brasa Premium** (D2R, aprovada pelo proprietário): grafite quente, off-white quente, cobre na ação e âmbar no acento; o aviso informativo mantém um azul-ardósia dessaturado para continuar distinto da base quente, e botões desabilitados no painel escuro usam superfície neutra plana em vez de apenas opacidade. A paleta escura da vitrine segue como base explícita, ainda sem aprovação visual completa. Não confundir esta fase D1 de temas com alterações no banco Cloudflare D1: nenhum backend, banco ou gate foi alterado.

@@ -6,68 +6,68 @@
  *         grafite #22282A (texto) · verde #2A6048 (preços e detalhes).
  * Tipografia: Hanken Grotesk como única família (display e rótulos incluídos), títulos em frase.
  *
- * O painel administrativo continua com os tokens globais (escuros) de styles/tokens.css: o tema vive
- * só aqui, então nada fora da vitrine é afetado. Os componentes leem estes tokens semânticos.
+ * As cores vêm da paleta semântica compartilhada em styles/themes.css.
+ * Este escopo preserva os aliases legados e o ritmo visual aprovado da vitrine.
  */
 .page {
   /* tokens legados */
-  --color-black: #22282a;
-  --color-coal: #faf5ea;
-  --color-panel: #fffdf7;
-  --color-steel: #e7eee2;
-  --color-line: #d8d2c0;
-  --color-line-strong: #8d9788;
-  --color-muted: #56605a;
-  --color-soft: #38403b;
-  --color-bone: #22282a;
-  --color-gold: #f6b48e;
-  --color-gold-hover: #fac6a6;
+  --color-black: var(--theme-text);
+  --color-coal: var(--theme-background);
+  --color-panel: var(--theme-surface);
+  --color-steel: var(--theme-surface-neutral);
+  --color-line: var(--theme-border-warm);
+  --color-line-strong: var(--theme-border-strong);
+  --color-muted: var(--theme-text-muted);
+  --color-soft: var(--theme-text-soft);
+  --color-bone: var(--theme-text);
+  --color-gold: var(--theme-action);
+  --color-gold-hover: var(--theme-action-hover);
 
   /* tokens do Conceito C, re-escopados */
-  --bg-dark: #faf5ea;
-  --bg-elevated: #e6eee0;
-  --surface-card: #cfddcb;
-  --color-gold-soft: #2a6048;
-  --color-amber: #1f6b4a;
-  --color-amber-hover: #2a805b;
-  --text-offwhite: #22282a;
-  --text-muted-green: #4a554e;
-  --border-subtle: #d5dccb;
-  --border-gold-subtle: rgba(47, 107, 79, 0.3);
+  --bg-dark: var(--theme-background);
+  --bg-elevated: var(--theme-surface-soft);
+  --surface-card: var(--theme-surface-raised);
+  --color-gold-soft: var(--theme-accent);
+  --color-amber: var(--theme-success-text);
+  --color-amber-hover: var(--theme-success-hover);
+  --text-offwhite: var(--theme-text);
+  --text-muted-green: var(--theme-text-secondary);
+  --border-subtle: var(--theme-border);
+  --border-gold-subtle: var(--theme-accent-line);
 
   /* papéis semânticos usados pelos componentes */
-  --surface-panel: #fffdf7;
-  --surface-deep: #e6eee0;
-  --surface-inset: rgba(230, 238, 224, 0.7);
-  --surface-closing: #e6eee0;
-  --on-accent: #22282a;
-  --accent-border: rgba(47, 107, 79, 0.45);
-  --numeral-ink: rgba(47, 107, 79, 0.16);
-  --header-bg: rgba(250, 245, 234, 0.94);
-  --ok-ink: #1f6b4a;
-  --accent-text: #2a6048;
-  --sticky-fade: #faf5ea;
-  --shadow-panel: 0 14px 32px rgba(34, 40, 42, 0.1);
-  --shadow-hover: 0 14px 30px rgba(34, 40, 42, 0.14);
+  --surface-panel: var(--theme-surface);
+  --surface-deep: var(--theme-surface-soft);
+  --surface-inset: var(--theme-inset);
+  --surface-closing: var(--theme-surface-soft);
+  --on-accent: var(--theme-on-action);
+  --accent-border: var(--theme-accent-border);
+  --numeral-ink: var(--theme-numeral);
+  --header-bg: var(--theme-header);
+  --ok-ink: var(--theme-success-text);
+  --accent-text: var(--theme-accent);
+  --sticky-fade: var(--theme-background);
+  --shadow-panel: var(--theme-shadow);
+  --shadow-hover: var(--theme-shadow-hover);
 
   /* carrossel: card central azul-pó, laterais discretos, seleção e navegação em pêssego */
-  --bc-card-bg: #d9e7f1;
-  --bc-side-bg: #eef2ee;
+  --bc-card-bg: var(--theme-surface-feature);
+  --bc-side-bg: var(--theme-carousel-side);
   --bc-side-brightness: 0.98;
   --bc-img-radius: 0;
-  --bc-center-border: rgba(34, 40, 42, 0.24);
-  --bc-center-shadow: 0 22px 38px -10px rgba(34, 40, 42, 0.24), 0 2px 6px rgba(34, 40, 42, 0.1);
-  --bc-rule: rgba(34, 40, 42, 0.2);
-  --on-strong: #ffffff;
-  --bc-chip-bg: #f4f8fb;
-  --bc-chip-selected-bg: #f6b48e;
-  --bc-chip-selected-ink: #22282a;
-  --bc-chip-selected-border: #22282a;
-  --bc-nav-bg: #f6b48e;
-  --bc-nav-ink: #22282a;
-  --bc-nav-border: rgba(34, 40, 42, 0.55);
-  --bc-nav-hover-bg: #fac6a6;
-  --bc-nav-hover-ink: #22282a;
+  --bc-center-border: var(--theme-carousel-border);
+  --bc-center-shadow: var(--theme-carousel-shadow);
+  --bc-rule: var(--theme-rule);
+  --on-strong: var(--theme-on-strong);
+  --bc-chip-bg: var(--theme-chip);
+  --bc-chip-selected-bg: var(--theme-action);
+  --bc-chip-selected-ink: var(--theme-on-action);
+  --bc-chip-selected-border: var(--theme-on-action);
+  --bc-nav-bg: var(--theme-action);
+  --bc-nav-ink: var(--theme-on-action);
+  --bc-nav-border: var(--theme-nav-border);
+  --bc-nav-hover-bg: var(--theme-action-hover);
+  --bc-nav-hover-ink: var(--theme-on-action);
 
   /* tipografia e ritmo */
   --font-display: var(--font-body);
@@ -77,7 +77,7 @@
   --text-h2-large: var(--text-h2);
   --text-cta: clamp(2.75rem, 2rem + 3.5vw, 4rem);
   --section-y: clamp(3rem, 2rem + 4vw, 5rem);
-  --focus-ring: 3px solid #22282a;
+  --focus-ring: 3px solid var(--theme-text);
 
   /* formas: contêineres 1.25rem, controles 0.75rem, pílulas só para status e navegação */
   --radius-card: 1.25rem;

@@ -11,7 +11,7 @@
 
 .seal {
   border-radius: 50%;
-  background: #22282a;
+  background: var(--theme-logo-background);
   animation: pulse 1.6s ease-in-out infinite;
 }
 

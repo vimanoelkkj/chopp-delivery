@@ -1,0 +1,69 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Quadro de estados: usa só tokens --theme-* da paleta ativa (mesmos escopos do painel). Não é código de produção. -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; }
+  [data-admin] { min-height: 100vh; padding: 24px; background: var(--theme-background); color: var(--theme-text); }
+  h1 { font-size: 1.1rem; margin: 0 0 16px; }
+  h2 { font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--theme-text-muted); margin: 24px 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .card { background: var(--theme-surface); border: 1px solid var(--theme-border); border-radius: 10px; padding: 16px; box-shadow: var(--theme-shadow); }
+  button { font: 600 .9rem system-ui; min-height: 44px; padding: 0 18px; border-radius: 8px; cursor: pointer; }
+  .primary { background: var(--theme-action); color: var(--theme-on-action); border: 1px solid transparent; }
+  .primary.hover { background: var(--theme-action-hover); }
+  .primary.active { background: var(--theme-action-active); }
+  .secondary { background: transparent; color: var(--theme-text); border: 1px solid var(--theme-field-border); }
+  .danger { background: var(--theme-danger-bg); color: var(--theme-danger); border: 1px solid var(--theme-danger-border); }
+  .disabled { background: var(--theme-surface-soft); color: var(--theme-disabled); border: 1px solid var(--theme-border); cursor: not-allowed; }
+  .focus { outline: 3px solid var(--theme-text); outline-offset: 2px; }
+  label { display: block; font-size: .8rem; color: var(--theme-text-muted); margin-bottom: 4px; }
+  input { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; font: inherit; background: var(--theme-input); color: var(--theme-text); border: 1px solid var(--theme-field-border); }
+  input.focus { outline: 3px solid var(--theme-text); outline-offset: 1px; }
+  input.invalid { border-color: var(--theme-danger); }
+  input.changed { background: var(--theme-changed); }
+  input:disabled { color: var(--theme-disabled); background: var(--theme-surface-soft); border-color: var(--theme-border); }
+  .err { color: var(--theme-danger); font-size: .8rem; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .alert { padding: 10px 14px; border-radius: 8px; border: 1px solid; font-size: .9rem; }
+  .info { background: var(--theme-info-bg); color: var(--theme-info); border-color: var(--theme-info-border); }
+  .success { background: var(--theme-success-bg); color: var(--theme-success); border-color: var(--theme-success-border); }
+  .warning { background: var(--theme-warning-bg); color: var(--theme-warning); border-color: var(--theme-warning); }
+  .error { background: var(--theme-danger-bg); color: var(--theme-danger); border-color: var(--theme-danger-border); }
+  .chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .78rem; background: var(--theme-chip); color: var(--theme-text); border: 1px solid var(--theme-border); }
+  .sw { width: 46px; height: 26px; border-radius: 999px; background: var(--theme-accent); position: relative; display: inline-block; }
+  .sw::after { content: ''; position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--theme-switch-thumb); }
+  .sw.off { background: var(--theme-surface-raised); border: 1px solid var(--theme-field-border); }
+  .sw.off::after { right: auto; left: 3px; background: var(--theme-text-muted); }
+  a { color: var(--theme-accent); }
+</style>
+<div data-admin data-theme-surface="admin" data-color-mode="dark">
+  <h1>Estados do painel</h1>
+  <h2>Botões</h2>
+  <div class="row card">
+    <button class="primary">Salvar rascunho</button>
+    <button class="primary hover">Hover</button>
+    <button class="primary active">Active</button>
+    <button class="secondary">Descartar alterações</button>
+    <button class="danger">Excluir</button>
+    <button class="disabled" disabled>Desabilitado</button>
+    <button class="primary focus">Foco</button>
+  </div>
+  <h2>Campos</h2>
+  <div class="grid card">
+    <div><label>Padrão</label><input value="Chopp Pilsen 50 L"></div>
+    <div><label>Foco</label><input class="focus" value="Em edição"></div>
+    <div><label>Alterado</label><input class="changed" value="Valor alterado"></div>
+    <div><label>Inválido</label><input class="invalid" value="Preço"><div class="err">Informe um valor válido.</div></div>
+    <div><label>Desabilitado</label><input disabled value="Somente leitura"></div>
+  </div>
+  <h2>Avisos, chips, switch e link</h2>
+  <div class="grid card">
+    <div class="alert info">Informação: a prévia usa dados de teste.</div>
+    <div class="alert success">Rascunho salvo com sucesso.</div>
+    <div class="alert warning">Há alterações não salvas.</div>
+    <div class="alert error">Não foi possível salvar. Tente novamente.</div>
+    <div class="row"><span class="chip">Visível</span><span class="chip">Destaque</span><span class="sw"></span><span class="sw off"></span><a href="#x">Ver no site</a></div>
+  </div>
+</div>

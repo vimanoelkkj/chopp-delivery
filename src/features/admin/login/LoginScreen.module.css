@@ -19,7 +19,7 @@
   width: 3rem;
   height: 3rem;
   border-radius: 50%;
-  background: #22282a;
+  background: var(--theme-logo-background);
 }
 
 .eyebrow {
@@ -44,7 +44,7 @@
 .notice {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #a9c4d8;
+  border: 1px solid var(--theme-info-border);
   border-radius: var(--radius-control);
   background: var(--a-info-bg);
   color: var(--a-info);

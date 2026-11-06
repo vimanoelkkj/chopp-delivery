@@ -8,31 +8,31 @@
  * 13,8:1, grafite/pêssego 8,4:1, secundário/creme 6,0:1, borda de campo 4,7:1, estados 6,4 a 7,0:1.
  */
 [data-admin] {
-  --a-bg: #faf5ea;
-  --a-panel: #fffdf7;
-  --a-input: #ffffff;
-  --a-sage: #e6eee0;
-  --a-blue: #d9e7f1;
-  --a-ink: #22282a;
-  --a-mute: #56605a;
-  --a-line: #d5dccb;
-  --a-field: #6b7568;
-  --a-green: #2a6048;
-  --a-off: #7a8577;
-  --a-peach: #f6b48e;
-  --a-peach-hover: #fac6a6;
-  --a-peach-active: #f0a27a;
-  --a-changed: #fff6e6;
+  --a-bg: var(--theme-background);
+  --a-panel: var(--theme-surface);
+  --a-input: var(--theme-input);
+  --a-sage: var(--theme-surface-soft);
+  --a-blue: var(--theme-surface-feature);
+  --a-ink: var(--theme-text);
+  --a-mute: var(--theme-text-muted);
+  --a-line: var(--theme-border);
+  --a-field: var(--theme-field-border);
+  --a-green: var(--theme-accent);
+  --a-off: var(--theme-disabled);
+  --a-peach: var(--theme-action);
+  --a-peach-hover: var(--theme-action-hover);
+  --a-peach-active: var(--theme-action-active);
+  --a-changed: var(--theme-changed);
 
-  --a-err: #9b1c1c;
-  --a-err-bg: #fbe9e7;
-  --a-err-line: #e3b5b0;
-  --a-warn: #7a4b00;
-  --a-warn-bg: #fff1d6;
-  --a-ok: #1f5e43;
-  --a-ok-bg: #e6eee0;
-  --a-info: #1d4e7a;
-  --a-info-bg: #d9e7f1;
+  --a-err: var(--theme-danger);
+  --a-err-bg: var(--theme-danger-bg);
+  --a-err-line: var(--theme-danger-border);
+  --a-warn: var(--theme-warning);
+  --a-warn-bg: var(--theme-warning-bg);
+  --a-ok: var(--theme-success);
+  --a-ok-bg: var(--theme-success-bg);
+  --a-info: var(--theme-info);
+  --a-info-bg: var(--theme-info-bg);
 
   --admin-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --admin-bar-h: 4.25rem;

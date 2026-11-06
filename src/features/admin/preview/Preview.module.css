@@ -1,7 +1,7 @@
 /*
  * Prévia editorial. Parte deste arquivo vive no painel (shell, toolbar, moldura, dentro de
  * [data-admin]) e parte no documento do iframe (frameNotice, message), que não tem os tokens do
- * painel: por isso esses trechos usam fallback literal da mesma paleta.
+ * painel: por isso esses trechos usam os tokens semânticos do próprio documento.
  */
 .shell {
   max-width: 100%;
@@ -78,14 +78,14 @@
   margin-inline: auto;
   overflow: hidden;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--theme-preview-canvas);
 }
 
 .frame {
   display: block;
   max-width: none;
   border: 0;
-  background: #ffffff;
+  background: var(--theme-preview-canvas);
   transform-origin: top left;
 }
 
@@ -123,8 +123,8 @@
     600 0.8125rem / 1.4 'Hanken Grotesk',
     system-ui,
     sans-serif;
-  color: #1d4e7a;
-  background: #d9e7f1;
+  color: var(--theme-info);
+  background: var(--theme-info-bg);
   text-align: center;
 }
 
@@ -132,10 +132,10 @@
 .message {
   margin: 1rem 0;
   padding: 1rem;
-  border: 1px solid var(--a-line, #d5dccb);
+  border: 1px solid var(--a-line, var(--theme-border));
   border-radius: 0.875rem;
-  background: var(--a-panel, #fffdf7);
-  color: var(--a-ink, #22282a);
+  background: var(--a-panel, var(--theme-surface));
+  color: var(--a-ink, var(--theme-text));
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
   line-height: 1.5;
 }
@@ -150,7 +150,7 @@
 .message p {
   margin: 0;
   max-width: 40rem;
-  color: var(--a-mute, #56605a);
+  color: var(--a-mute, var(--theme-text-muted));
 }
 
 .message button,
@@ -160,7 +160,7 @@
   min-height: 2.75rem;
   margin-top: 0.75rem;
   padding: 0 1rem;
-  border: 1px solid var(--a-field, #6b7568);
+  border: 1px solid var(--a-field, var(--theme-field-border));
   border-radius: 0.625rem;
   background: transparent;
   color: inherit;
