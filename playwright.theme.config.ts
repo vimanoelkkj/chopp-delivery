@@ -2,7 +2,12 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'e2e',
-  testMatch: ['admin-dark-theme.spec.ts', 'admin-theme-switch.spec.ts'],
+  testMatch: [
+    'admin-dark-theme.spec.ts',
+    'admin-theme-switch.spec.ts',
+    'storefront-dark-theme.spec.ts',
+    'storefront-theme-switch.spec.ts',
+  ],
   outputDir: 'test-results/admin-theme',
   workers: 1,
   reporter: 'list',

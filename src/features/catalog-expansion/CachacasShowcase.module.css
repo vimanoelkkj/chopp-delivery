@@ -209,7 +209,7 @@
 .orderBtn:hover,
 .orderBtn:focus-visible {
   background: var(--color-gold);
-  color: var(--color-black);
+  color: var(--on-accent, var(--color-black));
 }
 
 .orderBtnPrompt {

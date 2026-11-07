@@ -74,7 +74,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   background: var(--color-gold);
-  color: var(--color-black);
+  color: var(--on-accent, var(--color-black));
   border-radius: 3px;
 }
 

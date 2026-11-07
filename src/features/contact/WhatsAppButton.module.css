@@ -14,8 +14,9 @@
   z-index: 5;
   width: max-content;
   max-width: min(20rem, calc(100vw - 2rem));
-  background: var(--color-bone);
-  color: var(--color-black);
+  /* Aviso invertido em relação à página: texto da página como fundo, fundo da página como tinta. */
+  background: var(--theme-text);
+  color: var(--theme-background);
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.4;

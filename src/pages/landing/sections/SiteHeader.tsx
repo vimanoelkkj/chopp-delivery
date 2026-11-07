@@ -5,6 +5,7 @@ import { Container } from '@/shared/ui/Container'
 import { CMS_DEFAULT_DELIVERY_REGION } from '../../../../shared/cms/v2'
 import { navLinks } from '../nav-links'
 import styles from './SiteHeader.module.css'
+import { StorefrontThemeSwitcher } from './StorefrontThemeSwitcher'
 
 export function SiteHeader({
   links = navLinks,
@@ -63,6 +64,8 @@ export function SiteHeader({
               ))}
             </ul>
           </nav>
+
+          <StorefrontThemeSwitcher />
 
           <div className={styles.cta}>
             <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>

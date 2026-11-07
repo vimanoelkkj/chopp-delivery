@@ -2,7 +2,7 @@ export type ThemeMode = 'light' | 'dark'
 export type ThemeSurface = 'storefront' | 'admin'
 export type ThemePreference = ThemeMode | 'system'
 
-/** Independent defaults. The storefront never consults the OS preference or browser storage. */
+/** Independent defaults, used when nothing valid is saved (the storefront opts in to `system` itself). */
 export const DEFAULT_THEME_MODES: Readonly<Record<ThemeSurface, ThemeMode>> = {
   storefront: 'light',
   admin: 'light',
@@ -22,6 +22,8 @@ export function themeAttributes(surface: ThemeSurface, mode = DEFAULT_THEME_MODE
 
 /** Admin-only persisted preference. The storefront and the CMS preview never read it. */
 export const ADMIN_THEME_STORAGE_KEY = 'chopp.admin.theme'
+/** Storefront visitor preference, independent from the admin one. The CMS preview never reads it. */
+export const STOREFRONT_THEME_STORAGE_KEY = 'chopp.storefront.theme'
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'light'
 export const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
 
@@ -33,9 +35,12 @@ type ReadableStorage = Pick<Storage, 'getItem'>
 type WritableStorage = Pick<Storage, 'setItem'>
 
 /** Unavailable storage (privacy mode, blocked cookies, quota) or an invalid value yields null. */
-export function readThemePreference(storage: ReadableStorage | null): ThemePreference | null {
+export function readThemePreference(
+  storage: ReadableStorage | null,
+  key = ADMIN_THEME_STORAGE_KEY,
+): ThemePreference | null {
   try {
-    return parseThemePreference(storage?.getItem(ADMIN_THEME_STORAGE_KEY))
+    return parseThemePreference(storage?.getItem(key))
   } catch {
     return null
   }
@@ -44,9 +49,10 @@ export function readThemePreference(storage: ReadableStorage | null): ThemePrefe
 export function writeThemePreference(
   storage: WritableStorage | null,
   preference: ThemePreference,
+  key = ADMIN_THEME_STORAGE_KEY,
 ): boolean {
   try {
-    storage?.setItem(ADMIN_THEME_STORAGE_KEY, preference)
+    storage?.setItem(key, preference)
     return Boolean(storage)
   } catch {
     return false

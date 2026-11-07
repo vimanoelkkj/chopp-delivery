@@ -29,7 +29,7 @@
 
 .gold {
   background: var(--color-gold);
-  color: var(--color-black);
+  color: var(--on-accent, var(--color-black));
 }
 
 .gold:hover {
@@ -47,7 +47,7 @@
 }
 
 .dark {
-  background: var(--color-black);
+  background: var(--on-accent, var(--color-black));
   color: var(--color-gold);
 }
 

@@ -47,6 +47,8 @@ export function applyEarlyAdminTheme(
   development: boolean,
 ) {
   if (!/^\/admin(\/|$)/.test(location.pathname)) return
+  // The CMS preview frame is a storefront surface: it stays light whatever the admin preference.
+  if (/^\/admin\/preview\/frame\/?$/.test(location.pathname)) return
   const preference = initialAdminPreference(development, location, browserStorage())
   const mode = resolveThemeMode(preference, systemMode(Boolean(systemQuery()?.matches)))
   root.dataset.theme = 'admin'

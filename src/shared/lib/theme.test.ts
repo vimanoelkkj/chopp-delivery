@@ -5,6 +5,7 @@ import {
   parseThemePreference,
   readThemePreference,
   resolveThemeMode,
+  STOREFRONT_THEME_STORAGE_KEY,
   themeAttributes,
   watchSystemDark,
   writeThemePreference,
@@ -106,5 +107,27 @@ describe('persisted admin preference', () => {
     stopLegacy()
     expect(seen).toEqual([true, false])
     expect(watchSystemDark(null, () => {})).toBeTypeOf('function')
+  })
+})
+
+describe('storefront preference key', () => {
+  const store = () => {
+    const data = new Map<string, string>()
+    return {
+      data,
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => void data.set(key, value),
+    }
+  }
+  it('uses its own key and never touches the admin one', () => {
+    const s = store()
+    expect(STOREFRONT_THEME_STORAGE_KEY).toBe('chopp.storefront.theme')
+    expect(writeThemePreference(s, 'dark', STOREFRONT_THEME_STORAGE_KEY)).toBe(true)
+    expect(readThemePreference(s, STOREFRONT_THEME_STORAGE_KEY)).toBe('dark')
+    expect(readThemePreference(s)).toBeNull()
+    expect([...s.data.keys()]).toEqual([STOREFRONT_THEME_STORAGE_KEY])
+    writeThemePreference(s, 'light')
+    expect(readThemePreference(s, STOREFRONT_THEME_STORAGE_KEY)).toBe('dark')
+    expect(readThemePreference(s)).toBe('light')
   })
 })

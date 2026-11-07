@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ADMIN_THEME_STORAGE_KEY } from '../../shared/lib/theme'
-import { adminPreviewTheme, initialAdminPreference } from './adminTheme'
+import { adminPreviewTheme, applyEarlyAdminTheme, initialAdminPreference } from './adminTheme'
 
 describe('isolated dark admin preview', () => {
   it.each(['127.0.0.1', 'localhost', '[::1]'])(
@@ -54,5 +54,24 @@ describe('initial admin preference', () => {
         saved(null),
       ),
     ).toBe('dark')
+  })
+})
+
+describe('early admin theme marking', () => {
+  const root = () => ({ dataset: {} as Record<string, string> }) as unknown as HTMLElement
+  const at = (pathname: string) => ({ hostname: 'localhost', search: '', pathname })
+  it('marks the admin routes', () => {
+    for (const path of ['/admin', '/admin/', '/admin/preview']) {
+      const html = root()
+      applyEarlyAdminTheme(html, at(path), false)
+      expect(html.dataset).toMatchObject({ theme: 'admin', themeSurface: 'admin' })
+    }
+  })
+  it('leaves the public site and the CMS preview frame unmarked (the frame stays light)', () => {
+    for (const path of ['/', '/admin/preview/frame', '/admin/preview/frame/']) {
+      const html = root()
+      applyEarlyAdminTheme(html, at(path), false)
+      expect(html.dataset).toEqual({})
+    }
   })
 })

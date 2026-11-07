@@ -357,7 +357,7 @@
 }
 
 .priceSelected .volumeLabel {
-  color: var(--text-offwhite);
+  color: var(--bc-chip-selected-ink, var(--text-offwhite));
 }
 
 .scene:focus-visible {

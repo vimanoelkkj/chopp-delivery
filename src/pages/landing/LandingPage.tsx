@@ -11,9 +11,11 @@ import { ContactSection } from './sections/ContactSection'
 import { Hero } from './sections/Hero'
 import { SiteHeader } from './sections/SiteHeader'
 import { StickyCta } from './sections/StickyCta'
+import { StorefrontThemeContext, useStorefrontTheme } from './useStorefrontTheme'
 
 export function LandingPage() {
-  useDocumentTheme(PASTEL_THEME)
+  const theme = useStorefrontTheme()
+  useDocumentTheme(PASTEL_THEME, theme.mode)
   const { state: catalogState, retry } = useCatalog()
   const editorial = usePublishedSite()
   const site = editorial.status === 'ready' ? editorial.site : null
@@ -45,29 +47,31 @@ export function LandingPage() {
 
   return (
     <WhatsAppNumberContext value={site?.document.commercial.whatsappNumber ?? null}>
-      <div
-        {...themeAttributes('storefront')}
-        id="topo"
-        className={styles.page}
-        data-editorial-state={editorial.status}
-      >
-        <SiteHeader links={links} deliveryRegion={hero?.content.deliveryRegion} />
-        <p className={styles.editorialStatus} role="status" aria-live="polite" aria-atomic="true">
-          {status}
-        </p>
-        <main id="conteudo">
-          <Hero
-            state={catalogState}
-            ctaRef={heroCtaRef}
-            editorial={hero?.content}
-            publishedMedia={hero?.content.media}
-            carouselHref={site ? site.layout.heroCarouselHref : undefined}
-          />
-          <EditorialSections site={site} catalog={catalogState} retry={retry} />
-          <ContactSection ctaRef={finalCtaRef} editorial={contact?.content} />
-        </main>
-        <StickyCta visible={!heroCtaInView && !finalCtaInView} />
-      </div>
+      <StorefrontThemeContext value={theme}>
+        <div
+          {...themeAttributes('storefront', theme.mode)}
+          id="topo"
+          className={styles.page}
+          data-editorial-state={editorial.status}
+        >
+          <SiteHeader links={links} deliveryRegion={hero?.content.deliveryRegion} />
+          <p className={styles.editorialStatus} role="status" aria-live="polite" aria-atomic="true">
+            {status}
+          </p>
+          <main id="conteudo">
+            <Hero
+              state={catalogState}
+              ctaRef={heroCtaRef}
+              editorial={hero?.content}
+              publishedMedia={hero?.content.media}
+              carouselHref={site ? site.layout.heroCarouselHref : undefined}
+            />
+            <EditorialSections site={site} catalog={catalogState} retry={retry} />
+            <ContactSection ctaRef={finalCtaRef} editorial={contact?.content} />
+          </main>
+          <StickyCta visible={!heroCtaInView && !finalCtaInView} />
+        </div>
+      </StorefrontThemeContext>
     </WhatsAppNumberContext>
   )
 }

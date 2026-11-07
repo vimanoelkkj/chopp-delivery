@@ -3,7 +3,7 @@
   overflow: hidden;
   width: 100%;
   background: var(--color-gold);
-  color: var(--color-black);
+  color: var(--on-accent, var(--color-black));
   user-select: none;
   contain: paint layout;
 }

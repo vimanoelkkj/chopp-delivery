@@ -14,9 +14,14 @@ import './styles/base.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
-import { applyEarlyAdminTheme } from './features/admin/adminTheme'
 
-applyEarlyAdminTheme(document.documentElement, window.location, import.meta.env.DEV)
+// A primeira pintura de /admin e da vitrine vem de public/theme-init.js (carregado no <head>).
+// Só o DEV mantém o override local ?adminTheme=dark; o import dinâmico sai do build, então o
+// código do painel não entra no pacote público.
+if (import.meta.env.DEV)
+  void import('./features/admin/adminTheme').then(({ applyEarlyAdminTheme }) =>
+    applyEarlyAdminTheme(document.documentElement, window.location, true),
+  )
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Elemento #root não encontrado')
