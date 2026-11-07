@@ -1,3 +1,4 @@
+import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import styles from './PriceComparison.module.css'
@@ -5,7 +6,7 @@ import { lowestPrice } from './pricing'
 import { BARREL_SIZES, type BarrelSize, type Product } from './types'
 
 function orderMessage(product: Product, size: BarrelSize) {
-  return `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${product.name} (${size}L).`
+  return buildBarrelOrderMessage(product.name, `${size}L`, product.prices[size])
 }
 
 function Offer({

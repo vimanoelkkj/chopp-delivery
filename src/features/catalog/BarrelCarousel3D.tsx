@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import { KegCutout, kegPhotoForItem } from '@/shared/ui/KegCutout'
@@ -276,7 +277,11 @@ export function BarrelCarousel3D({
     activePresentationText = 'barril'
   }
 
-  const orderMessage = `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${currentKeg.name} (${activePresentationText}).`
+  const orderMessage = buildBarrelOrderMessage(
+    currentKeg.name,
+    activePresentationText,
+    activeVariant?.price,
+  )
 
   return (
     <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(' ')}>

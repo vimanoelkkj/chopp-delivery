@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import styles from './KegCardsGrid.module.css'
@@ -79,7 +80,7 @@ export function KegCardsGrid({ products, initialVolume }: KegCardsGridProps) {
               ? '/images/kegs/keg-hero-50l.jpg'
               : '/images/kegs/keg-studio-30l.jpg')
 
-          const orderMessage = `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${product.name} (${selectedVolume}L).`
+          const orderMessage = buildBarrelOrderMessage(product.name, `${selectedVolume}L`, price)
 
           // Mensagens corretas para quando uma variante não estiver disponível (A07)
           let unavailableText = '— (Indisponível)'
