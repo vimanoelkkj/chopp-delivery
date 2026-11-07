@@ -3,7 +3,7 @@ import { projectPublicCmsV2 } from '../shared/cms/validation-v2'
 import { previewFixture } from '../tests/e2e-real/preview-fixture'
 
 /**
- * D4B: dark mode da vitrine (Adega Âmbar). O modo escuro é ativado só por atributo, sem
+ * D4B: dark mode da vitrine (Grafite Sálvia Pastel). O modo escuro é ativado só por atributo, sem
  * persistência nem alternância; a vitrine continua clara por padrão. Servidor de fixtures
  * somente leitura (npm run preview:admin:theme).
  */
@@ -103,7 +103,7 @@ async function open(page: Page) {
 }
 
 for (const width of [390, 1440]) {
-  test.describe(`vitrine escura Adega Âmbar a ${width}px`, () => {
+  test.describe(`vitrine escura Grafite Sálvia Pastel a ${width}px`, () => {
     test.beforeEach(async ({ page }) => {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 900 })
     })
@@ -113,8 +113,8 @@ for (const width of [390, 1440]) {
       await expect(page.locator('#topo')).toHaveAttribute('data-color-mode', 'light')
       await expect(page.locator('#topo')).toHaveCSS('background-color', 'rgb(250, 245, 234)')
       await setMode(page, 'dark')
-      await expect(page.locator('#topo')).toHaveCSS('background-color', 'rgb(21, 16, 11)')
-      await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(21, 16, 11)')
+      await expect(page.locator('#topo')).toHaveCSS('background-color', 'rgb(27, 33, 31)')
+      await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(27, 33, 31)')
       await setMode(page, 'light')
       await expect(page.locator('#topo')).toHaveCSS('background-color', 'rgb(250, 245, 234)')
       expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
@@ -126,7 +126,7 @@ for (const width of [390, 1440]) {
       await open(page)
       for (const [mode, ink, action] of [
         ['light', 'rgb(34, 40, 42)', 'rgb(246, 180, 142)'],
-        ['dark', 'rgb(26, 18, 8)', 'rgb(242, 169, 59)'],
+        ['dark', 'rgb(34, 40, 42)', 'rgb(246, 180, 142)'],
       ] as const) {
         await setMode(page, mode)
         const primary = page.getByText('Pedir no WhatsApp', { exact: true }).first()
@@ -155,6 +155,35 @@ for (const width of [390, 1440]) {
       })
       expect(tokens).toEqual(['#faf5ea', '#22282a', '#f6b48e', '#22282a'])
       expect((await measure(page)).failures).toEqual([])
+    })
+
+    test('laterais ficam a 30% e respeitam movimento reduzido nos dois temas', async ({ page }) => {
+      await open(page)
+      for (const mode of ['light', 'dark'] as const) {
+        await setMode(page, mode)
+        const sides = page.locator(
+          '[class*="posLeft"] [class*="imageWrap"] > :not([class*="badge"]), ' +
+            '[class*="posRight"] [class*="imageWrap"] > :not([class*="badge"])',
+        )
+        await expect(sides).toHaveCount(2)
+        for (const image of await sides.all()) await expect(image).toHaveCSS('opacity', '0.3')
+        await expect(
+          page.locator('[class*="posCenter"] [class*="imageWrap"] > :not([class*="badge"])'),
+        ).toHaveCSS('opacity', '1')
+        await page.emulateMedia({ reducedMotion: 'no-preference' })
+        await expect(sides.first()).toHaveCSS('transition-duration', '0.65s')
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        for (const element of await page
+          .locator('#carousel-track, #carousel-track article, #carousel-track [class*="content"]')
+          .all())
+          await expect(element).toHaveCSS('transition-duration', '0s')
+        for (const image of await sides.all())
+          await expect(image).toHaveCSS('transition-duration', '0s')
+      }
+      await page.getByRole('button', { name: 'Próximo Barril', exact: true }).click()
+      await expect(
+        page.locator('[aria-live="polite"]').filter({ hasText: 'Barril 2 de' }),
+      ).toBeVisible()
     })
 
     test('seções editoriais publicadas (fixture local) legíveis nos dois temas', async ({
@@ -195,7 +224,24 @@ for (const width of [390, 1440]) {
     test('capturas finais da vitrine escura', async ({ page }) => {
       await open(page)
       await setMode(page, 'dark')
-      await page.waitForTimeout(300)
+      await page.evaluate(async () => {
+        const images = [...document.images]
+        const loading = images.map((image) => image.getAttribute('loading'))
+        images.forEach((image) => {
+          image.loading = 'eager'
+        })
+        await Promise.all(images.map((image) => image.decode()))
+        images.forEach((image, index) => {
+          const value = loading[index]
+          if (value === null) image.removeAttribute('loading')
+          else image.setAttribute('loading', value)
+        })
+      })
+      await expect(page).toHaveScreenshot(`storefront-dark-${width}.png`, {
+        fullPage: true,
+        animations: 'disabled',
+        maxDiffPixels: 0,
+      })
       const dir = process.env.D4B_SHOTS
       if (!dir) return
       await page.screenshot({ path: `${dir}/dark-${width}-fold.png` })

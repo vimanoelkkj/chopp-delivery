@@ -54,6 +54,7 @@
   --bc-card-bg: var(--theme-surface-feature);
   --bc-side-bg: var(--theme-carousel-side);
   --bc-side-brightness: 0.98;
+  --bc-side-img-opacity: 0.3;
   --bc-img-radius: 0;
   --bc-center-border: var(--theme-carousel-border);
   --bc-center-shadow: var(--theme-carousel-shadow);

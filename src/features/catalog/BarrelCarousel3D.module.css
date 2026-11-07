@@ -227,6 +227,17 @@
   pointer-events: none;
 }
 
+/* O barril (foto ou mídia publicada) dos cards laterais acompanha o estado apagado dos textos
+   laterais (.content). O selo fica de fora e, sem o token, a opacidade total anterior continua. */
+.imageWrap > :not(.badge) {
+  transition: opacity 0.65s ease;
+}
+
+.posLeft .imageWrap > :not(.badge),
+.posRight .imageWrap > :not(.badge) {
+  opacity: var(--bc-side-img-opacity, 1);
+}
+
 .kegImg {
   max-height: 100%;
   max-width: 100%;
@@ -267,6 +278,13 @@
   padding-top: 0.75rem;
   border-top: 1px solid var(--bc-rule, rgba(37, 50, 41, 0.8));
   transition: opacity 0.65s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imageWrap > :not(.badge),
+  .content {
+    transition: none;
+  }
 }
 
 /* Laterais são só contexto: texto e preços ficam quase apagados (continuam fora da leitura

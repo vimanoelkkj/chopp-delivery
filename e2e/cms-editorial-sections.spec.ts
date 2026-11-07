@@ -42,10 +42,9 @@ for (const width of [390, 1440]) {
       ),
     }))
     expect(`${JSON.stringify(structure, null, 2)}\n`).toMatchSnapshot(`homepage-${width}-dom.json`)
-    // P3 PNGs reviewed on Windows / Chrome 157.0.8103.39, 390x900 and 1440x900 (e2e mode).
-    // Accepted: three availability labels now read "Indisponível"; isolated rasterization
-    // differences in the scaled About WebP texture, with unchanged framing/layout.
-    // Repeated captures were identical; the historical rasterizer version is not recorded.
+    // H8: PNGs reviewed on Windows / Chromium 156.0.8078.4, with read-only seed fixtures.
+    // The theme switcher/header drift already exists at HEAD, before the H8 CSS changes.
+    // H8 adds 30% opacity to side images (visible at 1440px); light tokens and DOM stay intact.
     await expect(page).toHaveScreenshot(`homepage-${width}.png`, {
       fullPage: true,
       animations: 'disabled',
