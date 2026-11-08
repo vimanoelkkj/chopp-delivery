@@ -469,8 +469,29 @@
   margin-top: 1.5rem;
 }
 
-.quantity {
-  margin-bottom: 1rem;
+/* Desktop: [quantidade + total] e [pedido] numa linha centrada, alinhada ao centro vertical. */
+@media (min-width: 48rem) {
+  .actionRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem 1.5rem;
+  }
+
+  .quantity {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .quantity > output {
+    font-size: 0.9375rem;
+    white-space: nowrap;
+  }
+
+  .actionRow > :last-child {
+    flex: 0 0 auto;
+  }
 }
 
 /* Mobile: navegação → quantidade/total → pedido em coluna única, pedido com largura total. */
