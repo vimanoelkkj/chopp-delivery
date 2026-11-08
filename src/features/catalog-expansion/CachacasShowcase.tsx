@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { contact } from '@/features/contact/config'
-import { formatBRL } from '@/shared/lib/format'
+import { describeOrderPrice } from '@/features/contact/messages'
+import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
 import { buildWhatsAppUrl } from '@/shared/lib/whatsapp'
+import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import styles from './CachacasShowcase.module.css'
 import { type CatalogItemV2, centsToReaisSafe, formatPriceFromCents } from './types'
 
@@ -44,13 +46,14 @@ export function CachacasShowcase({ items }: CachacasShowcaseProps) {
 export function buildCachacaWhatsAppMessage(
   itemName: string,
   variant: { label: string; priceCents: number | null },
+  quantity = 1,
 ): string {
   const cleanName = itemName.replace(' (Demonstração)', '').replace(' (Referência)', '')
   const volumeNumber = variant.label.replace(/garrafa\s+/i, '')
   const priceValue = variant.priceCents !== null ? centsToReaisSafe(variant.priceCents) : null
-  const priceFormatted = priceValue !== null ? formatBRL(priceValue, { cents: true }) : '—'
+  const qty = normalizeQuantity(quantity)
 
-  return `Olá! Gostaria de pedir uma garrafa de ${cleanName} ${volumeNumber} por ${priceFormatted}.`
+  return `Olá! Gostaria de pedir ${qty} ${qty === 1 ? 'garrafa' : 'garrafas'} de ${cleanName} ${volumeNumber}. ${describeOrderPrice(priceValue, qty, true)}`
 }
 
 function CachacaCard({ item }: { item: CatalogItemV2 }) {
@@ -71,10 +74,20 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
 
   const activeVariant = availableVariants.find((v) => v.code === selectedVariantCode)
 
+  // Quantidade atrelada à variante: trocar de garrafa volta para 1, sem total desatualizado.
+  const [quantityState, setQuantityState] = useState<{ code: string; value: number } | null>(null)
+  const quantity = normalizeQuantity(
+    activeVariant && quantityState?.code === activeVariant.code ? quantityState.value : 1,
+  )
+  const activePrice =
+    activeVariant && activeVariant.priceCents !== null
+      ? centsToReaisSafe(activeVariant.priceCents)
+      : null
+
   // Mensagem contextual para o WhatsApp
   let orderUrl: string | null = null
   if (activeVariant && activeVariant.priceCents !== null) {
-    const customMessage = buildCachacaWhatsAppMessage(item.name, activeVariant)
+    const customMessage = buildCachacaWhatsAppMessage(item.name, activeVariant, quantity)
     orderUrl = buildWhatsAppUrl(contact.whatsappNumber, customMessage)
   }
 
@@ -131,6 +144,15 @@ function CachacaCard({ item }: { item: CatalogItemV2 }) {
             </button>
           )
         })}
+
+        {activeVariant && orderUrl && (
+          <QuantityStepper
+            value={quantity}
+            onChange={(value) => setQuantityState({ code: activeVariant.code, value })}
+            subject={`${item.name}, ${activeVariant.label}`}
+            total={formatOrderTotal(activePrice, quantity, true)}
+          />
+        )}
 
         <div className={styles.actions}>
           {isSingleVariant && orderUrl && (

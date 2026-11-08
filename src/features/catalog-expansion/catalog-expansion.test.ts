@@ -172,12 +172,26 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
   })
 
   describe('Regras de Negócio do WhatsApp e Seleção de Variantes', () => {
+    it('quantidade 2 e 3: plural, preço unitário e total em centavos exatos', () => {
+      const variant = { label: 'Garrafa 700 ml', priceCents: 3590 }
+      const two = buildCachacaWhatsAppMessage('Cachaça', variant, 2).replaceAll(' ', ' ')
+      expect(two).toBe(
+        'Olá! Gostaria de pedir 2 garrafas de Cachaça 700 ml. Preço unitário: R$ 35,90. Total: R$ 71,80.',
+      )
+      expect(buildCachacaWhatsAppMessage('Cachaça', variant, 3).replaceAll(' ', ' ')).toContain(
+        'Total: R$ 107,70.',
+      )
+      expect(buildCachacaWhatsAppMessage('Cachaça', variant, 0)).toContain('pedir 1 garrafa de')
+    })
+
     it('variante única de 700 ml: gera mensagem com volume e preço corretos', () => {
       const msg = buildCachacaWhatsAppMessage('Cachaça', {
         label: 'Garrafa 700 ml',
         priceCents: 3000,
       })
-      expect(msg).toBe('Olá! Gostaria de pedir uma garrafa de Cachaça 700 ml por R$ 30,00.')
+      expect(msg).toBe(
+        'Olá! Gostaria de pedir 1 garrafa de Cachaça 700 ml. Preço unitário: R$ 30,00. Total: R$ 30,00.',
+      )
     })
 
     it('múltiplas variantes: troca de seleção altera volume e preço da mensagem com fidelidade', () => {
@@ -186,7 +200,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 3500,
       })
       expect(msg500).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 500 ml por R$ 35,00.',
+        'Olá! Gostaria de pedir 1 garrafa de Cachaça Prata 500 ml. Preço unitário: R$ 35,00. Total: R$ 35,00.',
       )
 
       const msg700 = buildCachacaWhatsAppMessage('Cachaça Prata (Demonstração)', {
@@ -194,7 +208,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 4500,
       })
       expect(msg700).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 700 ml por R$ 45,00.',
+        'Olá! Gostaria de pedir 1 garrafa de Cachaça Prata 700 ml. Preço unitário: R$ 45,00. Total: R$ 45,00.',
       )
 
       const msg1000 = buildCachacaWhatsAppMessage('Cachaça Prata (Demonstração)', {
@@ -202,7 +216,7 @@ describe('Catálogo Expansível (v2) - Contratos e Regras de Negócio', () => {
         priceCents: 6000,
       })
       expect(msg1000).toBe(
-        'Olá! Gostaria de pedir uma garrafa de Cachaça Prata 1.000 ml por R$ 60,00.',
+        'Olá! Gostaria de pedir 1 garrafa de Cachaça Prata 1.000 ml. Preço unitário: R$ 60,00. Total: R$ 60,00.',
       )
     })
 

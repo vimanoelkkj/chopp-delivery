@@ -2,9 +2,9 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { CMS_LIMITS } from '../../../../shared/cms/common'
 import type { CmsCarouselEntry } from '../../../../shared/cms/v2'
 import { AdminApiError } from '../catalog/gateway'
-import { createHttpGateway } from '../catalog/httpGateway'
 import type { AdminCatalog } from '../catalog/types'
 import { AdminButton } from '../ui/AdminButton'
+import { useCatalogGateway } from './CatalogGatewayContext'
 import { type changeCarousel, eligibleBarrels } from './carouselModel'
 import styles from './HomeEditor.module.css'
 
@@ -21,6 +21,7 @@ export function CarouselEntries({
   onChange: (action: Parameters<typeof changeCarousel>[2]) => void
   onExpired: () => void
 }) {
+  const gateway = useCatalogGateway()
   const [state, setState] = useState<CatalogState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [selected, setSelected] = useState('')
@@ -33,7 +34,7 @@ export function CarouselEntries({
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10_000)
     if (attempt > 0) setState({ status: 'loading' })
-    createHttpGateway()
+    gateway
       .load(controller.signal)
       .then((catalog) => {
         if (active) setState({ status: 'ready', catalog })
@@ -49,7 +50,7 @@ export function CarouselEntries({
       clearTimeout(timeout)
       controller.abort()
     }
-  }, [attempt])
+  }, [attempt, gateway])
   const items = state.status === 'ready' ? eligibleBarrels(state.catalog) : []
   const choices = items.filter((item) => !entries.some((entry) => entry.itemId === item.id))
   return (

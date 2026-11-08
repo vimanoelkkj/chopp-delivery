@@ -2,7 +2,9 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
+import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
 import { KegCutout, kegPhotoForItem } from '@/shared/ui/KegCutout'
+import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
 import { centsToReais } from '../../../shared/money'
 import styles from './BarrelCarousel3D.module.css'
@@ -154,6 +156,8 @@ export function BarrelCarousel3D({
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null)
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null)
   const [preferredVolumeMl, setPreferredVolumeMl] = useState<number | null>(null)
+  // Quantidade atrelada a produto+variante: trocar qualquer um volta para 1 (sem total antigo).
+  const [quantityState, setQuantityState] = useState<{ key: string; value: number } | null>(null)
 
   const activeIndex = selectedId ? kegs.findIndex((k) => k.id === selectedId) : -1
   const safeIndex = activeIndex >= 0 && activeIndex < count ? activeIndex : 0
@@ -277,10 +281,13 @@ export function BarrelCarousel3D({
     activePresentationText = 'barril'
   }
 
+  const quantityKey = `${currentKeg.id}:${activeVariant?.code ?? ''}`
+  const quantity = normalizeQuantity(quantityState?.key === quantityKey ? quantityState.value : 1)
   const orderMessage = buildBarrelOrderMessage(
     currentKeg.name,
     activePresentationText,
     activeVariant?.price,
+    quantity,
   )
 
   return (
@@ -438,6 +445,13 @@ export function BarrelCarousel3D({
       )}
 
       <div className={styles.actionRow}>
+        <QuantityStepper
+          value={quantity}
+          onChange={(value) => setQuantityState({ key: quantityKey, value })}
+          subject={`${currentKeg.name}, ${activePresentationText}`}
+          total={formatOrderTotal(activeVariant?.price, quantity)}
+          className={styles.quantity}
+        />
         <WhatsAppButton customText={orderMessage} variant="gold">
           Pedir Barril {currentKeg.name} no WhatsApp
         </WhatsAppButton>

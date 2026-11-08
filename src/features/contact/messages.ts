@@ -1,24 +1,26 @@
-import { formatBRL } from '@/shared/lib/format'
-import { reaisToCents } from '../../../shared/money'
+import { formatCents, normalizeQuantity, orderTotalCents } from '@/shared/lib/quantity'
 
-/** Cada CTA de barril pede uma apresentação, sem seleção de quantidade na interface. */
+/** "Preço unitário: R$ X. Total: R$ Y." ou pedido de confirmação quando o preço é inválido. */
+export function describeOrderPrice(
+  price: number | null | undefined,
+  quantity = 1,
+  alwaysCents = false,
+): string {
+  const qty = normalizeQuantity(quantity)
+  const total = orderTotalCents(price, qty)
+  if (total === null) return 'Preço não informado; favor confirmar.'
+  return `Preço unitário: ${formatCents(total / qty, alwaysCents)}. Total: ${formatCents(total, alwaysCents)}.`
+}
+
+/** Cada CTA de barril pede uma apresentação e a quantidade escolhida na interface (mínimo 1). */
 export function buildBarrelOrderMessage(
   product: string,
   presentation: string,
   price: number | null | undefined,
+  quantity = 1,
 ): string {
-  let validPrice = false
-  if (typeof price === 'number' && price > 0) {
-    try {
-      validPrice = reaisToCents(price) > 0
-    } catch {
-      // Preços inválidos não são arredondados nem convertidos em valores fictícios.
-    }
-  }
-  const priceText = validPrice
-    ? `Preço unitário: ${formatBRL(price as number, { cents: !Number.isInteger(price) })}.`
-    : 'Preço não informado; favor confirmar.'
-  return `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${product} (${presentation}). Quantidade: 1 unidade. ${priceText}`
+  const qty = normalizeQuantity(quantity)
+  return `Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de ${product} (${presentation}). Quantidade: ${qty} ${qty === 1 ? 'unidade' : 'unidades'}. ${describeOrderPrice(price, qty)}`
 }
 
 /** Mensagens iniciais da conversa. Centralizadas para não espalhar texto pelos componentes. */

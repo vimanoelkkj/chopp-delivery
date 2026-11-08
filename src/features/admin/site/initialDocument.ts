@@ -47,7 +47,7 @@ export const INITIAL_COPY = {
   },
   about: {
     heading: 'O chopp como centro da sua celebração',
-    body: 'Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril de chopp. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.',
+    body: 'Somos especialistas dedicados na cadeia do barril de chopp e também entregamos cachaça em garrafa. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.',
   },
   highlight: {
     heading: 'Condições especiais para eventos',

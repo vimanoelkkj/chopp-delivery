@@ -29,7 +29,7 @@ describe('mensagem de uma apresentação de barril', () => {
     expect(message).toContain('Chopp & Cia (30L)')
     expect(message).toContain('Quantidade: 1 unidade.')
     expect(message.replaceAll('\u00a0', ' ')).toContain('Preço unitário: R$ 510,29.')
-    expect(message).not.toContain('total')
+    expect(message.replaceAll(' ', ' ')).toContain('Total: R$ 510,29.')
     const url = buildWhatsAppUrl(number, message)
     expect(url).toContain(encodeURIComponent(message))
     expect(new URL(url as string).searchParams.get('text')).toBe(message)
@@ -50,6 +50,42 @@ describe('mensagem de uma apresentação de barril', () => {
       'Preço unitário: R$ 650.',
     )
     expect(buildBarrelOrderMessage('Chopp', '750 ml', 0.01)).toContain('0,01')
+  })
+})
+
+describe('quantidade e total no pedido', () => {
+  const plain = (text: string) => text.replaceAll(' ', ' ')
+
+  it.each([
+    [1, 'Quantidade: 1 unidade.', 'Total: R$ 510,29.'],
+    [2, 'Quantidade: 2 unidades.', 'Total: R$ 1.020,58.'],
+    [3, 'Quantidade: 3 unidades.', 'Total: R$ 1.530,87.'],
+  ])('quantidade %s identifica produto, volume, unitário e total exato', (qty, q, total) => {
+    const message = plain(buildBarrelOrderMessage('Chopp', '1,5L', 510.29, qty))
+    expect(message).toContain('Chopp (1,5L)')
+    expect(message).toContain(q)
+    expect(message).toContain('Preço unitário: R$ 510,29.')
+    expect(message).toContain(total)
+  })
+
+  it('total é calculado em centavos, sem erro de ponto flutuante', () => {
+    expect(plain(buildBarrelOrderMessage('X', '30L', 19.99, 3))).toContain('Total: R$ 59,97.')
+    expect(plain(buildBarrelOrderMessage('X', '30L', 0.1, 3))).toContain('Total: R$ 0,30.')
+  })
+
+  it.each([0, -1, 1.5, Number.NaN])('quantidade inválida %s vira 1', (qty) => {
+    expect(buildBarrelOrderMessage('X', '30L', 10, qty)).toContain('Quantidade: 1 unidade.')
+  })
+
+  it('quantidade acima do limite é limitada a 99', () => {
+    expect(buildBarrelOrderMessage('X', '30L', 10, 1e12)).toContain('Quantidade: 99 unidades.')
+  })
+
+  it('sem preço válido não calcula total, mesmo com quantidade maior que 1', () => {
+    const message = buildBarrelOrderMessage('X', '30L', null, 3)
+    expect(message).toContain('Quantidade: 3 unidades.')
+    expect(message).toContain('Preço não informado; favor confirmar.')
+    expect(message).not.toMatch(/Total|R\$/)
   })
 })
 
@@ -151,8 +187,66 @@ describe('CTAs reais, seleção e precedência comercial', () => {
         />,
       )
       const message = links(bottle)[0].searchParams.get('text') ?? ''
-      expect(message).toContain('cachaça (Garrafa - 700ml por R$')
+      expect(message).toContain('cachaça (Garrafa - 700ml)')
+      expect(message).toContain('Quantidade: 1 unidade.')
       expect(message).toContain('35,90')
       expect(links(bottle)[0].pathname).toBe(`/${number}`)
     }))
+})
+
+describe('seletor de quantidade (markup acessível)', () => {
+  const plain = (text: string) => text.replaceAll(' ', ' ')
+  const prev = contact.whatsappNumber
+
+  it('começa em 1, bloqueia "−" e nomeia grupo e botões pelo produto e volume', () => {
+    contact.whatsappNumber = number
+    try {
+      const html = plain(renderToStaticMarkup(<KegCardsGrid products={[product]} />))
+      expect(html).toContain('aria-label="Quantidade de Chopp &amp; Cia, barril de 30 litros"')
+      expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Diminuir quantidade de Chopp/)
+      expect(html).toContain('aria-label="Aumentar quantidade de Chopp &amp; Cia, barril de 30')
+      expect(html).toMatch(/<output[^>]*>.*?1<\/output>/)
+      expect(html).toContain('Total</span><strong>R$ 510,29</strong>')
+    } finally {
+      contact.whatsappNumber = prev
+    }
+  })
+
+  it('produto indisponível não oferece seletor nem pedido', () => {
+    const unavailable = { ...product, prices: { 30: null, 50: 650.99 } }
+    const html = renderToStaticMarkup(<KegCardsGrid products={[unavailable]} initialVolume={30} />)
+    expect(html).not.toContain('Aumentar quantidade')
+    expect(html).toContain('disabled')
+  })
+
+  it('tabela: cada volume tem seu seletor; volume indisponível não tem', () => {
+    const html = renderToStaticMarkup(
+      <PriceComparison products={[{ ...product, prices: { 30: 510.29, 50: null } }]} />,
+    )
+    expect(html.match(/Aumentar quantidade/g)).toHaveLength(1)
+    expect(html).toContain('barril de 30 litros')
+    expect(html).not.toContain('barril de 50 litros"')
+  })
+
+  it('carrossel e cachaça (garrafa 1,5 L) exibem seletor com total inicial igual ao unitário', () => {
+    contact.whatsappNumber = number
+    try {
+      const carousel = plain(
+        renderToStaticMarkup(
+          <BarrelCarousel3D
+            items={[
+              {
+                ...product,
+                variants: [{ code: 'x', label: 'PET', volumeMl: 1500, priceCents: 3590 }],
+              },
+            ]}
+          />,
+        ),
+      )
+      expect(carousel).toContain('Aumentar quantidade de Chopp &amp; Cia')
+      expect(carousel).toContain('Total</span><strong>R$ 35,90</strong>')
+    } finally {
+      contact.whatsappNumber = prev
+    }
+  })
 })

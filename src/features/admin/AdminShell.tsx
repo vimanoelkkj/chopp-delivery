@@ -7,6 +7,7 @@ import type { AdminCatalogGateway } from './catalog/gateway'
 import type { Rescue } from './catalog/saveFlow'
 import type { AdminUser } from './catalog/types'
 import { useCatalogEditor } from './catalog/useCatalogEditor'
+import { CatalogGatewayProvider } from './site/CatalogGatewayContext'
 import type { SiteRescue } from './site/HomeEditor'
 import { SiteView } from './site/SiteView'
 import { ConfirmDialog } from './ui/ConfirmDialog'
@@ -132,21 +133,23 @@ export function AdminShell({
             hidden={view !== 'pagina-inicial'}
             className={styles.view}
           >
-            <SiteView
-              userId={user.id}
-              onExpired={() => {
-                const { load, draft } = editor.state
-                onExpired(
-                  editor.dirty && draft && load.status === 'ready'
-                    ? { draft, revision: load.saved.revision, userId: user.id }
-                    : undefined,
-                )
-              }}
-              rescue={siteRescue}
-              onRescue={onSiteRescue}
-              onRescueHandled={onSiteRescueHandled}
-              onDirtyChange={setSiteDirty}
-            />
+            <CatalogGatewayProvider value={gateway}>
+              <SiteView
+                userId={user.id}
+                onExpired={() => {
+                  const { load, draft } = editor.state
+                  onExpired(
+                    editor.dirty && draft && load.status === 'ready'
+                      ? { draft, revision: load.saved.revision, userId: user.id }
+                      : undefined,
+                  )
+                }}
+                rescue={siteRescue}
+                onRescue={onSiteRescue}
+                onRescueHandled={onSiteRescueHandled}
+                onDirtyChange={setSiteDirty}
+              />
+            </CatalogGatewayProvider>
           </div>
         ) : null}
       </main>

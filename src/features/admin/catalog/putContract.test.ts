@@ -213,7 +213,10 @@ describe('limites do PUT conferidos antes de enviar', () => {
 
 describe('403 (origem/CSRF) x 400 (validação) x 503 (resultado incerto)', () => {
   const via = (status: number) =>
-    createHttpGateway({ fetch: async () => new Response('{}', { status }) })
+    createHttpGateway({
+      fetch: async () =>
+        new Response('{}', { status, headers: { 'Content-Type': 'application/json' } }),
+    })
 
   it('403 vira forbidden e performSave devolve forbidden (não rejected, não incerto)', async () => {
     const { saved, draft } = await setup()

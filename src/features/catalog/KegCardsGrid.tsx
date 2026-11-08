@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
+import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
+import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import styles from './KegCardsGrid.module.css'
 import type { BarrelSize, Product } from './types'
 
@@ -28,6 +30,8 @@ export function getProductTag(_product: Product): string {
 
 export function KegCardsGrid({ products, initialVolume }: KegCardsGridProps) {
   const [selectedVolume, setSelectedVolume] = useState<BarrelSize>(initialVolume ?? 30)
+  // Chave produto+volume: trocar de litragem volta a quantidade para 1, sem total desatualizado.
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
 
   return (
     <div className={styles.container}>
@@ -80,7 +84,14 @@ export function KegCardsGrid({ products, initialVolume }: KegCardsGridProps) {
               ? '/images/kegs/keg-hero-50l.jpg'
               : '/images/kegs/keg-studio-30l.jpg')
 
-          const orderMessage = buildBarrelOrderMessage(product.name, `${selectedVolume}L`, price)
+          const quantityKey = `${product.id}:${selectedVolume}`
+          const quantity = normalizeQuantity(quantities[quantityKey] ?? 1)
+          const orderMessage = buildBarrelOrderMessage(
+            product.name,
+            `${selectedVolume}L`,
+            price,
+            quantity,
+          )
 
           // Mensagens corretas para quando uma variante não estiver disponível (A07)
           let unavailableText = '— (Indisponível)'
@@ -143,9 +154,19 @@ export function KegCardsGrid({ products, initialVolume }: KegCardsGridProps) {
                     {disabledBtnText}
                   </button>
                 ) : (
-                  <WhatsAppButton customText={orderMessage} fullWidth variant="gold">
-                    Pedir Barril {selectedVolume}L
-                  </WhatsAppButton>
+                  <>
+                    <QuantityStepper
+                      value={quantity}
+                      onChange={(next) =>
+                        setQuantities((prev) => ({ ...prev, [quantityKey]: next }))
+                      }
+                      subject={`${product.name}, barril de ${selectedVolume} litros`}
+                      total={formatOrderTotal(price, quantity)}
+                    />
+                    <WhatsAppButton customText={orderMessage} fullWidth variant="gold">
+                      Pedir Barril {selectedVolume}L
+                    </WhatsAppButton>
+                  </>
                 )}
               </div>
             </article>

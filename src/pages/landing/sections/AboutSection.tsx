@@ -28,8 +28,8 @@ export function AboutSection({
           <p className={styles.lead}>
             {editorial?.body ?? (
               <>
-                Não entregamos latas nem garrafas: somos especialistas dedicados na cadeia do barril
-                de chopp. Mantemos nossa câmara fria estritamente controlada para que a
+                Somos especialistas dedicados na cadeia do barril de chopp e também entregamos
+                cachaça em garrafa. Mantemos nossa câmara fria estritamente controlada para que a
                 carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao
                 seu evento.
               </>

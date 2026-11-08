@@ -563,8 +563,10 @@ test.describe('Etapa 1: painel real preserva o Conceito C', () => {
           '510,29',
         )
         await expect(shop.getByRole('row', { name: /Dronken/ })).toContainText('510,29')
-        expect(await whatsappMessage(shop.locator('#barris').getByRole('link'))).toBe(
-          'Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de Dronken (30L).',
+        expect(
+          (await whatsappMessage(shop.locator('#barris').getByRole('link')))?.replaceAll(' ', ' '),
+        ).toBe(
+          'Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de Dronken (30L). Quantidade: 1 unidade. Preço unitário: R$ 510,29. Total: R$ 510,29.',
         )
         expect(await shop.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
@@ -741,12 +743,15 @@ test('F4A.1: rascunho autenticado, resposta perdida, replay, CSRF e catálogo is
     await media.text()
     return { publish: publish.status, media: media.status }
   }, input)
-  expect(unavailable.publish).toBe(404)
+  // A rota de publicação existe (POST) desde 7117f00; PUT é método errado, não rota ausente.
+  expect(unavailable.publish).toBe(405)
   expect(unavailable.media).toBe(404)
   const publicContext = await browser.newContext({ baseURL: integration.origin })
   try {
-    for (const endpoint of ['/api/site', '/api/cms', '/api/admin/site/publish', '/api/admin/media'])
+    for (const endpoint of ['/api/site', '/api/cms', '/api/admin/media'])
       expect((await publicContext.request.get(endpoint)).status()).toBe(404)
+    // Publicação: o método é validado antes da autenticação (POST apenas).
+    expect((await publicContext.request.get('/api/admin/site/publish')).status()).toBe(405)
     expect((await publicContext.request.get('/api/admin/site')).status()).toBe(401)
     expect(
       (await publicContext.request.get(`/api/admin/site/commands/${input.operationId}`)).status(),
@@ -754,8 +759,8 @@ test('F4A.1: rascunho autenticado, resposta perdida, replay, CSRF e catálogo is
     const shop = await publicContext.newPage()
     const cmsRequests: string[] = []
     shop.on('request', (request) => {
-      if (/\/api\/(?:admin\/site|site|cms)(?:[/?]|$)/.test(request.url()))
-        cmsRequests.push(request.url())
+      // /api/site e /api/cms são públicos (só conteúdo publicado) desde 7117f00; o rascunho é admin.
+      if (/\/api\/admin\/site(?:[/?]|$)/.test(request.url())) cmsRequests.push(request.url())
     })
     await shop.goto('/')
     await expect(shop.getByRole('heading', { level: 1 })).toContainText('O melhor do chopp.')
@@ -2273,7 +2278,7 @@ test.describe('M2B: biblioteca visual de imagens', () => {
       row<{ state: string }>(integration, 'SELECT state FROM cms_media WHERE media_id=?', bad.id)
         .state,
     ).toBe('rejected')
-    // exclui uma imagem que nada referencia: vira tombstone (a cota não volta)
+    // exclui uma imagem que nada referencia: a exclusão concluída libera a vaga (migration 0010)
     const removed = await page.request.delete(`/api/admin/media/${doomed.id}`, {
       headers: {
         Origin: integration.origin,
@@ -2285,7 +2290,7 @@ test.describe('M2B: biblioteca visual de imagens', () => {
 
     await page.goto('/admin#pagina-inicial')
     await openMediaPicker(page)
-    await expect(mediaPicker(page).getByText('3 de 100 registros usados').first()).toBeVisible()
+    await expect(mediaPicker(page).getByText('2 de 100 registros usados').first()).toBeVisible()
     await expect(mediaTile(page, good.id)).toBeEnabled()
     await expect(mediaTile(page, bad.id)).toBeDisabled()
     await expect(mediaTile(page, doomed.id)).toBeDisabled()

@@ -214,8 +214,12 @@ describe('Fase 6.2: Validação Estrutural e Regressões do Redesign Chopp Deliv
           />,
         )
         const decoded = decodeURIComponent(html).replace(/\u00A0/g, ' ')
-        expect(decoded).toContain('Tradicional - 700ml por R$ 30,00')
-        expect(decoded).toContain('Reserva - 1000ml por R$ 45,00')
+        expect(decoded).toContain(
+          'Tradicional - 700ml) ao meu pedido. Quantidade: 1 unidade. Preço unitário: R$ 30,00. Total: R$ 30,00.',
+        )
+        expect(decoded).toContain(
+          'Reserva - 1000ml) ao meu pedido. Quantidade: 1 unidade. Preço unitário: R$ 45,00. Total: R$ 45,00.',
+        )
       } finally {
         contact.whatsappNumber = prev
       }
@@ -262,7 +266,7 @@ describe('Fase 6.2: Validação Estrutural e Regressões do Redesign Chopp Deliv
         )
         const decoded = decodeURIComponent(html).replace(/ /g, ' ')
         expect(decoded).not.toContain('adicionar a Temos cachaça')
-        expect(decoded).toContain('adicionar a cachaça (Garrafa - 700ml por R$ 30,00)')
+        expect(decoded).toContain('adicionar a cachaça (Garrafa - 700ml)')
       } finally {
         contact.whatsappNumber = prev
       }

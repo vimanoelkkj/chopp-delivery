@@ -1,5 +1,9 @@
+import { useState } from 'react'
+import { describeOrderPrice } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
+import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
+import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
 import { centsToReais } from '../../../shared/money'
 import styles from './CachacaBanner.module.css'
@@ -14,6 +18,50 @@ export function cachacaProductName(title: string): string {
   return title.trim().replace(/^temos\s+/i, '')
 }
 
+/** Uma garrafa com seu próprio seletor de quantidade; preço ausente não permite pedir. */
+function BottleOffer({
+  productName,
+  label,
+  presentation,
+  price,
+  buttonLabel,
+}: {
+  productName: string
+  label: string
+  presentation: string
+  price: number | null
+  buttonLabel: string
+}) {
+  const [quantity, setQuantity] = useState(1)
+  const qty = normalizeQuantity(quantity)
+  const message = `Olá! Gostaria de adicionar a ${productName} (${presentation}) ao meu pedido. Quantidade: ${qty} ${qty === 1 ? 'unidade' : 'unidades'}. ${describeOrderPrice(price, qty, true)}`
+
+  return (
+    <div className={styles.variantCard}>
+      <div className={styles.priceBlock}>
+        <span className={styles.priceSub}>{label}</span>
+        <span className={styles.price}>
+          <span className="visually-hidden"> · </span>
+          {price !== null ? formatBRL(price) : 'Indisponível'}
+        </span>
+      </div>
+      {price !== null ? (
+        <>
+          <QuantityStepper
+            value={qty}
+            onChange={setQuantity}
+            subject={`${productName}, ${presentation}`}
+            total={formatOrderTotal(price, qty, true)}
+          />
+          <WhatsAppButton customText={message} variant="gold" size="md">
+            {buttonLabel}
+          </WhatsAppButton>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
   const productName = cachacaProductName(item.title)
   return (
@@ -26,47 +74,24 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
 
       <div className={styles.actionArea}>
         {'variants' in item ? (
-          item.variants.map((v) => {
-            const isAvail = v.priceCents !== null
-            const priceText =
-              v.priceCents !== null ? formatBRL(centsToReais(v.priceCents)) : 'Indisponível'
-            const message = `Olá! Gostaria de adicionar a ${productName} (${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''} por ${priceText}) ao meu pedido.`
-            return (
-              <div key={v.code} className={styles.variantCard}>
-                <div className={styles.priceBlock}>
-                  <span className={styles.priceSub}>
-                    {v.label} {v.volumeMl ? `${v.volumeMl} ml` : ''}
-                  </span>
-                  <span className={styles.price}>
-                    <span className="visually-hidden"> · </span>
-                    {priceText}
-                  </span>
-                </div>
-                {isAvail ? (
-                  <WhatsAppButton customText={message} variant="gold" size="md">
-                    Adicionar {v.label}
-                  </WhatsAppButton>
-                ) : null}
-              </div>
-            )
-          })
+          item.variants.map((v) => (
+            <BottleOffer
+              key={v.code}
+              productName={productName}
+              label={`${v.label} ${v.volumeMl ? `${v.volumeMl} ml` : ''}`}
+              presentation={`${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''}`}
+              price={v.priceCents !== null ? centsToReais(v.priceCents) : null}
+              buttonLabel={`Adicionar ${v.label}`}
+            />
+          ))
         ) : (
-          <div className={styles.variantCard}>
-            <div className={styles.priceBlock}>
-              <span className={styles.priceSub}>Garrafa {item.bottleMl} ml</span>
-              <span className={styles.price}>
-                <span className="visually-hidden"> · </span>
-                {formatBRL(item.price)}
-              </span>
-            </div>
-            <WhatsAppButton
-              customText={`Olá! Gostaria de adicionar a ${productName} (Garrafa ${item.bottleMl}ml por ${formatBRL(item.price)}) ao meu pedido.`}
-              variant="gold"
-              size="md"
-            >
-              Adicionar ao Pedido
-            </WhatsAppButton>
-          </div>
+          <BottleOffer
+            productName={productName}
+            label={`Garrafa ${item.bottleMl} ml`}
+            presentation={`Garrafa ${item.bottleMl}ml`}
+            price={item.price}
+            buttonLabel="Adicionar ao Pedido"
+          />
         )}
       </div>
     </aside>

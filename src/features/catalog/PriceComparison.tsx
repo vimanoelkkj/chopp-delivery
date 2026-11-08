@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
+import { formatOrderTotal } from '@/shared/lib/quantity'
+import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import styles from './PriceComparison.module.css'
 import { lowestPrice } from './pricing'
 import { BARREL_SIZES, type BarrelSize, type Product } from './types'
 
-function orderMessage(product: Product, size: BarrelSize) {
-  return buildBarrelOrderMessage(product.name, `${size}L`, product.prices[size])
+function orderMessage(product: Product, size: BarrelSize, quantity: number) {
+  return buildBarrelOrderMessage(product.name, `${size}L`, product.prices[size], quantity)
 }
 
 function Offer({
@@ -19,6 +22,7 @@ function Offer({
   lowest: number | null
 }) {
   const price = product.prices[size]
+  const [quantity, setQuantity] = useState(1)
 
   if (price === null) {
     return (
@@ -38,8 +42,15 @@ function Offer({
           </span>
           {price === lowest && <span className={styles.lowest}>Menor valor</span>}
         </span>
+        <QuantityStepper
+          value={quantity}
+          onChange={setQuantity}
+          subject={`${product.name}, barril de ${size} litros`}
+          total={formatOrderTotal(price, quantity)}
+          className={styles.quantity}
+        />
         <WhatsAppButton
-          customText={orderMessage(product, size)}
+          customText={orderMessage(product, size, quantity)}
           variant="gold"
           className={styles.order}
         >
