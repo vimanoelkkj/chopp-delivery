@@ -2491,3 +2491,278 @@ test('M2B: sem laboratório de mídia (ambiente normal) a biblioteca explica e o
   await expect(savedNotice(page)).toBeVisible()
   expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media').n).toBe(0)
 })
+
+test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitrine', () => {
+  // Harness descartável: D1 e R2 locais, processador local de imagens e vitrine em modo release.
+  const COMMERCIAL = '5531984400001'
+  test.use({ mediaLab: true, runtimeMode: 'release', whatsappNumber: COMMERCIAL })
+
+  type Head = { revision: string; document: ReturnType<typeof previewFixture> }
+  const adminSite = async (page: Page) =>
+    (await page.request.get('/api/admin/site')).json() as Promise<{
+      draft: Head
+      published: { versionId: string; revision: string } | null
+    }>
+  const write = (
+    page: Page,
+    instance: Integration,
+    action: 'saveDraft' | 'publish',
+    revision: string,
+    document: unknown,
+    operationId = crypto.randomUUID(),
+  ) =>
+    page.request.fetch(`/api/admin/site/${action === 'publish' ? 'publish' : 'draft'}`, {
+      method: action === 'publish' ? 'POST' : 'PUT',
+      headers: { Origin: instance.origin, 'If-Match': `"${revision}"` },
+      data: { action, operationId, expectedRevision: revision, document },
+    })
+  const publishable = (mediaId: string, heading: string) => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = COMMERCIAL
+    for (const module of document.modules)
+      if (module.template === 'hero')
+        module.content = {
+          heading,
+          summary: 'Resumo editorial publicado',
+          media: { id: mediaId, alt: 'Barril de chopp gelado' },
+          deliveryRegion: 'São João del-Rei',
+        }
+    return document
+  }
+  async function uploadImage(page: Page, instance: Integration) {
+    const sharp = (await import('sharp')).default
+    const bytes = await sharp({
+      create: { width: 64, height: 48, channels: 3, background: '#803020' },
+    })
+      .png()
+      .toBuffer()
+    const operation = crypto.randomUUID()
+    const response = await page.request.post('/api/admin/media', {
+      headers: {
+        Origin: instance.origin,
+        'Content-Type': 'image/png',
+        'X-Operation-Id': operation,
+        'If-None-Match': '*',
+      },
+      data: bytes,
+    })
+    expect(response.status()).toBe(200)
+    return `media_${operation}`
+  }
+  const published = (instance: Integration) =>
+    row<{ published_version_id: string | null; published_revision: string | null }>(
+      instance,
+      'SELECT published_version_id,published_revision FROM cms_v2_state',
+    )
+
+  test('publicação completa, controles negativos, isolamento do rascunho e dados comerciais intactos', async ({
+    page,
+    integration,
+    browser,
+  }) => {
+    test.setTimeout(180_000)
+    await seedPreview(page, integration)
+    const commercialBefore = await catalogState(integration)
+    const productsBefore = await (await page.request.get('/api/products')).json()
+    const catalogBefore = await (await page.request.get('/api/catalog')).json()
+    const anonymous = await browser.newContext({ baseURL: integration.origin })
+    const shop = await anonymous.newPage()
+    const state = (expected: string) =>
+      expect(shop.locator('[data-editorial-state]')).toHaveAttribute(
+        'data-editorial-state',
+        expected,
+        { timeout: 20_000 },
+      )
+    try {
+      // 0. Nada publicado: /api/site é 404 CMS_NOT_PUBLISHED e a vitrine usa a apresentação padrão.
+      const none = await anonymous.request.get('/api/site')
+      expect(none.status()).toBe(404)
+      expect((await none.json()).error.code).toBe('CMS_NOT_PUBLISHED')
+      await shop.goto('/')
+      await state('absent')
+
+      // 1. Publicação incompleta (sem WhatsApp nem imagem): o rascunho salva, mas publicar é recusado.
+      let head = (await adminSite(page)).draft
+      const incomplete = await write(page, integration, 'saveDraft', head.revision, head.document)
+      expect(incomplete.status()).toBe(200)
+      head = (await adminSite(page)).draft
+      const refused = await write(page, integration, 'publish', head.revision, head.document)
+      expect(refused.status()).toBe(400)
+      expect(published(integration)).toEqual({
+        published_version_id: null,
+        published_revision: null,
+      })
+
+      // 2. Imagem inexistente: nem o rascunho aceita referência de mídia que a biblioteca não tem.
+      const ghost = publishable(`media_${crypto.randomUUID()}`, 'Título fantasma')
+      const ghostSave = await write(page, integration, 'saveDraft', head.revision, ghost)
+      expect(ghostSave.status()).toBe(400)
+
+      // 3. Rascunho completo e salvo; ainda assim NADA aparece na vitrine antes de publicar.
+      const mediaId = await uploadImage(page, integration)
+      const first = publishable(mediaId, 'Título publicado E2E')
+      const oldRevision = head.revision
+      const saved = await write(page, integration, 'saveDraft', head.revision, first)
+      expect(saved.status()).toBe(200)
+      head = (await adminSite(page)).draft
+      expect((await anonymous.request.get('/api/site')).status()).toBe(404)
+      expect((await anonymous.request.get(`/api/site/media/${mediaId}/hero`)).status()).toBe(404)
+      await shop.reload()
+      await state('absent')
+      await expect(shop.getByText('Título publicado E2E')).toHaveCount(0)
+
+      // 4. Revisão desatualizada e documento diferente do rascunho salvo: 409 e nada publicado.
+      const stale = await write(page, integration, 'publish', oldRevision, first)
+      expect(stale.status()).toBe(409)
+      const other = publishable(mediaId, 'Texto que não é o rascunho salvo')
+      expect((await write(page, integration, 'publish', head.revision, other)).status()).toBe(409)
+      expect(published(integration).published_version_id).toBeNull()
+
+      // 5. Imagem pronta e referenciada pelo rascunho não pode deixar de estar pronta: o próprio SQL
+      // recusa a adulteração (a reconferência no instante de publicar está em cms-publication.test.ts).
+      for (const sql of [
+        'UPDATE cms_media SET derivatives_json=NULL WHERE media_id=?',
+        "UPDATE cms_media SET state='rejected' WHERE media_id=?",
+        "UPDATE cms_media SET state='deleting' WHERE media_id=?",
+      ])
+        expect(() => integration.database.prepare(sql).run(mediaId)).toThrow()
+      expect(
+        row<{ state: string }>(integration, 'SELECT state FROM cms_media WHERE media_id=?', mediaId)
+          .state,
+      ).toBe('ready')
+
+      // 6. Publicação válida: sessão autenticada, origem, If-Match e documento idêntico ao rascunho.
+      const operationId = crypto.randomUUID()
+      const ok = await write(page, integration, 'publish', head.revision, first, operationId)
+      expect(ok.status()).toBe(200)
+      const receipt = (await ok.json()) as { command: { revision: string; versionId: string } }
+      expect(published(integration).published_version_id).toBe(receipt.command.versionId)
+      const versions = row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_v2_versions').n
+      // Replay do mesmo comando: mesmo recibo, nenhuma versão nova.
+      const replay = await write(page, integration, 'publish', head.revision, first, operationId)
+      expect(replay.status()).toBe(200)
+      expect(((await replay.json()) as typeof receipt).command.versionId).toBe(
+        receipt.command.versionId,
+      )
+      expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_v2_versions').n).toBe(
+        versions,
+      )
+
+      // 7. /api/site anônimo mostra só a projeção publicada; a vitrine e a mídia pública a seguem.
+      const site = await anonymous.request.get('/api/site')
+      expect(site.status()).toBe(200)
+      const body = await site.json()
+      expect(body.commercial).toEqual({ fulfillmentMode: 'delivery', whatsappNumber: COMMERCIAL })
+      expect(JSON.stringify(body)).toContain('Título publicado E2E')
+      expect(JSON.stringify(body)).not.toMatch(/operationId|actor|session|objectKey|sha256/)
+      const image = await anonymous.request.get(`/api/site/media/${mediaId}/hero`)
+      expect(image.status()).toBe(200)
+      expect(image.headers()['content-type']).toBe('image/webp')
+      await shop.reload()
+      await state('ready')
+      await expect(shop.getByText('Título publicado E2E').first()).toBeVisible()
+      const whatsapp = shop.locator('a[href^="https://wa.me/"]').first()
+      await expect(whatsapp).toHaveAttribute('href', new RegExp(`^https://wa\\.me/${COMMERCIAL}`))
+
+      // 8. Rascunho posterior não publicado: o site continua na versão publicada.
+      head = (await adminSite(page)).draft
+      const edited = publishable(mediaId, 'Rascunho posterior não publicado')
+      expect((await write(page, integration, 'saveDraft', head.revision, edited)).status()).toBe(
+        200,
+      )
+      const still = JSON.stringify(await (await anonymous.request.get('/api/site')).json())
+      expect(still).toContain('Título publicado E2E')
+      expect(still).not.toContain('Rascunho posterior não publicado')
+      await shop.reload()
+      await state('ready')
+      await expect(shop.getByText('Rascunho posterior não publicado')).toHaveCount(0)
+
+      // 9. Recuperação: publicar o conteúdo anterior como nova versão preserva o histórico imutável.
+      head = (await adminSite(page)).draft
+      expect((await write(page, integration, 'publish', head.revision, edited)).status()).toBe(200)
+      head = (await adminSite(page)).draft
+      expect((await write(page, integration, 'saveDraft', head.revision, first)).status()).toBe(200)
+      head = (await adminSite(page)).draft
+      expect((await write(page, integration, 'publish', head.revision, first)).status()).toBe(200)
+      expect(JSON.stringify(await (await anonymous.request.get('/api/site')).json())).toContain(
+        'Título publicado E2E',
+      )
+      expect(
+        row<{ n: number }>(
+          integration,
+          "SELECT count(*) n FROM cms_v2_versions WHERE kind='published'",
+        ).n,
+      ).toBe(3)
+
+      // 10. Dados comerciais intactos: catálogo, preços, variantes e disponibilidade.
+      expect(await catalogState(integration)).toEqual(commercialBefore)
+      expect(await (await page.request.get('/api/products')).json()).toEqual(productsBefore)
+      expect(await (await page.request.get('/api/catalog')).json()).toEqual(catalogBefore)
+    } finally {
+      await anonymous.close()
+    }
+  })
+
+  test('clique em Publicar na interface: WhatsApp, salvar, confirmar e publicar uma única vez', async ({
+    page,
+    integration,
+    browser,
+  }) => {
+    test.setTimeout(180_000)
+    await seedPreview(page, integration)
+    const mediaId = await uploadImage(page, integration)
+    // Rascunho completo (imagem pronta e barris), mas sem WhatsApp: é o estado real da homologação.
+    const document = publishable(mediaId, 'Publicado pelo clique E2E')
+    document.commercial.whatsappNumber = null
+    const head = (await adminSite(page)).draft
+    expect((await write(page, integration, 'saveDraft', head.revision, document)).status()).toBe(
+      200,
+    )
+    const publishCalls: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().endsWith('/api/admin/site/publish'))
+        publishCalls.push(request.url())
+    })
+    await page.goto('/admin#pagina-inicial')
+    const publish = page.getByRole('button', { name: 'Publicar', exact: true })
+
+    // 1. Sem WhatsApp definido: bloqueado, com a explicação, e nada é enviado.
+    await expect(publish).toBeDisabled()
+    await expect(
+      page.getByText('Para publicar: O WhatsApp comercial do documento ainda não foi definido.'),
+    ).toBeVisible()
+
+    // 2. O WhatsApp vem do número comercial do build: alteração não salva ainda bloqueia publicar.
+    await page.getByRole('button', { name: 'Usar o WhatsApp comercial do site' }).click()
+    await expect(publish).toBeDisabled()
+    await expect(page.getByText('Salve o rascunho antes de publicar.')).toBeVisible()
+
+    // 3. Salvar não publica.
+    await saveDraftButton(page).click()
+    await expect(savedNotice(page)).toBeVisible()
+    await expect(publish).toBeEnabled()
+    expect(publishCalls).toHaveLength(0)
+    expect(published(integration).published_version_id).toBeNull()
+
+    // 4. Publicar exige confirmação; clique duplo na confirmação gera uma única publicação.
+    await publish.click()
+    const dialog = page.getByRole('dialog', { name: 'Publicar na vitrine?' })
+    await expect(dialog).toContainText(COMMERCIAL)
+    await dialog.getByRole('button', { name: 'Publicar', exact: true }).dblclick()
+    await expect(page.getByText('Publicado. A vitrine passa a usar este conteúdo.')).toBeVisible()
+    expect(publishCalls).toHaveLength(1)
+    expect(published(integration).published_version_id).not.toBeNull()
+
+    // 5. O site público passa a servir o conteúdo publicado, com o WhatsApp comercial.
+    const anonymous = await browser.newContext({ baseURL: integration.origin })
+    try {
+      const site = await anonymous.request.get('/api/site')
+      expect(site.status()).toBe(200)
+      const body = await site.json()
+      expect(body.commercial.whatsappNumber).toBe(COMMERCIAL)
+      expect(JSON.stringify(body)).toContain('Publicado pelo clique E2E')
+    } finally {
+      await anonymous.close()
+    }
+  })
+})

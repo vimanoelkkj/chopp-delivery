@@ -21,6 +21,7 @@ import {
   setField,
   setMedia,
   setVisible,
+  setWhatsappNumber,
 } from './editModel'
 import { buildInitialDocument } from './initialDocument'
 
@@ -351,5 +352,20 @@ describe('M2B: imagem da seção e texto alternativo', () => {
     expect(isDirty(d, withMedia)).toBe(true)
     expect(isDirty(withMedia, clearMedia(withMedia, byTemplate(withMedia, 'hero').id))).toBe(true)
     expect(isDirty(d, clearMedia(withMedia, byTemplate(withMedia, 'hero').id))).toBe(false)
+  })
+})
+
+describe('setWhatsappNumber', () => {
+  it('define só números no formato do contrato e não altera o resto do documento', () => {
+    const d = doc()
+    const next = setWhatsappNumber(d, '5531984400001')
+    expect(next.commercial.whatsappNumber).toBe('5531984400001')
+    expect(next.modules).toBe(d.modules)
+    expect(setWhatsappNumber(next, '5531984400001')).toBe(next)
+  })
+  it('recusa formato inválido devolvendo o mesmo documento', () => {
+    const d = doc()
+    expect(setWhatsappNumber(d, '+55 31 98440-0001')).toBe(d)
+    expect(setWhatsappNumber(d, '123')).toBe(d)
   })
 })

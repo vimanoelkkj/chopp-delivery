@@ -7,6 +7,8 @@ export type RunArgs =
   | { action: 'startV2'; revision: string; document: CmsDocumentV2 }
   | { action: 'convertToV2'; revision: string; acknowledge: string[] }
   | { action: 'saveDraft'; revision: string; document: CmsDocumentV2 }
+  /** O servidor só aceita o documento idêntico ao rascunho salvo, na revisão atual. */
+  | { action: 'publish'; revision: string; document: CmsDocumentV2 }
 
 export type RunPhase =
   | { kind: 'idle' }
@@ -23,7 +25,7 @@ export type RunPhase =
     }
 
 /**
- * Executa um comando de escrita do CMS (`startV2`, `convertToV2` ou `saveDraft`) com as garantias da E6.0:
+ * Executa um comando de escrita do CMS (`startV2`, `convertToV2`, `saveDraft` ou `publish`) com as garantias da E6.0:
  * - nada roda ao montar: só `run`, chamado por um clique de confirmação;
  * - o `operationId` nasce no `run` e só é reutilizado para o MESMO comando (mesma ação, revisão,
  *   reconhecimentos e documento). O servidor repete esse comando de forma idempotente, então

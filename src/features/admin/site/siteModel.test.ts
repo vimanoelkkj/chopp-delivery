@@ -9,6 +9,7 @@ import {
   describeSection,
   documentNotices,
   documentSetupPending,
+  publishBlockers,
   readCommandResult,
   readConversionPreview,
   readSiteSnapshot,
@@ -363,5 +364,81 @@ describe('pendências do rascunho inicial', () => {
     const document = previewFixture()
     document.commercial.whatsappNumber = '5532999999999'
     expect(documentSetupPending(v2(document))).toEqual([])
+  })
+})
+
+describe('publishBlockers', () => {
+  const SITE = '5531984400001'
+  const ready = () => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = SITE
+    for (const module of document.modules) {
+      if (module.template === 'hero')
+        module.content = {
+          heading: 'Conteúdo aprovado',
+          summary: 'Texto editorial',
+          media: { id: 'media_12345678-1234-4123-8123-123456789012', alt: 'Imagem de teste' },
+          deliveryRegion: 'Região de teste',
+        }
+      if (module.template === 'catalog') module.content = { heading: 'Catálogo', intro: 'Opções' }
+      if (module.template === 'contact') module.content = { heading: 'Contato', body: 'Converse' }
+    }
+    return document
+  }
+
+  it('libera um rascunho completo com o número comercial do site', () => {
+    expect(publishBlockers(ready(), SITE)).toEqual([])
+  })
+
+  it('bloqueia WhatsApp ausente e vitrine visível sem barris', () => {
+    const document = ready()
+    document.commercial.whatsappNumber = null
+    const carousel = document.modules.find((module) => module.template === 'carousel')
+    if (carousel?.template !== 'carousel') throw new Error('vitrine ausente')
+    carousel.content.entries = []
+    expect(publishBlockers(document, SITE)).toEqual([
+      'O WhatsApp comercial do documento ainda não foi definido.',
+      'A vitrine de barris está visível e não tem barris selecionados.',
+    ])
+  })
+
+  it('bloqueia número diferente do comercial, mas aceita qualquer válido quando o build não tem número', () => {
+    const document = ready()
+    document.commercial.whatsappNumber = '5532999999999'
+    expect(publishBlockers(document, SITE)).toEqual([
+      'O WhatsApp do documento difere do número comercial do site.',
+    ])
+    expect(publishBlockers(document, null)).toEqual([])
+  })
+})
+
+describe('publishBlockers: conteúdo obrigatório', () => {
+  it('explica que seções visíveis precisam de texto quando o contrato recusa', () => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = '5531984400001'
+    const hero = document.modules.find((module) => module.template === 'hero')
+    if (hero?.template !== 'hero') throw new Error('hero ausente')
+    hero.content = {
+      heading: '',
+      summary: '',
+      media: { id: 'media_12345678-1234-4123-8123-123456789012', alt: 'Imagem de teste' },
+      deliveryRegion: '',
+    }
+    expect(publishBlockers(document, '5531984400001')).toEqual([
+      'Preencha os textos obrigatórios das seções visíveis.',
+    ])
+  })
+})
+
+describe('publishBlockers: imagem da abertura', () => {
+  it('bloqueia explicitamente quando o hero não tem imagem (exigência do contrato de publicação)', () => {
+    const document = previewFixture()
+    document.commercial.whatsappNumber = '5531984400001'
+    const hero = document.modules.find((module) => module.template === 'hero')
+    if (hero?.template !== 'hero') throw new Error('hero ausente')
+    hero.content = { heading: 'A', summary: 'B', media: null, deliveryRegion: 'C' }
+    expect(publishBlockers(document, '5531984400001')).toContain(
+      'A imagem da abertura (hero) é obrigatória para publicar.',
+    )
   })
 })

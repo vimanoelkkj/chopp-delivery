@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CMS_LIMITS } from '../../../../shared/cms/common'
 import { deriveLayout } from '../../../../shared/cms/layout'
 import type { CmsDocumentV2 } from '../../../../shared/cms/v2'
+import { contact } from '../../contact/config'
 import { AdminButton } from '../ui/AdminButton'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Switch } from '../ui/Switch'
@@ -28,6 +29,7 @@ import {
   setField,
   setMedia,
   setVisible,
+  setWhatsappNumber,
 } from './editModel'
 import styles from './HomeEditor.module.css'
 import { MediaPicker } from './media/MediaPicker'
@@ -41,6 +43,7 @@ import {
   documentSetupPending,
   type FieldRow,
   NAVIGATION_LABEL,
+  publishBlockers,
   type SectionSummary,
   type SiteRead,
   STATUS_LABEL,
@@ -388,7 +391,7 @@ export function HomeEditor({
     setDoc(read.document)
   }
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [confirm, setConfirm] = useState<'discard' | 'reload' | null>(null)
+  const [confirm, setConfirm] = useState<'discard' | 'reload' | 'publish' | null>(null)
   // Seção que está escolhendo imagem. O ID fica depois de fechar para o título não piscar na animação.
   const [pickerFor, setPickerFor] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -424,7 +427,12 @@ export function HomeEditor({
   const { phase, run, retry, verify, reset } = useCommandRun({
     onApplied: (receipt) => {
       resetRun.current()
-      onApplied(receipt.read, 'Rascunho salvo. Nada foi publicado.')
+      onApplied(
+        receipt.read,
+        receipt.command.action === 'publish'
+          ? 'Publicado. A vitrine passa a usar este conteúdo.'
+          : 'Rascunho salvo. Nada foi publicado.',
+      )
     },
     onExpired: expireWithRescue,
   })
@@ -522,6 +530,17 @@ export function HomeEditor({
     void run({ action: 'saveDraft', revision: read.revision, document: doc })
   }
 
+  // Publicar exige o rascunho já salvo (o servidor recusa documento diferente do salvo) e válido.
+  const blockers = useMemo(
+    () => publishBlockers(read.document, contact.whatsappNumber),
+    [read.document],
+  )
+  const canPublish = !dirty && !locked && !conflict && blockers.length === 0
+  const publish = () => {
+    if (!canPublish) return
+    void run({ action: 'publish', revision: read.revision, document: read.document })
+  }
+
   // Uma falha leva o foco ao aviso: quem está no fim de um formulário longo não pode deixar de vê-lo.
   useEffect(() => {
     if (phase.kind === 'failed') alertRef.current?.focus()
@@ -590,6 +609,17 @@ export function HomeEditor({
           label="Dados do documento"
         />
       </details>
+      {doc.commercial.whatsappNumber === null && contact.whatsappNumber ? (
+        <div>
+          <AdminButton
+            variant="outline"
+            disabled={locked}
+            onClick={() => edit((current) => setWhatsappNumber(current, contact.whatsappNumber))}
+          >
+            Usar o WhatsApp comercial do site
+          </AdminButton>
+        </div>
+      ) : null}
 
       <div className={view.split}>
         <nav aria-label="Seções da página inicial" className={view.sections}>
@@ -668,7 +698,14 @@ export function HomeEditor({
           <p className={styles.saveNote}>
             {dirty
               ? 'A prévia ainda não mostra estas alterações: ela exibe só o último rascunho salvo.'
-              : 'A prévia mostra o último rascunho salvo. Nada é publicado por esta tela.'}
+              : 'A prévia mostra o último rascunho salvo. Salvar não publica: só “Publicar” altera a vitrine.'}
+          </p>
+          <p id={`${statusId}-publish`} className={styles.saveNote}>
+            {dirty
+              ? 'Salve o rascunho antes de publicar.'
+              : blockers.length > 0
+                ? `Para publicar: ${blockers.join(' ')}`
+                : 'Pronto para publicar o rascunho salvo.'}
           </p>
         </div>
         <div className={styles.saveActions}>
@@ -686,6 +723,14 @@ export function HomeEditor({
             onClick={save}
           >
             {busy ? 'Salvando…' : 'Salvar rascunho'}
+          </AdminButton>
+          <AdminButton
+            variant="outline"
+            disabled={!canPublish}
+            aria-describedby={`${statusId}-publish`}
+            onClick={() => setConfirm('publish')}
+          >
+            Publicar
           </AdminButton>
         </div>
       </div>
@@ -718,6 +763,23 @@ export function HomeEditor({
         }}
       >
         As alterações feitas desde o último salvamento serão perdidas. O rascunho salvo não muda.
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirm === 'publish'}
+        title="Publicar na vitrine?"
+        confirmLabel="Publicar"
+        cancelLabel="Voltar"
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          setConfirm(null)
+          publish()
+        }}
+      >
+        {`O rascunho salvo (revisão ${read.revision.slice(0, 11)}…) passa a valer na vitrine para todos os visitantes. Preços, volumes, disponibilidade e produtos continuam vindo do catálogo.${
+          read.document.commercial.whatsappNumber
+            ? ` Pedidos serão enviados ao WhatsApp ${read.document.commercial.whatsappNumber}.`
+            : ''
+        }`}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === 'reload'}

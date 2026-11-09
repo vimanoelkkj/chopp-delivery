@@ -455,7 +455,7 @@ export function describeDocument(read: Extract<SiteRead, { kind: 'v2' }>): Docum
       label: 'WhatsApp comercial',
       value: document.commercial.whatsappNumber,
       status: 'readonly',
-      hint: 'Ainda não é consumido: o site usa o número configurado no build.',
+      hint: 'Publicado com o documento: a vitrine usa este número; sem publicação, usa o do build.',
     },
   ]
 }
@@ -489,6 +489,31 @@ export function documentSetupPending(read: Extract<SiteRead, { kind: 'v2' }>): s
       ? ['O WhatsApp do documento ainda não foi configurado.']
       : []),
   ]
+}
+
+/**
+ * O que ainda impede publicar este rascunho, em texto claro. Vazio = o contrato de publicação aceita.
+ * `siteNumber` é o número comercial do build: publicar outro número trocaria o destino dos pedidos.
+ */
+export function publishBlockers(document: CmsDocumentV2, siteNumber: string | null): string[] {
+  const blockers: string[] = []
+  const number = document.commercial.whatsappNumber
+  if (number === null) blockers.push('O WhatsApp comercial do documento ainda não foi definido.')
+  else if (siteNumber !== null && number !== siteNumber)
+    blockers.push('O WhatsApp do documento difere do número comercial do site.')
+  const carousel = document.modules.find((module) => module.template === 'carousel')
+  if (
+    carousel?.template === 'carousel' &&
+    carousel.visible &&
+    carousel.content.entries.length === 0
+  )
+    blockers.push('A vitrine de barris está visível e não tem barris selecionados.')
+  const hero = document.modules.find((module) => module.template === 'hero')
+  if (hero?.template === 'hero' && hero.content.media === null)
+    blockers.push('A imagem da abertura (hero) é obrigatória para publicar.')
+  if (blockers.length === 0 && !parseCmsDocument(document, 'publish').value)
+    blockers.push('Preencha os textos obrigatórios das seções visíveis.')
+  return blockers
 }
 
 export type ConversionPreview = {

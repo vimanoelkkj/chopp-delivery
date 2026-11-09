@@ -278,3 +278,13 @@ export function checkDocument(doc: CmsDocumentV2): EditCheck {
 }
 
 export const canSave = (check: EditCheck) => check.problems.size === 0 && !check.documentProblem
+
+/**
+ * Define o WhatsApp comercial do documento. Só aceita o formato do contrato (E.164 sem "+"); qualquer
+ * outro valor devolve o mesmo documento. A tela nunca digita o número: usa o do build do site.
+ */
+export function setWhatsappNumber(doc: CmsDocumentV2, number: string | null): CmsDocumentV2 {
+  if (number !== null && !/^[1-9][0-9]{7,14}$/.test(number)) return doc
+  if (doc.commercial.whatsappNumber === number) return doc
+  return { ...doc, commercial: { ...doc.commercial, whatsappNumber: number } }
+}
