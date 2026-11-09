@@ -2765,4 +2765,65 @@ test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitr
       await anonymous.close()
     }
   })
+
+  test('FAQ publicado pelo CMS: o primeiro clique não desloca a pergunta clicada (1440 e 390)', async ({
+    page,
+    integration,
+    browser,
+  }) => {
+    test.setTimeout(180_000)
+    await seedPreview(page, integration)
+    const mediaId = await uploadImage(page, integration)
+    const publishedDoc = publishable(mediaId, 'FAQ publicado E2E')
+    let head = (await adminSite(page)).draft
+    expect(
+      (await write(page, integration, 'saveDraft', head.revision, publishedDoc)).status(),
+    ).toBe(200)
+    head = (await adminSite(page)).draft
+    expect((await write(page, integration, 'publish', head.revision, head.document)).status()).toBe(
+      200,
+    )
+
+    for (const [width, height] of [
+      [1440, 900],
+      [390, 844],
+    ] as const) {
+      const context = await browser.newContext({
+        baseURL: integration.origin,
+        viewport: { width, height },
+      })
+      const shop = await context.newPage()
+      try {
+        await shop.goto('/')
+        await expect(shop.locator('[data-editorial-state]')).toHaveAttribute(
+          'data-editorial-state',
+          'ready',
+          { timeout: 20_000 },
+        )
+        const faq = shop.locator('#faq button[aria-expanded]')
+        await expect(faq.first()).toHaveAttribute('aria-expanded', 'true')
+        await shop.evaluate((height) => {
+          const list = document
+            .querySelector('#faq button[aria-expanded]')
+            ?.closest('div')?.parentElement
+          if (!list) throw new Error('lista do FAQ ausente')
+          const top = list.getBoundingClientRect().top + window.scrollY
+          window.scrollTo({ top: top - height * 0.2, behavior: 'instant' })
+        }, height)
+        await shop.waitForTimeout(400)
+        const topOf = () => faq.nth(1).evaluate((node) => node.getBoundingClientRect().top)
+        const before = await topOf()
+        const scrollBefore = await shop.evaluate(() => window.scrollY)
+        const box = await faq.nth(1).boundingBox()
+        if (!box) throw new Error('botão fora da tela')
+        await shop.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+        await expect(faq.nth(1)).toHaveAttribute('aria-expanded', 'true')
+        await expect(faq.first()).toHaveAttribute('aria-expanded', 'false')
+        expect(Math.abs((await topOf()) - before), `${width}px`).toBeLessThan(1.5)
+        expect(await shop.evaluate(() => window.scrollY)).toBeLessThan(scrollBefore)
+      } finally {
+        await context.close()
+      }
+    }
+  })
 })
