@@ -2844,3 +2844,295 @@ test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitr
     }
   })
 })
+
+/**
+ * F4A.5.4: validação integrada do catálogo, de ponta a ponta e sem mocks: build `release`, gateway
+ * HTTP real, sessão administrativa real, D1 local descartável e número de WhatsApp fictício.
+ */
+test.describe('F4A.5.4: catálogo integrado (admin real → API → D1 → vitrine)', () => {
+  for (const viewport of [
+    { name: 'desktop 1440', width: 1440, height: 900 },
+    { name: 'mobile 390', width: 390, height: 844 },
+  ]) {
+    test.describe(viewport.name, () => {
+      test.use({
+        runtimeMode: 'release',
+        whatsappNumber: '5500000000000',
+        viewport: { width: viewport.width, height: viewport.height },
+      })
+
+      test('cria, ajusta, publica, oculta, recusa duplicata e preserva dados em conflito', async ({
+        page,
+        browser,
+        integration,
+      }) => {
+        test.setTimeout(180_000)
+        const origin = integration.origin
+        const sql = (text: string, ...values: (string | number | null)[]) =>
+          integration.database.prepare(text).all(...values)
+        const originals = () => ({
+          items: sql(
+            "SELECT id, category_id, name, description, visible, sort_order FROM catalog_items WHERE id NOT LIKE 'item_%' ORDER BY id",
+          ),
+          variants: sql(
+            "SELECT item_id, code, label, volume_ml, price_cents, sort_order FROM catalog_variants WHERE item_id NOT LIKE 'item_%' AND code IN ('30','50','bottle') ORDER BY item_id, code",
+          ),
+        })
+        const initial = originals()
+        expect(initial.items).toHaveLength(9)
+        type Snapshot = {
+          revision: string
+          categories: {
+            id: string
+            name: string
+            items: {
+              id: string
+              name: string
+              visible: boolean
+              variants: {
+                code: string
+                label: string
+                volumeMl: number
+                priceCents: number | null
+              }[]
+            }[]
+          }[]
+        }
+        const apiSnapshot = async () => (await (await page.request.get(path)).json()) as Snapshot
+        const writable = (snapshot: Snapshot) => ({
+          revision: snapshot.revision,
+          categories: snapshot.categories.map((c) => ({
+            ...c,
+            items: c.items.map((item) => {
+              const {
+                creationRef: _r,
+                variants,
+                ...rest
+              } = item as typeof item & {
+                creationRef?: unknown
+              }
+              return {
+                ...rest,
+                variants: variants.map((variant) => {
+                  const { creationRef: _v, ...clean } = variant as typeof variant & {
+                    creationRef?: unknown
+                  }
+                  return clean as Record<string, unknown>
+                }),
+              }
+            }),
+          })),
+        })
+        const itemCard = (name: string) => page.getByRole('listitem', { name, exact: true })
+
+        // 1. Autenticação real; uma segunda sessão carrega o catálogo antigo para o conflito (11).
+        await login(page, integration)
+        const secondContext = await browser.newContext({
+          baseURL: origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const other = await secondContext.newPage()
+        await login(other, integration)
+        const firstRevision = (await apiSnapshot()).revision
+
+        // 2-3. Produto novo com 20 L e 40 L, visível; salva pelo painel e confere API e D1.
+        const created = await add(page, 'Chopes', 'Chope Vinte Quarenta', '20', '25000')
+        await created.getByLabel('Rótulo', { exact: true }).first().fill('Barril de 20 L')
+        await created.getByRole('button', { name: 'Adicionar variante' }).click()
+        await created.getByLabel('Rótulo', { exact: true }).last().fill('Barril de 40 L')
+        await created.getByLabel('Volume (L)', { exact: true }).last().fill('40')
+        await created
+          .getByLabel(/^Preço em reais/)
+          .last()
+          .fill('45000')
+        await created.getByRole('switch').check()
+        const putCreate = page.waitForResponse(
+          (r) => r.url().endsWith(path) && r.request().method() === 'PUT',
+        )
+        await saved(page)
+        expect((await putCreate).status()).toBe(200)
+        const apiItem = (await apiSnapshot()).categories[0].items.find(
+          (i) => i.name === 'Chope Vinte Quarenta',
+        )
+        expect(apiItem?.visible).toBe(true)
+        expect(apiItem?.variants.map((v) => [v.label, v.volumeMl, v.priceCents])).toEqual([
+          ['Barril de 20 L', 20000, 25000],
+          ['Barril de 40 L', 40000, 45000],
+        ])
+        const newId = apiItem?.id as string
+        expect(newId).toMatch(/^item_/)
+        expect(
+          sql(
+            'SELECT label, volume_ml, price_cents FROM catalog_variants WHERE item_id=? ORDER BY sort_order',
+            newId,
+          ),
+        ).toEqual([
+          { label: 'Barril de 20 L', volume_ml: 20000, price_cents: 25000 },
+          { label: 'Barril de 40 L', volume_ml: 40000, price_cents: 45000 },
+        ])
+
+        // 4. Recarrega o painel: os dados persistidos voltam do servidor.
+        await page.reload()
+        const reloaded = itemCard('Chope Vinte Quarenta')
+        await expect(reloaded.getByLabel('Nome', { exact: true })).toHaveValue(
+          'Chope Vinte Quarenta',
+        )
+        await expect(reloaded.getByText('Barril de 20 L')).toBeVisible()
+        await expect(reloaded.getByText('Barril de 40 L')).toBeVisible()
+        await expect(reloaded.getByLabel(/^Preço em reais/).last()).toHaveValue('450,00')
+
+        // 5. Variante de 20 L num produto existente de 30/50 L.
+        await page.getByRole('button', { name: 'Adicionar variante a Dronken' }).click()
+        const dronken = itemCard('Dronken')
+        await dronken.getByLabel('Rótulo', { exact: true }).fill('Barril de 20 L')
+        await dronken.getByLabel('Volume (L)', { exact: true }).fill('20')
+        await dronken
+          .getByLabel(/^Preço em reais/)
+          .last()
+          .fill('30000')
+        await saved(page)
+        expect(
+          sql(
+            'SELECT code FROM catalog_variants WHERE item_id=? ORDER BY sort_order',
+            'dronken',
+          ).map((v) => (v as { code: string }).code.replace(/^v_.*/, 'v_')),
+        ).toEqual(['30', '50', 'v_'])
+
+        // 6-8. Vitrine pública real (contexto sem sessão): tabela original, complementar e WhatsApp.
+        const shopContext = await browser.newContext({
+          baseURL: origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const shop = await shopContext.newPage()
+        const message = async (link: Locator) =>
+          ((await whatsappMessage(link)) ?? '').replaceAll(' ', ' ')
+        try {
+          await shop.goto('/')
+          const section = shop.locator('#chopes')
+          await expect(section.locator('table tbody tr')).toHaveCount(8) // tabela original, só 30/50 L
+          await expect(section.getByRole('row', { name: /Dronken/ })).toContainText('R$ 510')
+          await expect(section.getByRole('row', { name: /Dronken/ })).toContainText('R$ 650')
+          const extras = section.getByRole('article')
+          await expect(extras).toHaveCount(2) // Dronken (20 L adicional) e o produto novo
+          const extraDronken = extras.filter({ hasText: 'Dronken' })
+          await expect(extraDronken).toContainText('Outras apresentações')
+          await expect(extraDronken).toContainText('Barril de 20 L')
+          await expect(extraDronken).toContainText('R$ 300,00')
+          const fresh = extras.filter({ hasText: 'Chope Vinte Quarenta' })
+          await expect(fresh).not.toContainText('Outras apresentações')
+          await expect(fresh).toContainText('R$ 250,00')
+          await expect(fresh).toContainText('R$ 450,00')
+          const publicData = (await (await shop.request.get('/api/catalog')).json()) as {
+            categories: { items: { id: string; variants: { priceCents: number }[] }[] }[]
+          }
+          expect(
+            publicData.categories[0].items
+              .find((i) => i.id === newId)
+              ?.variants.map((v) => v.priceCents),
+          ).toEqual([25000, 45000])
+
+          // WhatsApp: produto, variante, quantidade, preço e total, só lendo o href.
+          const more = section.getByRole('button', {
+            name: 'Aumentar quantidade de Chope Vinte Quarenta, Barril de 20 L',
+          })
+          await more.click()
+          await more.click()
+          const link = section.getByRole('link', {
+            name: /^Pedir Chope Vinte Quarenta, Barril de 20 L/,
+          })
+          const url = new URL((await link.getAttribute('href')) as string)
+          expect(`${url.origin}${url.pathname}`).toBe('https://wa.me/5500000000000')
+          expect(await message(link)).toBe(
+            'Olá! Vim pelo site da Chopp Delivery Delegas e gostaria de pedir o barril de Chope Vinte Quarenta (Barril de 20 L). Quantidade: 3 unidades. Preço unitário: R$ 250. Total: R$ 750.',
+          )
+          expect(
+            await message(section.getByRole('link', { name: /^Pedir Dronken, Barril de 20 L/ })),
+          ).toContain(
+            'barril de Dronken (Barril de 20 L). Quantidade: 1 unidade. Preço unitário: R$ 300. Total: R$ 300.',
+          )
+          expect(
+            await shop.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          ).toBe(true)
+
+          // 9. Ocultar o produto novo: some da vitrine e da API pública, continua no admin.
+          await itemCard('Chope Vinte Quarenta').getByRole('switch').uncheck()
+          await saved(page)
+          await shop.reload()
+          await expect(shop.locator('#chopes')).not.toContainText('Chope Vinte Quarenta')
+          await expect(shop.locator('#barris')).not.toContainText('Chope Vinte Quarenta')
+          const hiddenPublic = (await (await shop.request.get('/api/catalog')).json()) as {
+            categories: { items: { id: string }[] }[]
+          }
+          expect(hiddenPublic.categories[0].items.some((i) => i.id === newId)).toBe(false)
+          expect(
+            (await apiSnapshot()).categories[0].items.find((i) => i.id === newId)?.visible,
+          ).toBe(false)
+        } finally {
+          await shopContext.close()
+        }
+
+        // 10. Duplicata exata: o painel avisa sem enviar nada; o servidor também recusa, sem escrita parcial.
+        let puts = 0
+        page.on('request', (r) => {
+          if (r.url().endsWith(path) && r.method() === 'PUT') puts++
+        })
+        await dronken.getByRole('button', { name: 'Adicionar variante' }).click()
+        await dronken.getByLabel('Rótulo', { exact: true }).last().fill(' barril de 20 l ')
+        await dronken.getByLabel('Volume (L)', { exact: true }).last().fill('20')
+        await dronken
+          .getByLabel(/^Preço em reais/)
+          .last()
+          .fill('100')
+        await save(page).click()
+        await expect(
+          dronken.getByText('Já existe uma variante com este rótulo e volume neste produto.'),
+        ).toBeVisible()
+        expect(puts).toBe(0)
+        const before = await catalogState(integration)
+        const current = await apiSnapshot()
+        const body = writable(current)
+        body.categories[0].items
+          .find((i) => i.id === 'dronken')
+          ?.variants.push({
+            clientId: `tmp:${crypto.randomUUID()}`,
+            label: ' barril DE 20 l ',
+            volumeMl: 20000,
+            priceCents: 100,
+          })
+        const duplicate = await page.request.put(path, {
+          data: body,
+          headers: { Origin: origin, 'If-Match': JSON.stringify(current.revision) },
+        })
+        expect(duplicate.status()).toBe(400)
+        expect(JSON.stringify(await duplicate.json())).toContain('rótulo e volume')
+        expect(await catalogState(integration)).toEqual(before)
+
+        // 11. Conflito: revisão antiga pela API (409) e pela segunda sessão do painel (diálogo).
+        const stale = writable(current)
+        stale.revision = firstRevision
+        const staleResponse = await page.request.put(path, {
+          data: stale,
+          headers: { Origin: origin, 'If-Match': JSON.stringify(firstRevision) },
+        })
+        expect(staleResponse.status()).toBe(409)
+        expect(await catalogState(integration)).toEqual(before)
+        await price(other).fill('52022')
+        const conflict = other.waitForResponse(
+          (r) => r.url().endsWith(path) && r.request().method() === 'PUT',
+        )
+        await save(other).click()
+        expect((await conflict).status()).toBe(409)
+        await expect(other.getByRole('dialog', { name: 'O catálogo mudou' })).toBeVisible()
+        expect(await catalogState(integration)).toEqual(before)
+        expect(await dbPrice(integration)).toBe(51000)
+        await secondContext.close()
+
+        // 12. Produtos e variantes originais intactos (a única mudança é a 20 L extra do Dronken).
+        expect(originals()).toEqual(initial)
+        const reread = await apiSnapshot()
+        expect(reread.categories[0].items.find((i) => i.id === 'dronken')?.variants).toHaveLength(3)
+        expect(reread.categories[1].items).toHaveLength(1)
+      })
+    })
+  }
+})
