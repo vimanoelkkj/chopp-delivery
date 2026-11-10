@@ -1,7 +1,6 @@
 import { CachacaBanner } from '@/features/catalog/CachacaBanner'
-import { standardChopes } from '@/features/catalog/expanded-api'
 import { PriceComparison } from '@/features/catalog/PriceComparison'
-import { visibleProducts } from '@/features/catalog/pricing'
+import { chopesNote, splitChopes } from '@/features/catalog/presentation'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { VariantCatalog } from '@/features/catalog/VariantCatalog'
 import { Button } from '@/shared/ui/Button'
@@ -20,10 +19,10 @@ export function CatalogSection({
   sectionNumber?: string
   editorial?: CmsContentsV2['catalog']
 }) {
-  const count = state.status === 'ready' ? state.catalog.products.length : null
   const categories = state.status === 'ready' ? state.catalog.expanded.categories : []
   const chopes = categories.find((c) => c.id === 'chopes')?.items ?? []
-  const standard = standardChopes(chopes)
+  const count = state.status === 'ready' ? chopes.length : null
+  const { table, extras } = splitChopes(chopes)
 
   return (
     <section id="chopes" className={styles.section} aria-labelledby="chopes-title">
@@ -34,14 +33,7 @@ export function CatalogSection({
             <h2 id="chopes-title" className={styles.title}>
               {editorial?.heading ?? <>Nossos chopes e litragens</>}
             </h2>
-            <p className={styles.note}>
-              {editorial?.intro ??
-                (!standard
-                  ? 'Consulte os valores e as apresentações disponíveis diretamente da câmara fria.'
-                  : count === null
-                    ? 'Consulte os valores dos barris de 30 e de 50 litros.'
-                    : `${count === 8 ? 'Oito' : count} opções de chopp com valores verificados da câmara fria de São João del-Rei. Chopeira profissional inclusa.`)}
-            </p>
+            <p className={styles.note}>{editorial?.intro ?? chopesNote(count)}</p>
           </div>
         </div>
 
@@ -58,11 +50,16 @@ export function CatalogSection({
               c.id === 'chopes' ? (
                 <div key={c.id}>
                   {chopes.length ? (
-                    standard ? (
-                      <PriceComparison products={visibleProducts(state.catalog.products)} />
-                    ) : (
-                      <VariantCatalog items={chopes} />
-                    )
+                    <>
+                      {table.length ? <PriceComparison products={table} /> : null}
+                      {extras.length ? (
+                        <VariantCatalog
+                          items={extras}
+                          orderable
+                          inTable={new Set(table.map((p) => p.id))}
+                        />
+                      ) : null}
+                    </>
                   ) : (
                     <p role="status">Nenhum chope disponível no catálogo no momento.</p>
                   )}

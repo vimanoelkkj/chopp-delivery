@@ -69,18 +69,22 @@ for (const width of [1280, 390])
     })
     await page.route('**/api/catalog', (route) => route.fulfill({ json: data }))
     await page.goto('/')
-    await expect(page.getByRole('article', { name: 'Dronken' })).toContainText(
-      'Barril especial · 20000 ml · R$ 321,29',
-    )
-    await expect(page.getByRole('article', { name: 'Brahma' })).toContainText('Não comercializado')
+    // 30/50 L ficam na tabela; a variante extra entra na lista complementar, em litros e com pedido.
+    const extra = page.getByRole('article', { name: 'Dronken' })
+    await expect(extra).toContainText('Barril especial · 20 L')
+    await expect(extra).toContainText('R$ 321,29')
+    await expect(
+      extra.getByRole('button', { name: /^Pedir Dronken, Barril especial/ }),
+    ).toHaveCount(1)
+    await expect(page.getByRole('row', { name: /Brahma/ })).toContainText('Indisponível')
     await expect(page.getByRole('complementary', { name: 'Temos cachaça' })).toBeVisible()
     await expect(page.getByRole('complementary', { name: 'Cachaça segunda' })).toContainText(
       'Garrafa grande 1000 ml · R$ 59,01',
     )
     await expect(page.getByRole('heading', { name: 'Categoria futura' })).toBeVisible()
-    await expect(page.getByRole('article', { name: 'Produto futuro' })).toContainText(
-      'Unidade · R$ 1,99',
-    )
+    const future = page.getByRole('article', { name: 'Produto futuro' })
+    await expect(future).toContainText('Unidade')
+    await expect(future).toContainText('R$ 1,99')
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),

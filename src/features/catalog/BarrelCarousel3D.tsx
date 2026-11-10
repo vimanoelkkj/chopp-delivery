@@ -3,11 +3,12 @@ import { buildBarrelOrderMessage } from '@/features/contact/messages'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
-import { KegCutout, kegPhotoForItem } from '@/shared/ui/KegCutout'
+import { KegCutout, KegPlaceholder, kegPhotoForItem } from '@/shared/ui/KegCutout'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
 import { centsToReais } from '../../../shared/money'
 import styles from './BarrelCarousel3D.module.css'
+import { labelMentionsVolume, presentationText } from './presentation'
 
 export type CarouselItem = PublicCatalog['categories'][number]['items'][number]
 
@@ -28,7 +29,6 @@ export interface CarouselKeg {
   variants: CarouselVariant[]
   price30: number | null
   price50: number | null
-  image: string
   alt: string
 }
 
@@ -66,6 +66,12 @@ export function isHorizontalSwipeIntent(diffX: number, diffY: number): boolean {
   return Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5
 }
 
+/** Foto própria do chope (por identidade) ou silhueta neutra: nunca uma foto emprestada por posição. */
+function KegMedia({ id, alt }: { id: string; alt: string }) {
+  const photo = kegPhotoForItem(id)
+  return photo ? <KegCutout photo={photo} alt={alt} /> : <KegPlaceholder alt={alt} />
+}
+
 export function BarrelCarousel3D({
   items,
   onSelectKeg,
@@ -74,7 +80,7 @@ export function BarrelCarousel3D({
   className,
 }: BarrelCarousel3DProps) {
   // Constrói os barris a partir dos itens reais do catálogo (sem dados fictícios)
-  const kegs: CarouselKeg[] = items.map((item, idx) => {
+  const kegs: CarouselKeg[] = items.map((item) => {
     const rawVariants = item.variants.map((v) => ({
       code: v.code,
       label: v.label,
@@ -100,7 +106,7 @@ export function BarrelCarousel3D({
         displayLabel = '50L'
       } else if (sameVolCount > 1) {
         displayLabel = volStr ? `${v.label} ${volStr}` : v.label
-      } else if (volStr && !v.label.toLowerCase().includes(volStr.toLowerCase())) {
+      } else if (volStr && !labelMentionsVolume(v.label, v.volumeMl)) {
         displayLabel = `${v.label} (${volStr})`
       } else {
         displayLabel = v.label
@@ -131,11 +137,6 @@ export function BarrelCarousel3D({
       badgeVariant = 'amber'
     }
 
-    const image =
-      item.id === 'palato-beber' || item.id === 'villa-alema' || idx % 2 === 0
-        ? '/images/kegs/keg-studio-30l.jpg'
-        : '/images/kegs/keg-hero-50l.jpg'
-
     return {
       id: item.id,
       name: item.name,
@@ -145,7 +146,6 @@ export function BarrelCarousel3D({
       variants,
       price30,
       price50,
-      image,
       alt: `Barril de Chopp ${item.name} em Aço Inox`,
     }
   })
@@ -258,28 +258,9 @@ export function BarrelCarousel3D({
       currentKeg.variants[0]
   }
 
-  let activePresentationText = ''
-  if (activeVariant) {
-    const volStr = formatCatalogVolume(activeVariant.volumeMl)
-    const isGeneric30 =
-      /^barril\s*(de\s*)?30\s*l?$/i.test(activeVariant.label.trim()) ||
-      activeVariant.label.trim() === '30'
-    const isGeneric50 =
-      /^barril\s*(de\s*)?50\s*l?$/i.test(activeVariant.label.trim()) ||
-      activeVariant.label.trim() === '50'
-
-    if (isGeneric30) {
-      activePresentationText = '30L'
-    } else if (isGeneric50) {
-      activePresentationText = '50L'
-    } else if (volStr && !activeVariant.label.toLowerCase().includes(volStr.toLowerCase())) {
-      activePresentationText = `${activeVariant.label} - ${volStr}`
-    } else {
-      activePresentationText = activeVariant.label
-    }
-  } else {
-    activePresentationText = 'barril'
-  }
+  const activePresentationText = activeVariant
+    ? presentationText(activeVariant.label, activeVariant.volumeMl)
+    : 'barril'
 
   const quantityKey = `${currentKeg.id}:${activeVariant?.code ?? ''}`
   const quantity = normalizeQuantity(quantityState?.key === quantityKey ? quantityState.value : 1)
@@ -335,9 +316,7 @@ export function BarrelCarousel3D({
                 aria-hidden={!isCenter}
               >
                 <div className={styles.imageWrap}>
-                  {renderItemMedia?.(keg.id) ?? (
-                    <KegCutout photo={kegPhotoForItem(keg.id, index)} alt={keg.alt} />
-                  )}
+                  {renderItemMedia?.(keg.id) ?? <KegMedia id={keg.id} alt={keg.alt} />}
                   {keg.badgeText && (
                     <span
                       className={`${styles.badge} ${

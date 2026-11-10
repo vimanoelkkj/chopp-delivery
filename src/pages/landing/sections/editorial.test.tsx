@@ -230,7 +230,9 @@ describe('P3: editorial props cannot set commercial data or navigation', () => {
         editorial={{ heading: 'Editorial', intro: 'Apresentações reais' }}
       />,
     )
-    for (const amount of [100, 120, 200, 300]) expect(html).toContain(formatBRL(amount))
+    // 30/50 L ficam na tabela aprovada; as demais apresentações, na lista complementar (sem repetir).
+    for (const amount of [100, 120]) expect(html).toContain(formatBRL(amount))
+    for (const amount of [200, 300]) expect(html).toContain(formatBRL(amount, { cents: false }))
     expect(html).toContain('20 L A')
     expect(html).toContain('20 L B')
     expect(html).not.toContain('Tabela Comparativa de Litragens')

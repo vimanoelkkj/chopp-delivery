@@ -559,7 +559,9 @@ describe('Fase 6.2: Validação Estrutural e Regressões do Redesign Chopp Deliv
         )
         // Deve exibir 1,5L de forma exata, nunca arredondado para 2L
         expect(html).toContain('1,5L')
-        expect(html).toContain('750 ml')
+        // O rótulo já cita o volume: não o repetimos ("Garrafa 750ml (750 ml)").
+        expect(html).toContain('Garrafa 750ml')
+        expect(html).not.toContain('750ml (750 ml)')
         expect(html).toContain('35,90')
         expect(html).not.toContain('Growler PET (2L)')
 

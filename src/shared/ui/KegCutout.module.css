@@ -32,3 +32,13 @@
   background: rgba(34, 40, 42, 0.3);
   filter: blur(7px);
 }
+
+/* Silhueta neutra: usa a cor do texto do tema, sem foto nem marca. */
+.placeholder {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: calc(100% - 0.75rem);
+  max-width: 100%;
+  color: var(--color-muted, #6b7a80);
+}

@@ -1,0 +1,75 @@
+.catalog {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.item {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.name {
+  margin: 0;
+  color: var(--color-bone);
+  font-size: 1.25rem;
+}
+
+.description {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+}
+
+.kicker {
+  margin: 0.75rem 0 0;
+  color: var(--accent-text, var(--color-gold));
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.variants {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.variant {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.label {
+  color: var(--color-bone);
+  font-weight: 600;
+}
+
+.volume {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.price {
+  color: var(--color-bone);
+  font-weight: 600;
+}
+
+.unavailable {
+  color: var(--color-muted);
+}
+
+.quantity,
+.order {
+  justify-self: start;
+}
+
+@media (min-width: 48rem) {
+  .variant {
+    grid-template-columns: minmax(10rem, 1fr) auto auto auto;
+    gap: 1.25rem;
+  }
+}
