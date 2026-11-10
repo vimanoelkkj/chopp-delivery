@@ -44,7 +44,7 @@ O nome `__Host-` impede cookie Domain em navegadores conformes, mas não substit
 
 `server/auth/recovery.ts:recoverOwnerCredentials` é uma primitiva interna, sem import por qualquer rota, script executável ou frontend. Ela **não autentica o operador**. Seu futuro chamador precisa ser o canal de manutenção previamente autorizado; conectá-la diretamente a HTTP seria uma vulnerabilidade e está fora desta entrega.
 
-Entrada: ID e username atuais, `expectedAuthVersion` e nova senha. O pepper vem exclusivamente do secret de runtime do futuro serviço. Validação de credenciais foi extraída de `bootstrap.ts` sem mudar as regras existentes: identificador válido, senha entre 15 e 128 pontos de código e até 512 bytes; hash F2 existente.
+Entrada: ID e username atuais, `expectedAuthVersion` e nova senha. O pepper vem exclusivamente do secret de runtime do futuro serviço. Validação de credenciais foi extraída de `bootstrap.ts` sem mudar as regras existentes: identificador válido, senha entre 8 e 128 pontos de código (mínimo revisado de 15 para 8 na H10.10-B), até 512 bytes e fora da lista de senhas triviais; hash F2 existente.
 
 A função executa uma única instrução parametrizada:
 

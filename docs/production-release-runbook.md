@@ -64,7 +64,9 @@ git add `
   wrangler.production.jsonc
 ```
 
-**Fica fora** (continua local, sem entrar no commit): `server/auth/bootstrap.ts`, `server/auth/password-policy.ts`, `server/auth/production-bootstrap-worker.ts`, `scripts/bootstrap-admin.mjs`, `scripts/production-bootstrap-config.*`, `config/cloudflare/production-bootstrap-worker.jsonc`, `tests/backend/password-policy.test.ts`, `tests/backend/production-bootstrap-*.test.ts`, `tests/backend/auth-maintenance-diagnostics.test.ts`, `docs/admin-auth.md`, `docs/cms-m3c-remote-admin-access.md` (fluxo H10.10-B; a política de senha reduz o mínimo de 15 para 8 caracteres: decisão de segurança separada), `prototypes/dark-d4a/`, `wrangler.homologation*.jsonc`, `docs/immersive-cms-stage4-spec.md`, `docs/production-bootstrap-runbook.md` (histórico do bootstrap; este documento o substitui no deploy), `graphify-out/`, `.env*`, `.dev.vars*`, `.wrangler/`.
+**Fica fora** (continua local, sem entrar no commit): `prototypes/dark-d4a/`, `wrangler.homologation*.jsonc`, `docs/immersive-cms-stage4-spec.md`, `graphify-out/`, `.env*`, `.dev.vars*`, `.wrangler/`.
+
+**Bootstrap de produção (versionado à parte).** O conjunto do bootstrap do administrador (`server/auth/bootstrap.ts`, `password-policy.ts`, `production-bootstrap-worker.ts`, `scripts/bootstrap-admin.mjs`, `scripts/production-bootstrap-config.*`, `config/cloudflare/production-bootstrap-worker.jsonc`, os testes `password-policy` e `production-bootstrap-*`, `docs/production-bootstrap-runbook.md`) tem commit próprio e deixou de ser trabalho local. A política de senha aprovada é de 8 a 128 caracteres (até 512 bytes, sem senhas triviais). O Worker nasce desarmado e o runbook do bootstrap é o procedimento vigente; este documento não o substitui.
 
 Nenhum arquivo da lista altera `functions/` ou `server/`: o runtime das Functions é o do `bead9d9`. O release muda o frontend, testes e ferramental.
 

@@ -39,7 +39,7 @@ Username é validado como ASCII antes de converter para minúsculas (login e CLI
 3–64 caracteres `[a-z0-9._-]`, começando com letra/número. `Kelvin`, por exemplo,
 é rejeitado, embora o lowercase Unicode convertesse `K` em `k`.
 Login aceita senha de 1–128 caracteres, até 512 bytes;
-bootstrap exige 15–128 caracteres, até 512 bytes, sem regras artificiais de composição.
+bootstrap e recuperação exigem 8–128 caracteres (pontos de código), até 512 bytes, sem regras artificiais de composição (revisão H10.10-B: mínimo antes 15). Recusam também senhas triviais — lista local de senhas comuns, caractere repetido, sequência inteira (`12345678`) e senha igual ao usuário (`server/auth/password-policy.ts`). Não há consulta externa a bases de senhas vazadas. O login não aplica o mínimo, para não bloquear contas criadas sob a regra anterior.
 Não há senha padrão. Ausência/desativação de usuário executa a mesma derivação
 dummy e retorna o mesmo 401 de uma senha incorreta, sem indicar existência de conta.
 

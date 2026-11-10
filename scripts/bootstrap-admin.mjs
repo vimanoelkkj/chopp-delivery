@@ -98,12 +98,13 @@ async function main() {
       await prompt.question('Identificador do proprietário (3–64 caracteres): '),
     )
     prompt.close()
-    const password = await hiddenPassword('Senha (15–128 caracteres; entrada oculta): ')
+    const password = await hiddenPassword('Senha (8–128 caracteres; entrada oculta): ')
     const confirmation = await hiddenPassword('Repita a senha (entrada oculta): ')
     if (password !== confirmation) throw new BootstrapError('As senhas não coincidem.')
     if (
       username === null ||
-      [...password].length < 15 ||
+      [...password].length < 8 ||
+      [...password].length > 128 ||
       new TextEncoder().encode(password).length > 512
     )
       throw new BootstrapError('Identificador ou política de senha inválidos.')

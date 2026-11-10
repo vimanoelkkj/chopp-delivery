@@ -100,7 +100,7 @@ describe('H2C.3 real maintenance bootstrap and safe diagnostics', () => {
   })
 
   it.each([
-    ['short password', 'too-short', TEST_PEPPER, true, 'credentials_validation'],
+    ['short password', 'aB3$eF7', TEST_PEPPER, true, 'credentials_validation'],
     ['malformed pepper', TEST_PASSWORD, 'INVALID-PEPPER-SENTINEL', true, 'auth_config'],
     ['missing schema', TEST_PASSWORD, TEST_PEPPER, false, 'd1_write'],
   ] as const)(

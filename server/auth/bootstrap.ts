@@ -1,12 +1,8 @@
 import { hashPassword } from './password.ts'
+import { passwordPolicyIssue } from './password-policy.ts'
 
 export function validateOwnerCredentials(username: string, password: string): void {
-  if (
-    !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username) ||
-    [...password].length < 15 ||
-    [...password].length > 128 ||
-    new TextEncoder().encode(password).length > 512
-  ) {
+  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username) || passwordPolicyIssue(username, password)) {
     throw new Error('Credenciais de bootstrap inválidas')
   }
 }
