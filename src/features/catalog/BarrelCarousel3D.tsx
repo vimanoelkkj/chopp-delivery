@@ -30,6 +30,8 @@ export interface CarouselKeg {
   variants: CarouselVariant[]
   price30: number | null
   price50: number | null
+  /** Imagem principal do produto (catálogo público); a editorial do carrossel vem de `publishedMedia`. */
+  image?: { id: string; alt: string }
   alt: string
 }
 
@@ -40,6 +42,12 @@ export interface BarrelCarousel3DProps {
    * enquanto carrega ou se falhar, vale a foto atual ou a silhueta neutra.
    */
   publishedMedia?: (itemId: string) => { id: string; alt: string } | null | undefined
+  /**
+   * Usa a imagem principal do produto (`item.image`) quando não há imagem editorial. Falso enquanto o
+   * conteúdo editorial ainda carrega: assim a principal não é pedida nem aparece para ser trocada
+   * pela editorial logo depois.
+   */
+  productImages?: boolean
   items: CarouselItem[]
   onSelectKeg?: (keg: CarouselKeg) => void
   initialSelectedId?: string
@@ -84,6 +92,7 @@ export function BarrelCarousel3D({
   initialSelectedId,
   renderItemMedia,
   publishedMedia,
+  productImages = true,
   className,
 }: BarrelCarousel3DProps) {
   // Constrói os barris a partir dos itens reais do catálogo (sem dados fictícios)
@@ -153,6 +162,7 @@ export function BarrelCarousel3D({
       variants,
       price30,
       price50,
+      ...(item.image ? { image: item.image } : {}),
       alt: `Barril de Chopp ${item.name} em Aço Inox`,
     }
   })
@@ -325,7 +335,8 @@ export function BarrelCarousel3D({
                 <div className={styles.imageWrap}>
                   {renderItemMedia?.(keg.id) ?? (
                     <PublishedMedia
-                      media={publishedMedia?.(keg.id)}
+                      // Precedência: editorial publicada > imagem principal > foto aprovada > silhueta (o fallback).
+                      media={publishedMedia?.(keg.id) ?? (productImages ? keg.image : undefined)}
                       profile="section"
                       fit="contain"
                       fallback={<KegMedia id={keg.id} alt={keg.alt} />}

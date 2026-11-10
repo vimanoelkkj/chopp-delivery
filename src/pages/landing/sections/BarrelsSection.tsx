@@ -10,12 +10,14 @@ export function BarrelsSection({
   editorial,
   renderItemMedia,
   publishedMedia,
+  productImages,
   sectionNumber,
 }: {
   state: CatalogState
   sectionNumber?: string
   renderItemMedia?: (itemId: string) => ReactNode
   publishedMedia?: (itemId: string) => { id: string; alt: string } | null | undefined
+  productImages?: boolean
   editorial?: Pick<CmsContentsV2['carousel'], 'heading' | 'lead'>
 }) {
   const chopes =
@@ -61,6 +63,7 @@ export function BarrelsSection({
               items={chopes}
               renderItemMedia={renderItemMedia}
               publishedMedia={publishedMedia}
+              productImages={productImages}
             />
           ))}
 

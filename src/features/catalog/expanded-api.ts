@@ -1,4 +1,5 @@
 import type { PublicCatalog } from '../../../shared/catalog'
+import { cmsMediaId } from '../../../shared/cms/primitives'
 import { centsToReais } from '../../../shared/money'
 import type { Product } from './types'
 
@@ -9,6 +10,18 @@ function object(v: unknown): Record<string, unknown> {
 function text(v: unknown, empty = false): string {
   if (typeof v !== 'string' || (!empty && !v.trim())) throw new Error('Texto inválido')
   return v
+}
+/**
+ * Imagem principal do produto (opcional). Formato inválido NÃO derruba o catálogo: a imagem é só um
+ * acessório e a apresentação cai na foto aprovada ou na silhueta neutra.
+ */
+function image(v: unknown): { id: string; alt: string } | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
+  const keys = Object.keys(v).sort().join(',')
+  const { id, alt } = v as { id?: unknown; alt?: unknown }
+  if (keys !== 'alt,id' || !cmsMediaId(id)) return null
+  if (typeof alt !== 'string' || alt.trim() === '' || [...alt].length > 200) return null
+  return { id, alt }
 }
 export type StorefrontCatalog = { products: Product[]; expanded: PublicCatalog }
 /** Parses every category and variant. A bad entry fails the entire response. */
@@ -73,6 +86,7 @@ export function parseExpandedCatalog(value: unknown): StorefrontCatalog {
             description: text(i.description, true),
             visible: true,
             variants,
+            ...(image(i.image) ? { image: image(i.image) as { id: string; alt: string } } : {}),
           }
         }),
       }

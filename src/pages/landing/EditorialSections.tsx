@@ -12,15 +12,18 @@ export function EditorialSections({
   site,
   catalog,
   retry,
+  settled = true,
 }: {
   site: PublishedSite | null
   catalog: CatalogState
   retry: () => void
+  /** O conteúdo editorial já respondeu (publicado, ausente ou com erro)? */
+  settled?: boolean
 }) {
   if (!site)
     return (
       <>
-        <BarrelsSection state={catalog} />
+        <BarrelsSection state={catalog} productImages={settled} />
         <Ticker />
         <CatalogSection state={catalog} retry={retry} />
         <HowItWorks />

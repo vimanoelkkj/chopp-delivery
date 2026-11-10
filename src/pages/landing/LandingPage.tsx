@@ -66,7 +66,12 @@ export function LandingPage() {
               publishedMedia={hero?.content.media}
               carouselHref={site ? site.layout.heroCarouselHref : undefined}
             />
-            <EditorialSections site={site} catalog={catalogState} retry={retry} />
+            <EditorialSections
+              site={site}
+              catalog={catalogState}
+              retry={retry}
+              settled={editorial.status !== 'loading'}
+            />
             <ContactSection ctaRef={finalCtaRef} editorial={contact?.content} />
           </main>
           <StickyCta visible={!heroCtaInView && !finalCtaInView} />
