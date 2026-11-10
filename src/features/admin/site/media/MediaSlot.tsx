@@ -47,6 +47,10 @@ export function MediaSlot({
   onChoose,
   onClear,
   onAltChange,
+  title = 'Imagem',
+  subject,
+  emptyText = 'Sem imagem. A página usa a imagem padrão até você escolher uma.',
+  altFieldKey,
 }: {
   moduleId: string
   template: CmsModuleV2['template']
@@ -56,22 +60,36 @@ export function MediaSlot({
   onChoose: () => void
   onClear: () => void
   onAltChange: (alt: string) => void
+  /** Rótulos para um uso repetido na mesma tela (ex.: um por barril do carrossel). */
+  title?: string
+  subject?: string
+  emptyText?: string
+  /** Chave do campo do texto alternativo (padrão: a da seção); usada para foco e erros. */
+  altFieldKey?: string
 }) {
   return (
     <div className={styles.slot} data-media-slot={moduleId}>
       <div className={styles.slotHead}>
-        <p className={styles.slotTitle}>Imagem</p>
+        <p className={styles.slotTitle}>{title}</p>
         <div className={styles.slotActions}>
           <AdminButton
             variant="outline"
             data-pick={moduleId}
             disabled={disabled}
+            aria-label={
+              subject ? `${media ? 'Trocar imagem' : 'Escolher imagem'} de ${subject}` : undefined
+            }
             onClick={onChoose}
           >
             {media ? 'Trocar imagem' : 'Escolher imagem'}
           </AdminButton>
           {media ? (
-            <AdminButton variant="outline" disabled={disabled} onClick={onClear}>
+            <AdminButton
+              variant="outline"
+              disabled={disabled}
+              aria-label={subject ? `Remover imagem de ${subject}` : undefined}
+              onClick={onClear}
+            >
               Remover imagem
             </AdminButton>
           ) : null}
@@ -105,7 +123,7 @@ export function MediaSlot({
             alterada nem apagada.
           </p>
           <EditorField
-            fieldKey={problemKey(moduleId, 'media.alt')}
+            fieldKey={altFieldKey ?? problemKey(moduleId, 'media.alt')}
             label="Texto alternativo da imagem"
             value={media.alt}
             long={false}
@@ -123,9 +141,7 @@ export function MediaSlot({
         </>
       ) : (
         <div className={styles.preview}>
-          <span className={styles.previewEmpty}>
-            Sem imagem. A página usa a imagem padrão até você escolher uma.
-          </span>
+          <span className={styles.previewEmpty}>{emptyText}</span>
         </div>
       )}
 

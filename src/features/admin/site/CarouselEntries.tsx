@@ -5,21 +5,36 @@ import { AdminApiError } from '../catalog/gateway'
 import type { AdminCatalog } from '../catalog/types'
 import { AdminButton } from '../ui/AdminButton'
 import { useCatalogGateway } from './CatalogGatewayContext'
-import { type changeCarousel, eligibleBarrels } from './carouselModel'
+import { type changeCarousel, eligibleBarrels, entryAltKey } from './carouselModel'
+import { problemKey } from './editModel'
 import styles from './HomeEditor.module.css'
+import { MediaSlot } from './media/MediaSlot'
 
 type CatalogState = { status: 'loading' | 'error' } | { status: 'ready'; catalog: AdminCatalog }
 
+/** Identidade do espaço de imagem de uma entrada: sempre pelo itemId, nunca pela posição. */
+export const entrySlotId = (moduleId: string, itemId: string) => `${moduleId}:${itemId}`
+
 export function CarouselEntries({
+  moduleId,
   entries,
+  problems,
   disabled,
   onChange,
   onExpired,
+  onPickMedia,
+  onClearMedia,
+  onAltChange,
 }: {
+  moduleId: string
   entries: CmsCarouselEntry[]
+  problems: Map<string, string>
   disabled: boolean
   onChange: (action: Parameters<typeof changeCarousel>[2]) => void
   onExpired: () => void
+  onPickMedia: (itemId: string, name: string) => void
+  onClearMedia: (itemId: string) => void
+  onAltChange: (itemId: string, alt: string) => void
 }) {
   const gateway = useCatalogGateway()
   const [state, setState] = useState<CatalogState>({ status: 'loading' })
@@ -162,6 +177,20 @@ export function CarouselEntries({
                   Remover
                 </AdminButton>
               </div>
+              <MediaSlot
+                moduleId={entrySlotId(moduleId, entry.itemId)}
+                template="highlight"
+                title={`Imagem de ${name}`}
+                subject={name}
+                emptyText="Sem imagem editorial. A vitrine usa a foto atual deste barril."
+                media={entry.media}
+                altFieldKey={problemKey(moduleId, entryAltKey(entry.itemId))}
+                problem={problems.get(problemKey(moduleId, entryAltKey(entry.itemId)))}
+                disabled={disabled}
+                onChoose={() => onPickMedia(entry.itemId, name)}
+                onClear={() => onClearMedia(entry.itemId)}
+                onAltChange={(alt) => onAltChange(entry.itemId, alt)}
+              />
             </li>
           )
         })}

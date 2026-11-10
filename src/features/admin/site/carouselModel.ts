@@ -47,3 +47,50 @@ export function changeCarousel(
     ),
   }
 }
+
+/** Chave do problema (e do campo) do texto alternativo da imagem de uma entrada, pelo itemId. */
+export const entryAltKey = (itemId: string) => `entries.${itemId}.media.alt`
+
+type Entry = Extract<
+  CmsDocumentV2['modules'][number],
+  { template: 'carousel' }
+>['content']['entries'][number]
+
+/** Altera só a entrada do `itemId` (nunca por posição); sem a entrada, devolve o mesmo documento. */
+function withEntry(
+  doc: CmsDocumentV2,
+  moduleId: string,
+  itemId: string,
+  change: (entry: Entry) => Entry,
+): CmsDocumentV2 {
+  const module = doc.modules.find((entry) => entry.id === moduleId)
+  if (module?.template !== 'carousel') return doc
+  const index = module.content.entries.findIndex((entry) => entry.itemId === itemId)
+  if (index === -1) return doc
+  const current = module.content.entries[index]
+  const next = change(current)
+  if (JSON.stringify(next) === JSON.stringify(current)) return doc
+  const entries = module.content.entries.map((entry, at) => (at === index ? next : entry))
+  return {
+    ...doc,
+    modules: doc.modules.map((entry) =>
+      entry === module ? { ...module, content: { ...module.content, entries } } : entry,
+    ),
+  }
+}
+
+/** Associa a imagem da biblioteca à entrada; o texto alternativo já escrito é mantido para conferência. */
+export const setEntryMedia = (doc: CmsDocumentV2, moduleId: string, itemId: string, id: string) =>
+  withEntry(doc, moduleId, itemId, (entry) => ({
+    ...entry,
+    media: { id, alt: entry.media?.alt ?? '' },
+  }))
+
+/** Desassocia a imagem da entrada. O arquivo continua na biblioteca. */
+export const clearEntryMedia = (doc: CmsDocumentV2, moduleId: string, itemId: string) =>
+  withEntry(doc, moduleId, itemId, (entry) => ({ ...entry, media: null }))
+
+export const setEntryAlt = (doc: CmsDocumentV2, moduleId: string, itemId: string, alt: string) =>
+  withEntry(doc, moduleId, itemId, (entry) =>
+    entry.media ? { ...entry, media: { ...entry.media, alt } } : entry,
+  )

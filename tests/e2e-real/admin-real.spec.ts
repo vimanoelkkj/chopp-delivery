@@ -3136,3 +3136,291 @@ test.describe('F4A.5.4: catálogo integrado (admin real → API → D1 → vitri
     })
   }
 })
+
+/**
+ * F4A.6.3: seletor de imagens do carrossel editorial, sem mocks do CMS: build `release`, gateway e
+ * sessão reais, D1 e R2 locais descartáveis. Só o processador de imagens é o do laboratório local.
+ */
+test.describe('F4A.6.3: imagens das entradas do carrossel no CMS real', () => {
+  const COMMERCIAL = '5500000000000'
+  for (const viewport of [
+    { name: 'desktop 1440', width: 1440, height: 900 },
+    { name: 'mobile 390', width: 390, height: 844 },
+  ]) {
+    test.describe(viewport.name, () => {
+      test.use({
+        mediaLab: true,
+        runtimeMode: 'release',
+        whatsappNumber: COMMERCIAL,
+        viewport: { width: viewport.width, height: viewport.height },
+      })
+
+      type Entry = { itemId: string; media: { id: string; alt: string } | null }
+      type Site = {
+        draft: { revision: string; document: ReturnType<typeof previewFixture> }
+      }
+      const site = async (page: Page) =>
+        (await page.request.get('/api/admin/site')).json() as Promise<Site>
+      const entriesOf = (document: Site['draft']['document']) => {
+        const carousel = document.modules.find((m) => m.template === 'carousel')
+        if (carousel?.template !== 'carousel') throw new Error('sem carrossel')
+        return { id: carousel.id, entries: carousel.content.entries as Entry[] }
+      }
+      const write = (
+        page: Page,
+        instance: Integration,
+        action: 'saveDraft' | 'publish',
+        revision: string,
+        document: unknown,
+      ) =>
+        page.request.fetch(`/api/admin/site/${action === 'publish' ? 'publish' : 'draft'}`, {
+          method: action === 'publish' ? 'POST' : 'PUT',
+          headers: { Origin: instance.origin, 'If-Match': `"${revision}"` },
+          data: { action, operationId: crypto.randomUUID(), expectedRevision: revision, document },
+        })
+
+      test('associar, salvar, reordenar, substituir, remover, publicar e cair no fallback', async ({
+        page,
+        browser,
+        integration,
+      }) => {
+        test.setTimeout(240_000)
+        await seedPreview(page, integration)
+        const hero = await apiUpload(page, integration, await photo('png', '#445566'))
+        const second = await apiUpload(page, integration, await photo('png', '#9db89a'))
+        const third = await apiUpload(page, integration, await photo('png', '#aa6644'))
+        expect([hero.status, second.status, third.status]).toEqual([200, 200, 200])
+        // Rascunho publicável (hero com imagem, WhatsApp do build) com os barris dronken e heineken.
+        let head = (await site(page)).draft
+        const base = structuredClone(head.document)
+        base.commercial.whatsappNumber = COMMERCIAL
+        for (const module of base.modules)
+          if (module.template === 'hero')
+            module.content = { ...module.content, media: { id: hero.id, alt: 'Hero editorial' } }
+        expect((await write(page, integration, 'saveDraft', head.revision, base)).status()).toBe(
+          200,
+        )
+        head = (await site(page)).draft
+        const { id: carouselId } = entriesOf(head.document)
+        expect(entriesOf(head.document).entries.map((e) => e.itemId)).toEqual([
+          'dronken',
+          'heineken',
+        ])
+        const slot = (itemId: string) => page.locator(`[data-media-slot="${carouselId}:${itemId}"]`)
+        const altOf = (itemId: string) =>
+          slot(itemId).getByRole('textbox', { name: 'Texto alternativo da imagem' })
+        const mediaState = () =>
+          Object.fromEntries(
+            entriesOf(head.document).entries.map((e) => [e.itemId, e.media]),
+          ) as Record<string, { id: string; alt: string } | null>
+        const refresh = async () => {
+          head = (await site(page)).draft
+          return mediaState()
+        }
+        const library = () => row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media').n
+        const libraryBefore = library()
+        const openEditor = async () => {
+          await page.goto('/admin#pagina-inicial')
+          await page.reload() // sem isto a mesma URL manteria o estado local anterior
+          await page.getByRole('button', { name: /Barris do catálogo/ }).click()
+          await expect(slot('dronken')).toBeVisible()
+        }
+
+        // 1. Dronken: envia uma imagem nova pelo próprio seletor e associa; o foco vai ao alt.
+        await openEditor()
+        await expect(slot('dronken').getByText('Sem imagem editorial')).toBeVisible()
+        await page.getByRole('button', { name: 'Escolher imagem de Dronken', exact: true }).click()
+        await expect(mediaPicker(page)).toBeVisible()
+        await mediaFile(page).setInputFiles(
+          file('dronken.png', 'image/png', await photo('png', '#c8693f', 640, 480)),
+        )
+        await expect(uploaded(page)).toBeVisible({ timeout: 30_000 })
+        const uploadedId = row<{ media_id: string }>(
+          integration,
+          'SELECT media_id FROM cms_media WHERE media_id NOT IN (?,?,?)',
+          hero.id,
+          second.id,
+          third.id,
+        ).media_id
+        expect(library()).toBe(libraryBefore + 1)
+        await confirmImage(page)
+        await expect(altOf('dronken')).toBeFocused()
+        // Sem texto alternativo: o rascunho aceita, mas o aviso aparece.
+        await expect(slot('dronken').getByText('Sem texto alternativo.')).toBeVisible()
+        await altOf('dronken').fill('Barril de chopp Dronken')
+
+        // 2. Heineken: escolhe uma imagem já existente da biblioteca.
+        await page.getByRole('button', { name: 'Escolher imagem de Heineken', exact: true }).click()
+        await mediaTile(page, second.id).check()
+        await confirmImage(page)
+        await altOf('heineken').fill('Barril de chopp Heineken')
+        // Nada gravado antes de salvar o rascunho.
+        expect(await refresh()).toEqual({ dronken: null, heineken: null })
+
+        // 3. Salvar rascunho e recarregar: a referência persiste, por itemId.
+        await saveDraftButton(page).click()
+        await expect(savedNotice(page)).toBeVisible()
+        expect(await refresh()).toEqual({
+          dronken: { id: uploadedId, alt: 'Barril de chopp Dronken' },
+          heineken: { id: second.id, alt: 'Barril de chopp Heineken' },
+        })
+        await openEditor()
+        await expect(altOf('dronken')).toHaveValue('Barril de chopp Dronken')
+        await expect(altOf('heineken')).toHaveValue('Barril de chopp Heineken')
+        await expect(slot('dronken').locator('img')).toBeVisible()
+
+        // 4. Prévia autenticada: a imagem de cada produto, no cartão certo.
+        const preview = await page.context().newPage()
+        await preview.goto('/admin/preview')
+        const frame = preview.frameLocator('iframe[title="Rascunho CMS v2"]')
+        await expect(frame.getByRole('img', { name: 'Barril de chopp Dronken' })).toHaveAttribute(
+          'src',
+          `/api/admin/media/${uploadedId}/section`,
+        )
+        await preview.close()
+
+        // 5. Reordenar: cada imagem continua no seu produto.
+        await page.getByRole('button', { name: 'Subir Heineken', exact: true }).click()
+        await saveDraftButton(page).click()
+        await expect(savedNotice(page)).toBeVisible()
+        expect(entriesOf((await site(page)).draft.document).entries.map((e) => e.itemId)).toEqual([
+          'heineken',
+          'dronken',
+        ])
+        expect(await refresh()).toEqual({
+          dronken: { id: uploadedId, alt: 'Barril de chopp Dronken' },
+          heineken: { id: second.id, alt: 'Barril de chopp Heineken' },
+        })
+
+        // 6. Substituir: troca o arquivo, mantém o alt para conferência e não apaga o arquivo antigo.
+        await page.getByRole('button', { name: 'Trocar imagem de Dronken', exact: true }).click()
+        await mediaTile(page, third.id).check()
+        await confirmImage(page)
+        await expect(altOf('dronken')).toHaveValue('Barril de chopp Dronken')
+        await saveDraftButton(page).click()
+        await expect(savedNotice(page)).toBeVisible()
+        expect((await refresh()).dronken).toEqual({ id: third.id, alt: 'Barril de chopp Dronken' })
+        expect(
+          row<{ state: string }>(
+            integration,
+            'SELECT state FROM cms_media WHERE media_id=?',
+            uploadedId,
+          ).state,
+        ).toBe('ready')
+
+        // 7. Remover a associação da Heineken: o arquivo continua na biblioteca.
+        const countBeforeRemoval = library()
+        await page.getByRole('button', { name: 'Remover imagem de Heineken', exact: true }).click()
+        await expect(slot('heineken').getByText('Sem imagem editorial')).toBeVisible()
+        await saveDraftButton(page).click()
+        await expect(savedNotice(page)).toBeVisible()
+        expect((await refresh()).heineken).toBeNull()
+        expect(library()).toBe(countBeforeRemoval)
+        expect(
+          row<{ state: string }>(
+            integration,
+            'SELECT state FROM cms_media WHERE media_id=?',
+            second.id,
+          ).state,
+        ).toBe('ready')
+
+        // 8. Referências inválidas: mídia inexistente é recusada no rascunho (nada é gravado).
+        const ghost = structuredClone(head.document)
+        const ghostEntry = entriesOf(ghost).entries.find((e) => e.itemId === 'heineken')
+        if (ghostEntry) ghostEntry.media = { id: `media_${crypto.randomUUID()}`, alt: 'Fantasma' }
+        const ghostSave = await write(page, integration, 'saveDraft', head.revision, ghost)
+        expect(ghostSave.status()).toBe(400)
+        expect((await refresh()).heineken).toBeNull()
+
+        // 9. Texto alternativo é exigido para publicar (o rascunho aceita vazio).
+        const noAlt = structuredClone(head.document)
+        const noAltEntry = entriesOf(noAlt).entries.find((e) => e.itemId === 'dronken')
+        if (noAltEntry?.media) noAltEntry.media.alt = ''
+        expect((await write(page, integration, 'saveDraft', head.revision, noAlt)).status()).toBe(
+          200,
+        )
+        head = (await site(page)).draft
+        expect(
+          (await write(page, integration, 'publish', head.revision, head.document)).status(),
+        ).toBe(400)
+        expect(
+          row<{ id: string | null }>(
+            integration,
+            'SELECT published_version_id id FROM cms_v2_state',
+          ).id,
+        ).toBeNull()
+
+        // 10. Com o alt de volta, publica pela interface e confere a vitrine pública real.
+        await openEditor()
+        await altOf('dronken').fill('Barril de chopp Dronken')
+        await saveDraftButton(page).click()
+        await expect(savedNotice(page)).toBeVisible()
+        await page.getByRole('button', { name: 'Publicar', exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: 'Publicar na vitrine?' })
+        await dialog.getByRole('button', { name: 'Publicar', exact: true }).click()
+        await expect(
+          page.getByText('Publicado. A vitrine passa a usar este conteúdo.'),
+        ).toBeVisible()
+
+        const shopContext = await browser.newContext({
+          baseURL: integration.origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const shop = await shopContext.newPage()
+        try {
+          await shop.goto('/')
+          await expect(shop.locator('[data-editorial-state]')).toHaveAttribute(
+            'data-editorial-state',
+            'ready',
+            { timeout: 20_000 },
+          )
+          const card = (name: string) =>
+            shop
+              .locator('#barris article')
+              .filter({ has: shop.locator('h3', { hasText: new RegExp(`^${name}$`) }) })
+          const image = card('Dronken').locator('img[src^="/api/site/media/"]')
+          await expect(image).toHaveAttribute('src', `/api/site/media/${third.id}/section`)
+          await expect(image).toHaveAttribute('alt', 'Barril de chopp Dronken')
+          await expect
+            .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+            .toBeGreaterThan(0)
+          // Heineken ficou sem associação: foto atual, nenhuma imagem editorial.
+          await expect(card('Heineken').locator('img[src^="/api/site/media/"]')).toHaveCount(0)
+          await expect(
+            card('Heineken').locator('img[alt="Barril de Chopp Heineken em Aço Inox"]'),
+          ).toHaveCount(1)
+          expect(
+            await shop.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          ).toBe(true)
+        } finally {
+          await shopContext.close()
+        }
+
+        // 11. Imagem indisponível na vitrine: a foto atual permanece, sem imagem quebrada.
+        const offline = await browser.newContext({
+          baseURL: integration.origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const failing = await offline.newPage()
+        try {
+          await failing.route('**/api/site/media/**', (route) => route.abort('failed'))
+          await failing.goto('/')
+          const dronkenCard = failing
+            .locator('#barris article')
+            .filter({ has: failing.locator('h3', { hasText: /^Dronken$/ }) })
+          await expect(
+            dronkenCard.locator('img[alt="Barril de Chopp Dronken em Aço Inox"]'),
+          ).toHaveCount(1)
+          await expect(dronkenCard.locator('img[src^="/api/site/media/"]')).toHaveCount(0)
+          expect(
+            await failing.evaluate(
+              () => [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length,
+            ),
+          ).toBe(0)
+        } finally {
+          await offline.close()
+        }
+      })
+    })
+  }
+})

@@ -6,8 +6,14 @@ import { contact } from '../../contact/config'
 import { AdminButton } from '../ui/AdminButton'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Switch } from '../ui/Switch'
-import { CarouselEntries } from './CarouselEntries'
-import { changeCarousel } from './carouselModel'
+import { CarouselEntries, entrySlotId } from './CarouselEntries'
+import {
+  changeCarousel,
+  clearEntryMedia,
+  entryAltKey,
+  setEntryAlt,
+  setEntryMedia,
+} from './carouselModel'
 import type { Failure } from './cmsCommands'
 import { EditorField } from './EditorField'
 import {
@@ -211,6 +217,7 @@ function SectionEditor({
   disabled,
   edit,
   onPickMedia,
+  onPickEntryMedia,
   onExpired,
 }: {
   doc: CmsDocumentV2
@@ -220,6 +227,7 @@ function SectionEditor({
   disabled: boolean
   edit: Edit
   onPickMedia: (moduleId: string) => void
+  onPickEntryMedia: (moduleId: string, itemId: string, name: string) => void
   onExpired: () => void
 }) {
   const detail = describeSection(doc, layout, moduleId)
@@ -269,10 +277,22 @@ function SectionEditor({
             return row.key === 'entries' ? (
               <CarouselEntries
                 key={row.key}
+                moduleId={moduleId}
                 entries={module.content.entries}
+                problems={problems}
                 disabled={disabled}
                 onExpired={onExpired}
                 onChange={(action) => edit((current) => changeCarousel(current, moduleId, action))}
+                onPickMedia={(itemId, name) => onPickEntryMedia(moduleId, itemId, name)}
+                onClearMedia={(itemId) =>
+                  edit(
+                    (current) => clearEntryMedia(current, moduleId, itemId),
+                    `pick:${entrySlotId(moduleId, itemId)}`,
+                  )
+                }
+                onAltChange={(itemId, alt) =>
+                  edit((current) => setEntryAlt(current, moduleId, itemId, alt))
+                }
               />
             ) : null
           if (row.group)
@@ -395,6 +415,8 @@ export function HomeEditor({
   // Seção que está escolhendo imagem. O ID fica depois de fechar para o título não piscar na animação.
   const [pickerFor, setPickerFor] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Quando a escolha é para uma entrada do carrossel: o itemId (a identidade) e o nome para o título.
+  const [pickerEntry, setPickerEntry] = useState<{ itemId: string; name: string } | null>(null)
   const afterPicker = useRef<string | null>(null)
   const detailRef = useRef<HTMLElement>(null)
   const alertRef = useRef<HTMLDivElement>(null)
@@ -488,16 +510,30 @@ export function HomeEditor({
 
   const usedImages = useMemo(() => usedMediaIds(doc), [doc])
   const pickerModule = doc.modules.find((m) => m.id === pickerFor)
-  const pickerTitle = pickerModule
-    ? summarizeSections(doc, layout).find((s) => s.id === pickerModule.id)?.title
-    : undefined
+  const pickerTitle = pickerEntry
+    ? pickerEntry.name
+    : pickerModule
+      ? summarizeSections(doc, layout).find((s) => s.id === pickerModule.id)?.title
+      : undefined
   const pickMedia = (moduleId: string) => {
     if (locked) return
+    setPickerEntry(null)
+    setPickerFor(moduleId)
+    setPickerOpen(true)
+  }
+  const pickEntryMedia = (moduleId: string, itemId: string, name: string) => {
+    if (locked) return
+    setPickerEntry({ itemId, name })
     setPickerFor(moduleId)
     setPickerOpen(true)
   }
   const chooseMedia = (id: string) => {
-    if (pickerFor) {
+    if (pickerFor && pickerEntry) {
+      const moduleId = pickerFor
+      const { itemId } = pickerEntry
+      edit((current) => setEntryMedia(current, moduleId, itemId, id))
+      afterPicker.current = problemKey(moduleId, entryAltKey(itemId))
+    } else if (pickerFor) {
       const moduleId = pickerFor
       edit((current) => setMedia(current, moduleId, id))
       afterPicker.current = problemKey(moduleId, 'media.alt')
@@ -658,6 +694,7 @@ export function HomeEditor({
                 disabled={locked}
                 edit={edit}
                 onPickMedia={pickMedia}
+                onPickEntryMedia={pickEntryMedia}
                 onExpired={expireWithRescue}
               />
             </fieldset>

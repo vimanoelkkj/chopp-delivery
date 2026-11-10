@@ -32,7 +32,7 @@ export const countChars = (value: string) => [...value].length
 
 /** Campos de linha única usam o limite de título; os demais, o de texto. */
 export const kindOf = (key: string): FieldKind =>
-  key === 'media.alt'
+  key === 'media.alt' || key.endsWith('.media.alt')
     ? 'alt'
     : key === 'heading' ||
         key === 'deliveryRegion' ||
@@ -269,6 +269,11 @@ export function checkDocument(doc: CmsDocumentV2): EditCheck {
         })
     }
   }
+  // O texto alternativo da imagem de cada barril do carrossel (pelo itemId) segue o mesmo limite.
+  for (const module of doc.modules)
+    if (module.template === 'carousel')
+      for (const entry of module.content.entries)
+        if (entry.media) visit(module, `entries.${entry.itemId}.media.alt`, entry.media.alt)
   const parsed = parseCmsDocument(doc, 'draft')
   const documentProblem =
     problems.size === 0 && !parsed.value
