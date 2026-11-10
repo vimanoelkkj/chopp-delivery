@@ -1,3 +1,4 @@
+import { DUPLICATE_VARIANT_MESSAGE, variantIdentity } from '../../shared/variant-identity'
 import { containsControls, unsafeUnicode, validCents, validText } from '../admin-catalog/validation'
 
 export const EXPANSION_LIMITS = { bytes: 131072, items: 128, perItem: 8, variants: 512 }
@@ -176,6 +177,16 @@ export function validateExpanded(
           priceCents,
           position: vi,
         })
+      }
+      // Duplicata exata de identidade comercial (rótulo normalizado + volume). Pares formados só por
+      // variantes já persistidas são toleradas: o dado legado nunca bloqueia um salvamento.
+      const seen = new Map<string, boolean>()
+      for (const [vi, v] of command.variants.filter((v) => v.itemId === id).entries()) {
+        const identity = variantIdentity(v.label, v.volumeMl)
+        const earlierNew = seen.get(identity)
+        if (earlierNew !== undefined && (earlierNew || v.isNew))
+          fail(`${p}.variants.${vi}`, DUPLICATE_VARIANT_MESSAGE)
+        seen.set(identity, earlierNew === true || v.isNew)
       }
       if (item.visible && !command.variants.some((v) => v.itemId === id && v.priceCents !== null))
         fail(`${p}.variants`, 'Item visível exige pelo menos um preço.')

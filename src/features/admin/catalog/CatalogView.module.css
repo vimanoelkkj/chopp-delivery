@@ -81,7 +81,7 @@
 /* Colunas da tabela (a partir de 64rem), iguais no cabeçalho e nas linhas. */
 .table {
   --slots: 2;
-  --table-columns: minmax(0, 1fr) repeat(var(--slots), 11.5rem) 8.5rem 6rem;
+  --table-columns: minmax(0, 1fr) repeat(var(--slots), 11.5rem) 8.5rem 10rem;
 }
 
 .head {

@@ -284,6 +284,12 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
                             editor.setVariantField(key, code, 'priceText', text)
                           }
                           onBlur={(code) => editor.blurPrice(key, code)}
+                          onAddVariant={() => {
+                            const variant = editor.addVariant(key)
+                            focusAfter.current = { field: `${key}:label:${variant}` }
+                            setFocusTick((tick) => tick + 1)
+                          }}
+                          identityLocked={state.saving || !!state.uncertain}
                         />
                       ) : (
                         <ItemCard

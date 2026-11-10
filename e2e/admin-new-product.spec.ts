@@ -338,3 +338,60 @@ test.describe('cadastro no celular (390 px)', () => {
     expect(cancel?.height).toBeGreaterThanOrEqual(48)
   })
 })
+
+test.describe('variante em produto padrão 30/50 L (F4A.5.3)', () => {
+  for (const viewport of [
+    { name: 'desktop 1440', width: 1440, height: 900 },
+    { name: 'mobile 390', width: 390, height: 844 },
+  ]) {
+    test(`adiciona, valida duplicata, salva e mantém 30/50 L em ${viewport.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      await openPanel(page)
+      // Sem edições, o produto é uma linha da tabela, com o botão para abrir variantes.
+      const add = page.getByRole('button', { name: 'Adicionar variante a Dronken' })
+      await expect(add).toBeVisible()
+      await add.click()
+
+      const dronken = page.getByRole('listitem', { name: 'Dronken' })
+      await expect(dronken.getByRole('button', { name: 'Adicionar variante' })).toBeVisible()
+      await expect(dronken.getByText('Barril de 30 L')).toBeVisible()
+      await expect(dronken.getByText('Barril de 50 L')).toBeVisible()
+
+      // Duplicata exata de uma variante existente: erro legível e salvar bloqueado.
+      await dronken.getByLabel('Rótulo').fill('barril de 30 l')
+      await dronken.getByLabel(/^Volume \(/).fill('30')
+      await dronken
+        .getByLabel(/^Preço em reais.*variante 3|^Preço em reais/)
+        .last()
+        .fill('30000')
+      await save(page).click()
+      await expect(
+        dronken.getByText('Já existe uma variante com este rótulo e volume neste produto.'),
+      ).toBeVisible()
+
+      // Mesmo volume com outro rótulo é válido.
+      await dronken.getByLabel('Rótulo').fill('Barril promocional 30 L')
+      await save(page).click()
+      await expect(page.getByText('Salvo. As mudanças já estão no site.')).toBeVisible()
+      // Após salvar a variante é persistida (rótulo fixo) e as colunas 30/50 L continuam ali.
+      const saved = page.getByRole('listitem', { name: 'Dronken' })
+      await expect(saved.getByText('Barril promocional 30 L')).toBeVisible()
+      await expect(saved.getByText('Barril de 30 L')).toBeVisible()
+      await expect(saved.getByText('Barril de 50 L')).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      )
+    })
+  }
+
+  test('remover a variante nova antes de salvar devolve o produto à tabela', async ({ page }) => {
+    await openPanel(page)
+    await page.getByRole('button', { name: 'Adicionar variante a Dronken' }).click()
+    const dronken = page.getByRole('listitem', { name: 'Dronken' })
+    await dronken.getByRole('button', { name: /^Remover/ }).click()
+    await expect(page.getByRole('button', { name: 'Adicionar variante a Dronken' })).toBeVisible()
+    await expect(save(page)).toBeDisabled()
+  })
+})

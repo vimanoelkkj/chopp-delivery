@@ -24,6 +24,10 @@ type ProductRowProps = {
   onBlur: (code: string) => void
   onVisible: (visible: boolean) => void
   onMove: (direction: -1 | 1) => void
+  /** Abre o cartão do produto com uma variante nova (a linha só cobre as colunas padrão). */
+  onAddVariant?: () => void
+  /** Salvamento em andamento ou não confirmado: estrutura bloqueada. */
+  identityLocked?: boolean
 }
 
 export function ProductRow({
@@ -41,6 +45,8 @@ export function ProductRow({
   onBlur,
   onVisible,
   onMove,
+  onAddVariant,
+  identityLocked = false,
 }: ProductRowProps) {
   const visible = item.visible
   return (
@@ -116,6 +122,20 @@ export function ProductRow({
               <path d="m6 10 6 6 6-6" />
             </svg>
           </button>
+          {onAddVariant ? (
+            <button
+              type="button"
+              className={styles.move}
+              disabled={identityLocked}
+              aria-label={`Adicionar variante a ${item.name}`}
+              title="Adicionar variante"
+              onClick={onAddVariant}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 6v12M6 12h12" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       </div>
       {errors.row ? <p className={styles.rowError}>{errors.row}</p> : null}

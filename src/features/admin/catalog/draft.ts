@@ -1,3 +1,4 @@
+import { DUPLICATE_VARIANT_MESSAGE, variantIdentity } from '../../../../shared/variant-identity'
 import { formatPriceText, parsePriceText } from './price'
 import {
   type AdminCatalog,
@@ -139,6 +140,21 @@ export function validate(draft: Draft): FieldErrors {
           found[`price:${variant.key}`] = 'Informe o preço.'
           priceProblem = true
         } else if (price.cents !== null) priced++
+      }
+      // Rótulo normalizado + volume repetidos: o erro aparece na variante nova (as persistidas já
+      // existiam). Pares só de persistidas são ignorados, como no servidor.
+      const seen = new Map<string, boolean>()
+      for (const variant of item.variants) {
+        const fresh = variant.code === null
+        const volume = fresh
+          ? parseVolume(variant.volumeText, volumeUnit(categoryId))
+          : { ok: true as const, ml: variant.volumeText ? Number(variant.volumeText) : null }
+        if (!volume.ok || !variant.label.trim()) continue
+        const identity = variantIdentity(variant.label, volume.ml)
+        const earlier = seen.get(identity)
+        if (earlier !== undefined && (earlier || fresh) && !found[`label:${variant.key}`])
+          found[`label:${variant.key}`] = DUPLICATE_VARIANT_MESSAGE
+        seen.set(identity, earlier === true || fresh)
       }
       if (item.visible && priced === 0 && !priceProblem && item.variants.length > 0)
         found.row = 'Informe ao menos um preço ou oculte o produto.'

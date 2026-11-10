@@ -29,6 +29,24 @@ function fail(status: number): AdminApiError {
   return new AdminApiError('unavailable')
 }
 
+/** Primeiro motivo de campo da recusa 400 do servidor (textos próprios, em português e curtos). */
+async function failWithDetail(response: Response): Promise<AdminApiError> {
+  const error = fail(response.status)
+  if (response.status !== 400) return error
+  try {
+    const body: unknown = await response.json()
+    const fields = (body as { error?: { fields?: unknown } })?.error?.fields
+    if (typeof fields !== 'object' || fields === null) return error
+    const first = Object.values(fields).find(
+      (value): value is string =>
+        typeof value === 'string' && value.length > 0 && value.length <= 200,
+    )
+    return first ? new AdminApiError('rejected', first) : error
+  } catch {
+    return error
+  }
+}
+
 export function createHttpGateway({
   fetch: fetcher = (...args) => fetch(...args),
   path = CATALOG_V2_PATH,
@@ -42,7 +60,7 @@ export function createHttpGateway({
       if (error instanceof DOMException && error.name === 'AbortError') throw error
       throw new AdminApiError('unavailable')
     }
-    if (!response.ok) throw fail(response.status)
+    if (!response.ok) throw await failWithDetail(response)
     try {
       return await response.json()
     } catch {

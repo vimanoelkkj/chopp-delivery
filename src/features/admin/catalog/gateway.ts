@@ -10,7 +10,11 @@ export type AdminApiErrorCode =
   | 'unavailable'
 
 export class AdminApiError extends Error {
-  constructor(readonly code: AdminApiErrorCode) {
+  constructor(
+    readonly code: AdminApiErrorCode,
+    /** Motivo legível devolvido pelo servidor numa recusa (400); nunca um texto técnico. */
+    readonly detail?: string,
+  ) {
     super(code)
   }
 }

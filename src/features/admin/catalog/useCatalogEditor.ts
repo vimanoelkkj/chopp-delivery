@@ -446,7 +446,12 @@ export function useCatalogEditor(
         break
       case 'rejected':
         dispatch({ type: 'save-failed' })
-        notify('error', 'O servidor recusou o salvamento. Revise os dados e tente de novo.')
+        notify(
+          'error',
+          outcome.detail
+            ? `O servidor recusou o salvamento: ${outcome.detail} Revise os dados e tente de novo.`
+            : 'O servidor recusou o salvamento. Revise os dados e tente de novo.',
+        )
         break
       case 'uncertain':
         dispatch({ type: 'uncertain', input: outcome.input })

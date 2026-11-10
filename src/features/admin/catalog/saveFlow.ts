@@ -12,7 +12,7 @@ export type SaveOutcome =
   | { kind: 'saved'; result: SaveResult }
   | { kind: 'conflict' }
   | { kind: 'unauthenticated' }
-  | { kind: 'rejected' }
+  | { kind: 'rejected'; detail?: string }
   /** Origem/CSRF recusada (403): nada foi gravado. */
   | { kind: 'forbidden' }
   /** Passaria dos limites do servidor: nem é enviado. */
@@ -53,7 +53,7 @@ export async function performSave(
     if (error instanceof AdminApiError) {
       if (error.code === 'conflict') return { kind: 'conflict' }
       if (error.code === 'unauthenticated') return { kind: 'unauthenticated' }
-      if (error.code === 'rejected') return { kind: 'rejected' }
+      if (error.code === 'rejected') return { kind: 'rejected', detail: error.detail }
       if (error.code === 'forbidden') return { kind: 'forbidden' }
     }
     return { kind: 'uncertain', input }
