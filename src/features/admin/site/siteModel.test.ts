@@ -390,6 +390,14 @@ describe('publishBlockers', () => {
     expect(publishBlockers(ready(), SITE)).toEqual([])
   })
 
+  it('bloqueia enquanto houver imagem não pronta e libera sem o aviso do servidor', () => {
+    const blocked = publishBlockers(ready(), SITE, ['MEDIA_NOT_READY'])
+    expect(blocked).toHaveLength(1)
+    expect(blocked[0]).toContain('não está pronta')
+    expect(publishBlockers(ready(), SITE, [])).toEqual([])
+    expect(publishBlockers(ready(), SITE, ['OUTRO_AVISO'])).toEqual([])
+  })
+
   it('bloqueia WhatsApp ausente e vitrine visível sem barris', () => {
     const document = ready()
     document.commercial.whatsappNumber = null

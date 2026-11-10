@@ -3424,3 +3424,308 @@ test.describe('F4A.6.3: imagens das entradas do carrossel no CMS real', () => {
     })
   }
 })
+
+/**
+ * F4A.6.4A: ciclo de vida da mídia editorial do carrossel, sem mocks do CMS: build `release`,
+ * gateway e sessão reais, D1 e R2 locais descartáveis e o processador do laboratório local.
+ */
+test.describe('F4A.6.4A: ciclo de vida da mídia editorial do carrossel', () => {
+  const COMMERCIAL = '5500000000000'
+  test.use({ mediaLab: true, runtimeMode: 'release', whatsappNumber: COMMERCIAL })
+
+  type Entry = { itemId: string; media: { id: string; alt: string } | null }
+  type Doc = ReturnType<typeof previewFixture>
+  type Site = { draft: { revision: string; document: Doc } }
+  const site = async (page: Page) =>
+    (await page.request.get('/api/admin/site')).json() as Promise<Site>
+  const entriesOf = (document: Doc) => {
+    const carousel = document.modules.find((m) => m.template === 'carousel')
+    if (carousel?.template !== 'carousel') throw new Error('sem carrossel')
+    return carousel.content.entries as Entry[]
+  }
+  const write = (
+    page: Page,
+    instance: Integration,
+    action: 'saveDraft' | 'publish',
+    revision: string,
+    document: unknown,
+  ) =>
+    page.request.fetch(`/api/admin/site/${action === 'publish' ? 'publish' : 'draft'}`, {
+      method: action === 'publish' ? 'POST' : 'PUT',
+      headers: { Origin: instance.origin, 'If-Match': `"${revision}"` },
+      data: { action, operationId: crypto.randomUUID(), expectedRevision: revision, document },
+    })
+  const deleteMedia = (
+    page: Page,
+    instance: Integration,
+    media: { id: string; operationId: string },
+  ) =>
+    page.request.delete(`/api/admin/media/${media.id}`, {
+      headers: {
+        Origin: instance.origin,
+        'X-Operation-Id': crypto.randomUUID(),
+        'If-Match': `"${media.operationId}"`,
+      },
+    })
+  const mediaRow = (instance: Integration, id: string) =>
+    row<{ state: string }>(instance, 'SELECT state FROM cms_media WHERE media_id=?', id)
+
+  test('estados inválidos, produto oculto, remoção, exclusão referenciada, concorrência e erros da biblioteca', async ({
+    page,
+    browser,
+    integration,
+  }) => {
+    test.setTimeout(300_000)
+    const origin = integration.origin
+    await seedPreview(page, integration)
+    const hero = await apiUpload(page, integration, await photo('png', '#445566'))
+    const first = await apiUpload(page, integration, await photo('png', '#c8693f'))
+    const second = await apiUpload(page, integration, await photo('png', '#9db89a'))
+    const doomed = await apiUpload(page, integration, await photo('png', '#8fb3cf'))
+    const bad = await apiUpload(page, integration, Buffer.from('isto não é uma imagem'))
+    expect(bad.status).toBe(400)
+    expect(mediaRow(integration, bad.id).state).toBe('rejected')
+    expect((await deleteMedia(page, integration, doomed)).status()).toBe(200)
+    expect(mediaRow(integration, doomed.id).state).toBe('deleted')
+
+    let head = (await site(page)).draft
+    const base = structuredClone(head.document)
+    base.commercial.whatsappNumber = COMMERCIAL
+    for (const module of base.modules)
+      if (module.template === 'hero')
+        module.content = { ...module.content, media: { id: hero.id, alt: 'Hero editorial' } }
+    const withEntries = (media: Record<string, string | null>) => {
+      const document = structuredClone(base)
+      for (const entry of entriesOf(document))
+        entry.media = media[entry.itemId]
+          ? { id: media[entry.itemId] as string, alt: `Foto ${entry.itemId}` }
+          : null
+      return document
+    }
+
+    // 1. Mídia inexistente nem entra no rascunho. Recusada ou excluída entra (a chave existe), mas o
+    // servidor a marca como "não pronta" e a publicação é recusada com nada publicado.
+    const ghost = await write(
+      page,
+      integration,
+      'saveDraft',
+      head.revision,
+      withEntries({ dronken: `media_${crypto.randomUUID()}` }),
+    )
+    expect(ghost.status()).toBe(400)
+    expect(((await ghost.json()) as { error: { code: string } }).error.code).toBe(
+      'CMS_INVALID_MEDIA',
+    )
+    // Excluída: o servidor recusa a referência já no rascunho.
+    const deletedRef = await write(
+      page,
+      integration,
+      'saveDraft',
+      head.revision,
+      withEntries({ dronken: doomed.id }),
+    )
+    expect(deletedRef.status()).toBe(400)
+    // Rejeitada: o rascunho aceita (a chave existe), mas a publicação é recusada e nada é publicado.
+    expect(
+      (
+        await write(page, integration, 'saveDraft', head.revision, withEntries({ dronken: bad.id }))
+      ).status(),
+    ).toBe(200)
+    head = (await site(page)).draft
+    const warnings = (
+      (await (await page.request.get('/api/admin/site')).json()) as { warnings?: string[] }
+    ).warnings
+    expect(warnings).toContain('MEDIA_NOT_READY')
+    const publish = await write(page, integration, 'publish', head.revision, head.document)
+    expect(publish.status()).toBe(400)
+    expect(((await publish.json()) as { error: { code: string } }).error.code).toBe(
+      'CMS_INVALID_MEDIA',
+    )
+    expect(
+      row<{ id: string | null }>(integration, 'SELECT published_version_id id FROM cms_v2_state')
+        .id,
+    ).toBeNull()
+    // O painel explica a pendência e não deixa publicar enquanto houver imagem não pronta.
+    await page.goto('/admin#pagina-inicial')
+    await page.reload()
+    await expect(
+      page.getByText('Há imagem referenciada que ainda não está pronta para uso.').first(),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Publicar', exact: true })).toBeDisabled()
+
+    // 2. Rascunho válido e publicação V1: dronken e heineken com imagem.
+    expect(
+      (
+        await write(
+          page,
+          integration,
+          'saveDraft',
+          head.revision,
+          withEntries({ dronken: first.id, heineken: second.id }),
+        )
+      ).status(),
+    ).toBe(200)
+    head = (await site(page)).draft
+    const v1 = head.document
+    expect((await write(page, integration, 'publish', head.revision, v1)).status()).toBe(200)
+    const refsOf = () =>
+      integration.database.prepare('SELECT * FROM cms_v2_media_refs ORDER BY 1, 2').all()
+    const refsV1 = refsOf()
+    expect(refsV1.length).toBeGreaterThanOrEqual(3)
+
+    // 3. Concorrência: publicar com revisão obsoleta não sobrescreve o conteúdo mais novo.
+    const stale = head.revision // revisão anterior à publicação V1
+    head = (await site(page)).draft
+    const newer = withEntries({ dronken: first.id, heineken: second.id })
+    for (const module of newer.modules)
+      if (module.template === 'hero')
+        module.content = { ...module.content, heading: 'Texto mais novo' }
+    expect((await write(page, integration, 'saveDraft', head.revision, newer)).status()).toBe(200)
+    head = (await site(page)).draft
+    const versionsBefore = row<{ n: number }>(
+      integration,
+      'SELECT count(*) n FROM cms_v2_versions',
+    ).n
+    const obsolete = await write(page, integration, 'publish', stale, v1)
+    expect(obsolete.status()).toBe(409)
+    expect(row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_v2_versions').n).toBe(
+      versionsBefore,
+    )
+    expect((await site(page)).draft.revision).toBe(head.revision)
+
+    // 4. Produto oculto no catálogo: some da vitrine, a mídia não é pedida e o painel avisa.
+    const catalog = (await (await page.request.get(path)).json()) as {
+      revision: string
+      categories: {
+        items: {
+          id: string
+          visible: boolean
+          creationRef?: unknown
+          variants: Record<string, unknown>[]
+        }[]
+      }[]
+    }
+    for (const category of catalog.categories)
+      for (const item of category.items) {
+        delete item.creationRef
+        for (const variant of item.variants) delete variant.creationRef
+        if (item.id === 'heineken') item.visible = false
+      }
+    const hidden = await page.request.put(path, {
+      data: catalog,
+      headers: { Origin: origin, 'If-Match': JSON.stringify(catalog.revision) },
+    })
+    expect(hidden.status()).toBe(200)
+    const shopContext = await browser.newContext({ baseURL: origin })
+    const shop = await shopContext.newPage()
+    const requested: string[] = []
+    shop.on('request', (request) => {
+      const pathname = new URL(request.url()).pathname
+      if (pathname.startsWith('/api/site/media/')) requested.push(pathname)
+    })
+    try {
+      await shop.goto('/')
+      await expect(shop.locator('[data-editorial-state]')).toHaveAttribute(
+        'data-editorial-state',
+        'ready',
+        {
+          timeout: 20_000,
+        },
+      )
+      await expect(shop.locator('#barris')).not.toContainText('Heineken')
+      expect(requested.some((p) => p.includes(second.id))).toBe(false)
+    } finally {
+      await shopContext.close()
+    }
+    await page.goto('/admin#pagina-inicial')
+    await page.reload()
+    await page.getByRole('button', { name: /Barris do catálogo/ }).click()
+    await expect(page.getByText(/heineken — referência não elegível/)).toBeVisible()
+    // Remove a entrada inconsistente: a associação sai do rascunho, o arquivo continua na biblioteca.
+    await page.getByRole('button', { name: 'Remover heineken', exact: true }).click()
+    await saveDraftButton(page).click()
+    await expect(savedNotice(page)).toBeVisible()
+    head = (await site(page)).draft
+    expect(entriesOf(head.document).map((e) => e.itemId)).toEqual(['dronken'])
+    expect(mediaRow(integration, second.id).state).toBe('ready')
+
+    // 5. Exclusão de mídia referenciada: MEDIA_REFERENCED (publicada V1), mesmo fora do rascunho.
+    const referenced = await deleteMedia(page, integration, second)
+    expect(referenced.status()).toBe(409)
+    expect(((await referenced.json()) as { error: { code: string } }).error.code).toBe(
+      'MEDIA_REFERENCED',
+    )
+    expect(mediaRow(integration, second.id).state).toBe('ready')
+
+    // 6. Remover a associação do dronken e publicar V2: V1 e as referências históricas ficam intactas.
+    const cleared = structuredClone(head.document)
+    for (const entry of entriesOf(cleared)) entry.media = null
+    expect((await write(page, integration, 'saveDraft', head.revision, cleared)).status()).toBe(200)
+    head = (await site(page)).draft
+    expect((await write(page, integration, 'publish', head.revision, head.document)).status()).toBe(
+      200,
+    )
+    expect(refsOf()).toEqual(expect.arrayContaining(refsV1))
+    for (const media of [first, second]) {
+      const blocked = await deleteMedia(page, integration, media)
+      expect(blocked.status()).toBe(409)
+      expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
+        'MEDIA_REFERENCED',
+      )
+      expect(mediaRow(integration, media.id).state).toBe('ready')
+    }
+    // A vitrine atual (V2) não tem imagem editorial: foto atual, em desktop e mobile.
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      const context = await browser.newContext({ baseURL: origin, viewport })
+      const view = await context.newPage()
+      try {
+        await view.goto('/')
+        await expect(view.locator('[data-editorial-state]')).toHaveAttribute(
+          'data-editorial-state',
+          'ready',
+          { timeout: 20_000 },
+        )
+        await expect(view.locator('#barris img[src^="/api/site/media/"]')).toHaveCount(0)
+        await expect(
+          view.locator('#barris img[alt="Barril de Chopp Dronken em Aço Inox"]'),
+        ).toHaveCount(1)
+        expect(await view.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        )
+      } finally {
+        await context.close()
+      }
+    }
+
+    // 7. Mídia sem nenhuma referência pode ser excluída; some da entrega e da biblioteca utilizável.
+    const spare = await apiUpload(page, integration, await photo('png', '#aa6644'))
+    expect((await deleteMedia(page, integration, spare)).status()).toBe(200)
+    expect(mediaRow(integration, spare.id).state).toBe('deleted')
+
+    // 8. Falha da biblioteca: mensagem clara, nada muda no rascunho e tentar de novo recupera.
+    await page.goto('/admin#pagina-inicial')
+    await page.reload()
+    await page.getByRole('button', { name: /Barris do catálogo/ }).click()
+    const before = (await site(page)).draft
+    await page.route('**/api/admin/media?*', (route) => route.abort('failed'))
+    await page.route('**/api/admin/media', (route) =>
+      route.request().method() === 'GET' ? route.abort('failed') : route.continue(),
+    )
+    await page.getByRole('button', { name: 'Escolher imagem de Dronken', exact: true }).click()
+    await expect(mediaPicker(page)).toBeVisible()
+    await expect(mediaPicker(page).getByRole('alert').first()).toBeVisible()
+    await expect(pickerUse(page)).toBeDisabled()
+    await page.keyboard.press('Escape')
+    await expect(mediaPicker(page)).toBeHidden()
+    expect(await site(page)).toEqual({ ...(await site(page)), draft: before })
+    await page.unroute('**/api/admin/media?*')
+    await page.unroute('**/api/admin/media')
+    await page.getByRole('button', { name: 'Escolher imagem de Dronken', exact: true }).click()
+    await expect(mediaTile(page, first.id)).toBeEnabled()
+    await expect(mediaTile(page, bad.id)).toBeDisabled()
+    await expect(mediaTile(page, spare.id)).toBeDisabled()
+  })
+})

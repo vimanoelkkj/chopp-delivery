@@ -178,6 +178,11 @@ function saveFailureText(failure: Failure): { title: string; text: string } {
         text: `Esta operação já tinha sido usada com outros dados. Nada foi gravado. ${kept} Faça uma alteração e salve de novo.`,
       }
     case 'invalid':
+      if (failure.code === 'CMS_INVALID_MEDIA')
+        return {
+          title: 'Uma imagem não está disponível',
+          text: `Nada foi gravado. ${kept} Uma das imagens escolhidas foi excluída, recusada ou nunca existiu. Escolha outra na biblioteca ou remova a imagem, e salve ou publique de novo.`,
+        }
       return {
         title: 'O servidor recusou o rascunho',
         text: `Nada foi gravado. ${kept} Revise os campos${failure.code ? ` (${failure.code})` : ''} e salve de novo.`,
@@ -568,8 +573,8 @@ export function HomeEditor({
 
   // Publicar exige o rascunho já salvo (o servidor recusa documento diferente do salvo) e válido.
   const blockers = useMemo(
-    () => publishBlockers(read.document, contact.whatsappNumber),
-    [read.document],
+    () => publishBlockers(read.document, contact.whatsappNumber, read.warnings),
+    [read.document, read.warnings],
   )
   const canPublish = !dirty && !locked && !conflict && blockers.length === 0
   const publish = () => {

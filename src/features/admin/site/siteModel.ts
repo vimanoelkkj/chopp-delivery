@@ -495,12 +495,21 @@ export function documentSetupPending(read: Extract<SiteRead, { kind: 'v2' }>): s
  * O que ainda impede publicar este rascunho, em texto claro. Vazio = o contrato de publicação aceita.
  * `siteNumber` é o número comercial do build: publicar outro número trocaria o destino dos pedidos.
  */
-export function publishBlockers(document: CmsDocumentV2, siteNumber: string | null): string[] {
+export function publishBlockers(
+  document: CmsDocumentV2,
+  siteNumber: string | null,
+  warnings: readonly string[] = [],
+): string[] {
   const blockers: string[] = []
   const number = document.commercial.whatsappNumber
   if (number === null) blockers.push('O WhatsApp comercial do documento ainda não foi definido.')
   else if (siteNumber !== null && number !== siteNumber)
     blockers.push('O WhatsApp do documento difere do número comercial do site.')
+  // O servidor aceita no rascunho uma imagem recusada pelo processamento, mas não a publica.
+  if (warnings.includes('MEDIA_NOT_READY'))
+    blockers.push(
+      'Há imagem escolhida que não está pronta (recusada ou indisponível). Troque ou remova a imagem e salve o rascunho.',
+    )
   const carousel = document.modules.find((module) => module.template === 'carousel')
   if (
     carousel?.template === 'carousel' &&
