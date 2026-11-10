@@ -77,6 +77,12 @@ export function selectEditorialCarousel(
   const available = new Map(
     category?.items.filter((item) => item.visible).map((item) => [item.id, item]) ?? [],
   )
+  const selected = entries.flatMap((entry) => {
+    const item = available.get(entry.itemId)
+    return item ? [item] : []
+  })
+  // Seleção vazia ou já indisponível nunca esvazia a vitrine: o catálogo válido prevalece.
+  if (selected.length === 0) return state
   return {
     ...state,
     catalog: {
@@ -87,10 +93,7 @@ export function selectEditorialCarousel(
           c.id === 'chopes'
             ? {
                 ...c,
-                items: entries.flatMap((entry) => {
-                  const item = available.get(entry.itemId)
-                  return item ? [item] : []
-                }),
+                items: selected,
               }
             : c,
         ),

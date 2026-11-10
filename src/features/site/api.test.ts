@@ -133,6 +133,9 @@ it('selects editorial carousel IDs without changing catalog values, availability
   expect(items[1].variants[1].priceCents).toBeNull()
   expect(selected.catalog.products).toBe(catalog.products)
   expect(JSON.stringify(catalog)).toBe(before)
+  // Seleção vazia ou só com itens indisponíveis nunca esvazia a vitrine: o catálogo válido prevalece.
+  expect(selectEditorialCarousel([], state)).toBe(state)
+  expect(selectEditorialCarousel([{ itemId: 'missing', media: null }], state)).toBe(state)
   expect(selectEditorialCarousel([], { status: 'loading' })).toEqual({ status: 'loading' })
   expect(selectEditorialCarousel([], { status: 'error' })).toEqual({ status: 'error' })
 })
