@@ -3729,3 +3729,399 @@ test.describe('F4A.6.4A: ciclo de vida da mídia editorial do carrossel', () => 
     await expect(mediaTile(page, spare.id)).toBeDisabled()
   })
 })
+
+/**
+ * F4A.6.4E: imagem principal do produto no painel, sem mocks: build `release`, gateway e sessão
+ * reais, D1 e R2 locais descartáveis e o processador do laboratório local.
+ */
+test.describe('F4A.6.4E: imagem principal do produto no painel real', () => {
+  const COMMERCIAL = '5500000000000'
+  for (const viewport of [
+    { name: 'desktop 1440', width: 1440, height: 900 },
+    { name: 'mobile 390', width: 390, height: 844 },
+  ]) {
+    test.describe(viewport.name, () => {
+      test.use({
+        mediaLab: true,
+        runtimeMode: 'release',
+        whatsappNumber: COMMERCIAL,
+        viewport: { width: viewport.width, height: viewport.height },
+      })
+
+      // O painel de imagem tem o próprio "Salvar imagem": aqui o salvamento do catálogo é pelo nome completo.
+      const savedCatalog = async (page: Page) => {
+        await page.getByRole('button', { name: /^Salvar( alterações)?$/ }).click() // celular: "Salvar"
+        await expect(page.getByText('Tudo salvo.', { exact: true })).toBeVisible()
+      }
+      const imageApi = '/api/admin/catalog/media'
+      type Assoc = { itemId: string; mediaId: string | null; alt: string | null; revision: string }
+      const association = async (page: Page, itemId: string) =>
+        (await (await page.request.get(`${imageApi}/${itemId}`)).json()) as Assoc
+      const publicItem = async (page: Page, itemId: string) =>
+        (
+          (await (await page.request.get('/api/catalog')).json()) as {
+            categories: { items: { id: string; image?: { id: string; alt: string } }[] }[]
+          }
+        ).categories
+          .flatMap((c) => c.items)
+          .find((i) => i.id === itemId)
+      const toggle = (page: Page, name: string) =>
+        page.getByRole('button', { name: `Imagem principal de ${name}`, exact: true })
+      const panel = (page: Page, name: string) =>
+        page.getByRole('region', { name: `Imagem principal de ${name}` })
+      const altIn = (page: Page, name: string) =>
+        panel(page, name).getByRole('textbox', { name: 'Texto alternativo da imagem' })
+      const saveImage = (page: Page, name: string) =>
+        panel(page, name).getByRole('button', { name: 'Salvar imagem' })
+      const choose = (page: Page, name: string) =>
+        panel(page, name).getByRole('button', {
+          name: new RegExp(`^(Escolher|Trocar) imagem de ${name}$`),
+        })
+      const priceRevision = async (page: Page) =>
+        ((await (await page.request.get(path)).json()) as { revision: string }).revision
+      const catalogMetaRevision = (instance: Integration) =>
+        row<{ revision: number }>(instance, 'SELECT revision FROM catalog_meta').revision
+
+      test('a imagem editorial publicada vence a principal só no carrossel; sem editorial, vale a principal', async ({
+        page,
+        browser,
+        integration,
+      }) => {
+        test.setTimeout(240_000)
+        const origin = integration.origin
+        await seedPreview(page, integration)
+        const hero = await apiUpload(page, integration, await photo('png', '#445566'))
+        const editorial = await apiUpload(page, integration, await photo('png', '#c8693f'))
+        const mainDronken = await apiUpload(page, integration, await photo('png', '#9db89a'))
+        const mainHeineken = await apiUpload(page, integration, await photo('png', '#aa6644'))
+        const put = (itemId: string, mediaId: string, alt: string) =>
+          page.request.put(`${imageApi}/${itemId}`, {
+            headers: { Origin: origin, 'If-Match': '"m0"' },
+            data: { mediaId, alt },
+          })
+        expect((await put('dronken', mainDronken.id, 'Principal do Dronken')).status()).toBe(200)
+        expect((await put('heineken', mainHeineken.id, 'Principal da Heineken')).status()).toBe(200)
+        // Publicação editorial: hero com imagem e só o Dronken com imagem editorial.
+        const draft = (await (await page.request.get('/api/admin/site')).json()) as {
+          draft: { revision: string; document: ReturnType<typeof previewFixture> }
+        }
+        const document = structuredClone(draft.draft.document)
+        document.commercial.whatsappNumber = COMMERCIAL
+        for (const module of document.modules) {
+          if (module.template === 'hero')
+            module.content = { ...module.content, media: { id: hero.id, alt: 'Hero editorial' } }
+          if (module.template === 'carousel')
+            for (const entry of module.content.entries)
+              entry.media =
+                entry.itemId === 'dronken'
+                  ? { id: editorial.id, alt: 'Editorial do Dronken' }
+                  : null
+        }
+        const send = (action: 'saveDraft' | 'publish', revision: string) =>
+          page.request.fetch(`/api/admin/site/${action === 'publish' ? 'publish' : 'draft'}`, {
+            method: action === 'publish' ? 'POST' : 'PUT',
+            headers: { Origin: origin, 'If-Match': `"${revision}"` },
+            data: {
+              action,
+              operationId: crypto.randomUUID(),
+              expectedRevision: revision,
+              document,
+            },
+          })
+        expect((await send('saveDraft', draft.draft.revision)).status()).toBe(200)
+        const head = (await (await page.request.get('/api/admin/site')).json()) as {
+          draft: { revision: string }
+        }
+        expect((await send('publish', head.draft.revision)).status()).toBe(200)
+
+        const context = await browser.newContext({
+          baseURL: origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const shop = await context.newPage()
+        try {
+          await shop.goto('/')
+          await expect(shop.locator('[data-editorial-state]')).toHaveAttribute(
+            'data-editorial-state',
+            'ready',
+            { timeout: 20_000 },
+          )
+          const card = (name: string) =>
+            shop
+              .locator('#barris article')
+              .filter({ has: shop.locator('h3', { hasText: new RegExp(`^${name}$`) }) })
+          const dronken = card('Dronken').locator('img[src^="/api/site/media/"]')
+          await expect(dronken).toHaveAttribute('src', `/api/site/media/${editorial.id}/section`)
+          await expect(dronken).toHaveAttribute('alt', 'Editorial do Dronken')
+          await expect(card('Heineken').locator('img[src^="/api/site/media/"]')).toHaveAttribute(
+            'src',
+            `/api/site/media/${mainHeineken.id}/section`,
+          )
+          // A principal do Dronken segue valendo fora do carrossel (catálogo público) e é entregue.
+          expect((await page.request.get('/api/catalog')).ok()).toBe(true)
+          expect(
+            (
+              (await (await page.request.get('/api/catalog')).json()) as {
+                categories: { items: { id: string; image?: { id: string } }[] }[]
+              }
+            ).categories
+              .flatMap((c) => c.items)
+              .find((i) => i.id === 'dronken')?.image?.id,
+          ).toBe(mainDronken.id)
+          expect(
+            (await page.request.get(`/api/site/media/${mainDronken.id}/section`)).status(),
+          ).toBe(200)
+          const requested = await shop.evaluate(() =>
+            performance
+              .getEntriesByType('resource')
+              .map((entry) => new URL(entry.name).pathname)
+              .filter((path) => path.startsWith('/api/site/media/')),
+          )
+          // A principal do Dronken nem é requisitada pelo carrossel: a editorial a substituiu.
+          expect(requested.some((path) => path.includes(mainDronken.id))).toBe(false)
+        } finally {
+          await context.close()
+        }
+      })
+
+      test('produto padrão e novo: enviar, escolher, substituir, remover, concorrência e produto oculto', async ({
+        page,
+        browser,
+        integration,
+      }) => {
+        test.setTimeout(300_000)
+        const origin = integration.origin
+        await login(page, integration)
+        const second = await apiUpload(page, integration, await photo('png', '#9db89a'))
+        const third = await apiUpload(page, integration, await photo('png', '#aa6644'))
+        const doomed = await apiUpload(page, integration, await photo('png', '#8fb3cf'))
+        const bad = await apiUpload(page, integration, Buffer.from('isto não é uma imagem'))
+        expect([second.status, third.status, doomed.status, bad.status]).toEqual([
+          200, 200, 200, 400,
+        ])
+        const gone = await page.request.delete(`/api/admin/media/${doomed.id}`, {
+          headers: {
+            Origin: origin,
+            'X-Operation-Id': crypto.randomUUID(),
+            'If-Match': `"${doomed.operationId}"`,
+          },
+        })
+        expect(gone.status()).toBe(200)
+        const library = () => row<{ n: number }>(integration, 'SELECT count(*) n FROM cms_media').n
+        const priceBefore = await priceRevision(page)
+        const metaBefore = catalogMetaRevision(integration)
+
+        // 1. Produto padrão (linha da tabela): enviar uma imagem nova pelo próprio seletor.
+        await toggle(page, 'Dronken').click()
+        await expect(toggle(page, 'Dronken')).toHaveAttribute('aria-expanded', 'true')
+        await expect(panel(page, 'Dronken')).toContainText('Aparece na vitrine assim que for salva')
+        await expect(panel(page, 'Dronken')).toContainText('substitui esta imagem só no carrossel')
+        await expect(panel(page, 'Dronken')).toContainText('Sem imagem principal')
+        const libraryBefore = library()
+        await choose(page, 'Dronken').click()
+        await expect(mediaPicker(page)).toBeVisible()
+        await mediaFile(page).setInputFiles(
+          file('dronken.png', 'image/png', await photo('png', '#c8693f', 640, 480)),
+        )
+        await expect(uploaded(page)).toBeVisible({ timeout: 30_000 })
+        expect(library()).toBe(libraryBefore + 1)
+        await confirmImage(page)
+        const uploadedId = row<{ media_id: string }>(
+          integration,
+          'SELECT media_id FROM cms_media WHERE media_id NOT IN (?,?,?,?)',
+          second.id,
+          third.id,
+          doomed.id,
+          bad.id,
+        ).media_id
+        // O foco vai ao texto alternativo; sem ele, não dá para salvar.
+        await expect(altIn(page, 'Dronken')).toBeFocused()
+        await expect(panel(page, 'Dronken')).toContainText('Sem texto alternativo')
+        await expect(saveImage(page, 'Dronken')).toBeDisabled()
+        await altIn(page, 'Dronken').fill('x'.repeat(201))
+        await expect(saveImage(page, 'Dronken')).toBeDisabled()
+        await altIn(page, 'Dronken').fill('Barril Dronken em aço')
+        // Nada gravado antes de salvar.
+        expect((await association(page, 'dronken')).mediaId).toBeNull()
+        await saveImage(page, 'Dronken').click()
+        await expect(panel(page, 'Dronken')).toContainText(
+          'Imagem salva. Ela já aparece na vitrine.',
+        )
+        expect(await association(page, 'dronken')).toMatchObject({
+          mediaId: uploadedId,
+          alt: 'Barril Dronken em aço',
+          revision: 'm1',
+        })
+        expect((await publicItem(page, 'dronken'))?.image).toEqual({
+          id: uploadedId,
+          alt: 'Barril Dronken em aço',
+        })
+        // Imagem não mexe na revisão de preços nem na do catálogo.
+        expect(await priceRevision(page)).toBe(priceBefore)
+        expect(catalogMetaRevision(integration)).toBe(metaBefore)
+
+        // 2. Vitrine pública real, sem nenhuma publicação editorial.
+        const shopContext = await browser.newContext({
+          baseURL: origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const shop = await shopContext.newPage()
+        const shopCard = (name: string) =>
+          shop
+            .locator('#barris article')
+            .filter({ has: shop.locator('h3', { hasText: new RegExp(`^${name}$`) }) })
+        try {
+          await shop.goto('/')
+          const image = shopCard('Dronken').locator('img[src^="/api/site/media/"]')
+          await expect(image).toHaveAttribute('src', `/api/site/media/${uploadedId}/section`)
+          await expect(image).toHaveAttribute('alt', 'Barril Dronken em aço')
+          await expect
+            .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+            .toBeGreaterThan(0)
+          expect(
+            await shop.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          ).toBe(true)
+        } finally {
+          await shopContext.close()
+        }
+
+        // 3. Persistência após reload real; substituir mantém o alt e sobe a revisão.
+        await page.reload()
+        await toggle(page, 'Dronken').click()
+        await expect(altIn(page, 'Dronken')).toHaveValue('Barril Dronken em aço')
+        await choose(page, 'Dronken').click()
+        await mediaTile(page, third.id).check()
+        await confirmImage(page)
+        await expect(altIn(page, 'Dronken')).toHaveValue('Barril Dronken em aço')
+        await saveImage(page, 'Dronken').click()
+        await expect(panel(page, 'Dronken')).toContainText('Imagem salva')
+        expect(await association(page, 'dronken')).toMatchObject({
+          mediaId: third.id,
+          revision: 'm2',
+        })
+        // Só o alt também é uma revisão nova.
+        await altIn(page, 'Dronken').fill('Barril Dronken, de frente')
+        await saveImage(page, 'Dronken').click()
+        await expect(panel(page, 'Dronken')).toContainText('Imagem salva')
+        expect(await association(page, 'dronken')).toMatchObject({
+          alt: 'Barril Dronken, de frente',
+          revision: 'm3',
+        })
+
+        // 4. Remover: o arquivo fica na biblioteca e a vitrine volta à foto atual.
+        const before = library()
+        await panel(page, 'Dronken')
+          .getByRole('button', { name: 'Remover imagem de Dronken', exact: true })
+          .click()
+        await saveImage(page, 'Dronken').click()
+        await expect(panel(page, 'Dronken')).toContainText('Imagem removida')
+        expect(await association(page, 'dronken')).toMatchObject({ mediaId: null, revision: 'm4' })
+        expect((await publicItem(page, 'dronken'))?.image).toBeUndefined()
+        expect(library()).toBe(before)
+        expect(
+          row<{ state: string }>(
+            integration,
+            'SELECT state FROM cms_media WHERE media_id=?',
+            third.id,
+          ).state,
+        ).toBe('ready')
+
+        // 5. Mídia recusada ou excluída aparece bloqueada na biblioteca; e uma que ficar indisponível
+        // depois da escolha é recusada pelo servidor, com mensagem clara e sem gravar.
+        await choose(page, 'Dronken').click()
+        await expect(mediaTile(page, bad.id)).toBeDisabled()
+        await expect(mediaTile(page, doomed.id)).toBeDisabled()
+        await mediaTile(page, second.id).check()
+        await confirmImage(page)
+        await altIn(page, 'Dronken').fill('Vai falhar')
+        const removed = await page.request.delete(`/api/admin/media/${second.id}`, {
+          headers: {
+            Origin: origin,
+            'X-Operation-Id': crypto.randomUUID(),
+            'If-Match': `"${second.operationId}"`,
+          },
+        })
+        expect(removed.status()).toBe(200)
+        await saveImage(page, 'Dronken').click()
+        await expect(panel(page, 'Dronken')).toContainText('O servidor recusou a imagem')
+        expect(await association(page, 'dronken')).toMatchObject({ mediaId: null, revision: 'm4' })
+
+        // 6. Duas sessões: a segunda leu a revisão antiga, perde com 409 e nada é sobrescrito.
+        const otherContext = await browser.newContext({
+          baseURL: origin,
+          viewport: { width: viewport.width, height: viewport.height },
+        })
+        const other = await otherContext.newPage()
+        try {
+          await login(other, integration)
+          await toggle(other, 'Dronken').click()
+          await expect(choose(other, 'Dronken')).toBeVisible()
+          const fourth = await apiUpload(page, integration, await photo('png', '#445566'))
+          const fifth = await apiUpload(page, integration, await photo('png', '#778899'))
+          // A primeira sessão ganha pela API (mesma revisão que a segunda leu: m4).
+          const win = await page.request.put(`${imageApi}/dronken`, {
+            headers: { Origin: origin, 'If-Match': '"m4"' },
+            data: { mediaId: fourth.id, alt: 'Primeira sessão' },
+          })
+          expect(win.status()).toBe(200)
+          await choose(other, 'Dronken').click()
+          await mediaTile(other, fifth.id).check()
+          await confirmImage(other)
+          await altIn(other, 'Dronken').fill('Segunda sessão')
+          await saveImage(other, 'Dronken').click()
+          await expect(panel(other, 'Dronken')).toContainText('alterada em outra sessão')
+          expect(await association(page, 'dronken')).toMatchObject({
+            mediaId: fourth.id,
+            alt: 'Primeira sessão',
+            revision: 'm5',
+          })
+          // Recarregar mostra a versão vencedora e descarta a escolha local.
+          await panel(other, 'Dronken').getByRole('button', { name: 'Recarregar imagem' }).click()
+          await expect(altIn(other, 'Dronken')).toHaveValue('Primeira sessão')
+        } finally {
+          await otherContext.close()
+        }
+
+        // 7. Produto novo: sem salvar não há imagem; depois de salvar, recebe a própria.
+        await add(page, 'Chopes', 'Chope com foto', '20', '12345')
+        await expect(toggle(page, 'Chope com foto')).toBeDisabled()
+        await savedCatalog(page)
+        await expect(toggle(page, 'Chope com foto')).toBeEnabled()
+        await toggle(page, 'Chope com foto').click()
+        await choose(page, 'Chope com foto').click()
+        await mediaTile(page, third.id).check()
+        await confirmImage(page)
+        await altIn(page, 'Chope com foto').fill('Foto do chope novo')
+        await saveImage(page, 'Chope com foto').click()
+        await expect(panel(page, 'Chope com foto')).toContainText('Imagem salva')
+        const newId = row<{ id: string }>(
+          integration,
+          'SELECT id FROM catalog_items WHERE name=?',
+          'Chope com foto',
+        ).id
+        expect(await association(page, newId)).toMatchObject({ mediaId: third.id, revision: 'm1' })
+
+        // 8. Produto oculto: a imagem pode ser escolhida e fica guardada, mas não é entregue.
+        const sixth = await apiUpload(page, integration, await photo('png', '#bb9944'))
+        await page.getByRole('switch', { name: 'Heineken visível no site' }).uncheck()
+        await savedCatalog(page)
+        await toggle(page, 'Heineken').click()
+        await expect(panel(page, 'Heineken')).toContainText('Este produto está oculto')
+        await choose(page, 'Heineken').click()
+        await mediaTile(page, sixth.id).check()
+        await confirmImage(page)
+        await altIn(page, 'Heineken').fill('Heineken oculta')
+        await saveImage(page, 'Heineken').click()
+        await expect(panel(page, 'Heineken')).toContainText('O produto está oculto')
+        expect((await association(page, 'heineken')).mediaId).toBe(sixth.id)
+        expect(await publicItem(page, 'heineken')).toBeUndefined()
+        expect((await page.request.get(`/api/site/media/${sixth.id}/section`)).status()).toBe(404)
+        // Exibir o produto volta a entregar a imagem e a expô-la no catálogo.
+        await page.getByRole('switch', { name: 'Heineken visível no site' }).check()
+        await savedCatalog(page)
+        expect((await page.request.get(`/api/site/media/${sixth.id}/section`)).status()).toBe(200)
+        expect((await publicItem(page, 'heineken'))?.image?.id).toBe(sixth.id)
+      })
+    })
+  }
+})

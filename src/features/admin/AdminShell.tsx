@@ -125,7 +125,7 @@ export function AdminShell({
       <AdminViewNav view={view} dirty={editor.dirty} siteDirty={siteDirty} />
       <main className={styles.main}>
         <div data-view="produtos" hidden={view !== 'produtos'} className={styles.view}>
-          <CatalogView editor={editor} toast={toast} />
+          <CatalogView editor={editor} toast={toast} onExpired={() => onExpired()} />
         </div>
         {siteOpened ? (
           <div

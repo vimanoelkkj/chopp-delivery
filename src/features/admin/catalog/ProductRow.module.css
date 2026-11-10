@@ -50,6 +50,10 @@
   letter-spacing: 0;
 }
 
+.imagePanel {
+  grid-column: 1 / -1;
+}
+
 .description {
   margin-top: 0.125rem;
   color: var(--a-mute);

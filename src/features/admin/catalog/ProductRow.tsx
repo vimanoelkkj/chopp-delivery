@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { Switch } from '../ui/Switch'
 import type { DraftItem } from './draft'
 import { PriceField } from './PriceField'
@@ -28,6 +28,10 @@ type ProductRowProps = {
   onAddVariant?: () => void
   /** Salvamento em andamento ou não confirmado: estrutura bloqueada. */
   identityLocked?: boolean
+  /** Imagem principal do produto: botão que abre o painel (some quando o ambiente não a oferece). */
+  imageOpen?: boolean
+  onToggleImage?: () => void
+  imagePanel?: ReactNode
 }
 
 export function ProductRow({
@@ -47,6 +51,9 @@ export function ProductRow({
   onMove,
   onAddVariant,
   identityLocked = false,
+  imageOpen = false,
+  onToggleImage,
+  imagePanel,
 }: ProductRowProps) {
   const visible = item.visible
   return (
@@ -136,9 +143,24 @@ export function ProductRow({
               </svg>
             </button>
           ) : null}
+          {onToggleImage ? (
+            <button
+              type="button"
+              className={styles.move}
+              aria-label={`Imagem principal de ${item.name}`}
+              aria-expanded={imageOpen}
+              title="Imagem principal"
+              onClick={onToggleImage}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16v12H4zM4 16l5-5 4 4 3-3 4 4M9 9.5h.01" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       </div>
       {errors.row ? <p className={styles.rowError}>{errors.row}</p> : null}
+      {imagePanel ? <div className={styles.imagePanel}>{imagePanel}</div> : null}
     </li>
   )
 }

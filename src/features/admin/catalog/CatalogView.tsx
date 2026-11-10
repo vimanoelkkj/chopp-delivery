@@ -7,7 +7,9 @@ import { useFlip } from '../ui/useFlip'
 import styles from './CatalogView.module.css'
 import { type DraftItem, hasContent, isStandardRow } from './draft'
 import { ItemCard } from './ItemCard'
+import { PRODUCT_IMAGES_ENABLED } from './imageApi'
 import { NewProductDialog } from './NewProductDialog'
+import { ProductImagePanel } from './ProductImagePanel'
 import { ProductRow } from './ProductRow'
 import { formatPriceText } from './price'
 import { type CategoryId, EMPTY_TITLE, PRICE_REQUIRED, STANDARD_COLUMNS } from './types'
@@ -15,7 +17,7 @@ import type { useCatalogEditor } from './useCatalogEditor'
 
 type Editor = ReturnType<typeof useCatalogEditor>
 
-type CatalogViewProps = { editor: Editor; toast: ToastState }
+type CatalogViewProps = { editor: Editor; toast: ToastState; onExpired?: () => void }
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many)
 
@@ -35,13 +37,15 @@ function SkeletonRows() {
   )
 }
 
-export function CatalogView({ editor, toast }: CatalogViewProps) {
+export function CatalogView({ editor, toast, onExpired = () => {} }: CatalogViewProps) {
   const { state, errors, changed, dirty } = editor
   const [selectedTab, setTab] = useState<CategoryId>('chopes')
   const [discardOpen, setDiscardOpen] = useState(false)
   const [newOpen, setNewOpen] = useState(false)
   const [cancelKey, setCancelKey] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  // Painel de imagem principal aberto (chave do item); só existe com a API HTTP real.
+  const [imageFor, setImageFor] = useState<string | null>(null)
   const [focusTick, setFocusTick] = useState(0)
   const focusAfter = useRef<{ move?: string; field?: string } | null>(null)
   const pendingFocus = useRef<string | null>(null)
@@ -272,6 +276,25 @@ export function CatalogView({ editor, toast }: CatalogViewProps) {
                         savedPrices: item.id === null ? undefined : savedPrices[item.id],
                         priceHelpId,
                         rowRef: flip.register(key),
+                        imageOpen: imageFor === key,
+                        onToggleImage: PRODUCT_IMAGES_ENABLED
+                          ? () => setImageFor(imageFor === key ? null : key)
+                          : undefined,
+                        imagePanel:
+                          PRODUCT_IMAGES_ENABLED && imageFor === key && item.id !== null ? (
+                            <ProductImagePanel
+                              key={item.id}
+                              itemId={item.id}
+                              name={item.name}
+                              // A vitrine segue a visibilidade SALVA, não a de um interruptor ainda não salvo.
+                              visible={
+                                saved?.categories
+                                  .flatMap((category) => category.items)
+                                  .find((entry) => entry.id === item.id)?.visible ?? item.visible
+                              }
+                              onExpired={onExpired}
+                            />
+                          ) : undefined,
                         onVisible: (visible: boolean) => editor.setVisible(key, visible),
                         onMove: (direction: -1 | 1) => move(key, direction),
                       }

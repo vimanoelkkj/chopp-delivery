@@ -51,6 +51,7 @@ export function MediaSlot({
   subject,
   emptyText = 'Sem imagem. A página usa a imagem padrão até você escolher uma.',
   altFieldKey,
+  altWarning = 'Sem texto alternativo. O rascunho aceita, mas a publicação vai exigir.',
 }: {
   moduleId: string
   template: CmsModuleV2['template']
@@ -66,6 +67,8 @@ export function MediaSlot({
   emptyText?: string
   /** Chave do campo do texto alternativo (padrão: a da seção); usada para foco e erros. */
   altFieldKey?: string
+  /** Aviso quando o texto alternativo está vazio (a regra muda conforme quem usa o espaço). */
+  altWarning?: string
 }) {
   return (
     <div className={styles.slot} data-media-slot={moduleId}>
@@ -133,11 +136,7 @@ export function MediaSlot({
             disabled={disabled}
             onChange={onAltChange}
           />
-          {media.alt.trim() === '' ? (
-            <p className={styles.slotWarn}>
-              Sem texto alternativo. O rascunho aceita, mas a publicação vai exigir.
-            </p>
-          ) : null}
+          {media.alt.trim() === '' ? <p className={styles.slotWarn}>{altWarning}</p> : null}
         </>
       ) : (
         <div className={styles.preview}>

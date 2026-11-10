@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { AdminButton } from '../ui/AdminButton'
 import { Switch } from '../ui/Switch'
 import { TextField } from '../ui/TextField'
@@ -29,6 +29,10 @@ type ItemCardProps = {
   onMove: (direction: -1 | 1) => void
   /** Só para item ainda não salvo. */
   identityLocked?: boolean
+  /** Imagem principal: o botão abre o painel; em produto ainda não salvo fica desativado. */
+  imageOpen?: boolean
+  onToggleImage?: () => void
+  imagePanel?: ReactNode
   onCancel: () => void
 }
 
@@ -55,6 +59,9 @@ export function ItemCard({
   onMove,
   onCancel,
   identityLocked = false,
+  imageOpen = false,
+  onToggleImage,
+  imagePanel,
 }: ItemCardProps) {
   const isNew = item.id === null
   const unit = volumeUnit(item.categoryId)
@@ -211,10 +218,28 @@ export function ItemCard({
                 <path d="m6 10 6 6 6-6" />
               </svg>
             </button>
+            {onToggleImage ? (
+              <button
+                type="button"
+                className={rowStyles.move}
+                aria-label={`Imagem principal de ${title}`}
+                aria-expanded={imageOpen}
+                disabled={isNew}
+                title={
+                  isNew ? 'Salve o produto para escolher a imagem principal' : 'Imagem principal'
+                }
+                onClick={onToggleImage}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 6h16v12H4zM4 16l5-5 4 4 3-3 4 4M9 9.5h.01" />
+                </svg>
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
       {errors.row ? <p className={styles.error}>{errors.row}</p> : null}
+      {imagePanel}
       {isNew ? (
         <AdminButton
           variant="outline"

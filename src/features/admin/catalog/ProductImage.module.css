@@ -1,0 +1,44 @@
+.panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 0.25rem 0.25rem;
+  border-top: 1px solid var(--a-line);
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.note {
+  margin: 0;
+  color: var(--a-mute);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ok,
+.bad {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-control);
+  font-size: 0.875rem;
+}
+
+.ok {
+  background: var(--a-info-bg);
+  color: var(--a-ink);
+}
+
+.bad {
+  background: var(--a-err-bg);
+  color: var(--a-err);
+  font-weight: 600;
+}
