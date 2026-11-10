@@ -2,6 +2,7 @@ import { parseIfMatch, revisionToken } from '../admin-catalog/catalog-contract'
 import { readPatchBody } from '../admin-catalog/validation'
 import { requireAdmin } from '../auth/guard'
 import { type AuthEnv, authError, authJson, wrongMethod } from '../auth/http'
+import { publicItemImages } from '../catalog-media/repository'
 import { expandedRepository, publicSnapshot } from './repository'
 import { EXPANSION_LIMITS, validateExpanded } from './validation'
 
@@ -15,7 +16,8 @@ const invalid = (fields: Record<string, string>) =>
 export async function handlePublicCatalog(request: Request, db: D1Database): Promise<Response> {
   if (request.method !== 'GET') return wrongMethod(request, 'GET')
   try {
-    return authJson(publicSnapshot((await expandedRepository(db).load()).snapshot))
+    const { snapshot } = await expandedRepository(db).load()
+    return authJson(publicSnapshot(snapshot, await publicItemImages(db)))
   } catch {
     console.error('CATALOG_UNAVAILABLE')
     return catalogFailure()

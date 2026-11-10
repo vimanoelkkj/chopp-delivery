@@ -59,11 +59,27 @@ describe('configuração exclusiva de produção', () => {
 
 describe('migrations 0001-0012', () => {
   it('têm numeração contígua e nomes que o ledger registrará', () => {
-    expect(files).toHaveLength(12)
+    // Produção está em 0012. Migrations posteriores (0013+) são aditivas e só entram no ledger de
+    // produção com autorização própria; a numeração continua contígua.
+    expect(files.length).toBeGreaterThanOrEqual(12)
     expect(files.map((file) => file.slice(0, 4))).toEqual(
       files.map((_, index) => String(index + 1).padStart(4, '0')),
     )
-    expect(files.at(-1)).toBe('0012_cms_publication.sql')
+    // As doze migrations de produção, na ordem do ledger, continuam todas presentes.
+    expect(files.slice(0, 12)).toEqual([
+      '0001_catalog.sql',
+      '0002_catalog_seed.sql',
+      '0003_admin_auth.sql',
+      '0004_catalog_revision.sql',
+      '0005_catalog_expansion.sql',
+      '0006_cms_foundation.sql',
+      '0007_cms_media_local.sql',
+      '0008_cms_media_atomic.sql',
+      '0009_cms_v2.sql',
+      '0010_cms_media_capacity.sql',
+      '0011_cms_delivery_region.sql',
+      '0012_cms_publication.sql',
+    ])
   })
 })
 
@@ -127,7 +143,7 @@ describe('aplicação local descartável com o mecanismo oficial', () => {
       expect(sql).toBeDefined()
       expect(query(sql as string)).toEqual([
         {
-          migrations: 12,
+          migrations: files.length,
           products: 8,
           cachaca: 1,
           itens: 9,

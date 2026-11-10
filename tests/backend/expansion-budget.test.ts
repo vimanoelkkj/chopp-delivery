@@ -56,7 +56,7 @@ it('orçamento real: 128 itens / 512 variantes em D1, leitura completa e no-op',
         while (i.variants.length < 4 && total < 512) {
           i.variants.push({
             clientId: `tmp:${crypto.randomUUID()}`,
-            label: 'Barril',
+            label: `Barril ${crypto.randomUUID().slice(0, 8)}`, // rótulo único: duplicata exata é recusada
             volumeMl: 20000,
             priceCents: 51029,
           })
@@ -70,7 +70,7 @@ it('orçamento real: 128 itens / 512 variantes em D1, leitura completa e no-op',
     for (let n = 0; n < 4; n++)
       first.variants.push({
         clientId: `tmp:${crypto.randomUUID()}`,
-        label: 'Barril',
+        label: `Barril ${crypto.randomUUID().slice(0, 8)}`, // rótulo único: duplicata exata é recusada
         volumeMl: 20000,
         priceCents: 51029,
       })
@@ -155,7 +155,7 @@ it('orçamento real: 128 itens / 512 variantes em D1, leitura completa e no-op',
 it('orçamentos estruturais rejeitam excesso sem truncar e aceitam oito variantes', () => {
   const variant = () => ({
     clientId: `tmp:${crypto.randomUUID()}`,
-    label: 'Barril',
+    label: `Barril ${crypto.randomUUID().slice(0, 8)}`, // rótulo único: duplicata exata é recusada
     volumeMl: 20000,
     priceCents: 100,
   })

@@ -126,7 +126,10 @@ export function expandedRepository(db: D1Database, authorization?: Authorization
   }
 }
 
-export function publicSnapshot(snapshot: ExpandedCatalog) {
+export function publicSnapshot(
+  snapshot: ExpandedCatalog,
+  images: ReadonlyMap<string, { id: string; alt: string }> = new Map(),
+) {
   return {
     revision: snapshot.revision,
     categories: snapshot.categories.map((c) => ({
@@ -137,6 +140,8 @@ export function publicSnapshot(snapshot: ExpandedCatalog) {
         .map(({ creationRef: _ref, variants, ...item }) => ({
           ...item,
           variants: variants.map(({ creationRef: _ref, ...variant }) => variant),
+          // Só quando há imagem: sem associação a resposta é idêntica à anterior.
+          ...(images.has(item.id) ? { image: images.get(item.id) } : {}),
         })),
     })),
   }

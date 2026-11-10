@@ -22,6 +22,8 @@ export type PublicCatalog = {
     name: string
     items: (Omit<CatalogItem, 'creationRef' | 'variants'> & {
       variants: Omit<CatalogVariant, 'creationRef'>[]
+      /** Imagem principal do produto (F4A.6.4C). Só aparece quando existe e a mídia está pronta. */
+      image?: { id: string; alt: string }
     })[]
   }[]
 }

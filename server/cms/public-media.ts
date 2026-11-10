@@ -1,3 +1,4 @@
+import { catalogMediaReady } from '../catalog-media/repository'
 import { inspectImage, mediaHash } from './media-bytes'
 import {
   type CmsDerivative,
@@ -69,15 +70,24 @@ export async function handlePublicMedia(
   if (!bucket) return notFound(head)
   try {
     await requirePublicationSchema(env.DELEGAS_DB)
-    // Only the published pointer authorizes delivery; drafts and orphan objects never match.
-    const row = await env.DELEGAS_DB.prepare(
-      `SELECT m.derivatives_json FROM cms_v2_state s
+    // Autorizam a entrega: (1) a versão editorial publicada que referencia a mídia ou (2) um produto
+    // VISÍVEL do catálogo com a mídia como imagem principal. Rascunhos, produtos ocultos e objetos
+    // órfãos nunca casam. O ramo (2) só existe depois da migration 0013 e não depende do gate de
+    // upload: desligar novos envios não interrompe imagens já válidas.
+    const published = `SELECT m.derivatives_json FROM cms_v2_state s
        JOIN cms_v2_versions v ON v.version_id=s.published_version_id AND v.kind='published'
        JOIN cms_v2_media_refs r ON r.version_id=v.version_id AND r.media_id=?
        JOIN cms_media m ON m.media_id=r.media_id AND m.state='ready'
-       WHERE s.singleton=1`,
+       WHERE s.singleton=1`
+    const product = `SELECT m.derivatives_json FROM catalog_item_media c
+       JOIN catalog_items i ON i.id=c.item_id AND i.visible=1
+       JOIN cms_media m ON m.media_id=c.media_id AND m.state='ready'
+       WHERE c.media_id=?`
+    const productDelivery = await catalogMediaReady(env.DELEGAS_DB)
+    const row = await env.DELEGAS_DB.prepare(
+      productDelivery ? `${published} UNION ALL ${product} LIMIT 1` : published,
     )
-      .bind(id)
+      .bind(...(productDelivery ? [id, id] : [id]))
       .first<{ derivatives_json: string | null }>()
     if (!row?.derivatives_json) return notFound(head)
     const manifest: unknown = JSON.parse(row.derivatives_json)
