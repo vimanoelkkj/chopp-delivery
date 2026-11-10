@@ -4,6 +4,7 @@ import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
 import { KegCutout, KegPlaceholder, kegPhotoForItem } from '@/shared/ui/KegCutout'
+import { PublishedMedia } from '@/shared/ui/PublishedMedia'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
 import { centsToReais } from '../../../shared/money'
@@ -34,6 +35,11 @@ export interface CarouselKeg {
 
 export interface BarrelCarousel3DProps {
   renderItemMedia?: (itemId: string) => ReactNode
+  /**
+   * Imagem editorial publicada do produto (resolvida pelo `itemId`, nunca pela posição). Sem ela, ou
+   * enquanto carrega ou se falhar, vale a foto atual ou a silhueta neutra.
+   */
+  publishedMedia?: (itemId: string) => { id: string; alt: string } | null | undefined
   items: CarouselItem[]
   onSelectKeg?: (keg: CarouselKeg) => void
   initialSelectedId?: string
@@ -77,6 +83,7 @@ export function BarrelCarousel3D({
   onSelectKeg,
   initialSelectedId,
   renderItemMedia,
+  publishedMedia,
   className,
 }: BarrelCarousel3DProps) {
   // Constrói os barris a partir dos itens reais do catálogo (sem dados fictícios)
@@ -316,7 +323,14 @@ export function BarrelCarousel3D({
                 aria-hidden={!isCenter}
               >
                 <div className={styles.imageWrap}>
-                  {renderItemMedia?.(keg.id) ?? <KegMedia id={keg.id} alt={keg.alt} />}
+                  {renderItemMedia?.(keg.id) ?? (
+                    <PublishedMedia
+                      media={publishedMedia?.(keg.id)}
+                      profile="section"
+                      fit="contain"
+                      fallback={<KegMedia id={keg.id} alt={keg.alt} />}
+                    />
+                  )}
                   {keg.badgeText && (
                     <span
                       className={`${styles.badge} ${

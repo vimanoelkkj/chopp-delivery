@@ -34,20 +34,28 @@ export function EditorialSections({
     if (!module) return null
     const sectionNumber = section.number ?? undefined
     // Hero/about resolve published media via the shared helper; local assets stay as fallback.
-    // carousel.media (and highlight/barrels media) have no defined visual role and stay unused.
+    // carousel.media (module level) and highlight media have no defined visual role and stay unused;
+    // carousel.entries[].media is resolved by itemId and shown on that product's card.
     switch (module.template) {
       case 'hero':
       case 'contact':
         return null
-      case 'carousel':
+      case 'carousel': {
+        // Por itemId, nunca por posição. Se o id se repetir, vale a primeira entrada.
+        const entryMedia = new Map<string, { id: string; alt: string }>()
+        for (const entry of module.content.entries)
+          if (entry.media && !entryMedia.has(entry.itemId))
+            entryMedia.set(entry.itemId, entry.media)
         return (
           <BarrelsSection
             key={module.id}
             state={selectEditorialCarousel(module.content.entries, catalog)}
             editorial={module.content}
             sectionNumber={sectionNumber}
+            publishedMedia={(id) => entryMedia.get(id)}
           />
         )
+      }
       case 'ticker':
         return <Ticker key={module.id} editorial={module.content} />
       case 'catalog':

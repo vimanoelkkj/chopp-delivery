@@ -249,6 +249,7 @@
 
 .badge {
   position: absolute;
+  z-index: 3; /* acima da imagem editorial publicada (z-index 2) */
   top: 0.5rem;
   right: 0.5rem;
   padding: 0.2rem 0.5rem;

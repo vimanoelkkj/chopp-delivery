@@ -9,11 +9,13 @@ export function BarrelsSection({
   state,
   editorial,
   renderItemMedia,
+  publishedMedia,
   sectionNumber,
 }: {
   state: CatalogState
   sectionNumber?: string
   renderItemMedia?: (itemId: string) => ReactNode
+  publishedMedia?: (itemId: string) => { id: string; alt: string } | null | undefined
   editorial?: Pick<CmsContentsV2['carousel'], 'heading' | 'lead'>
 }) {
   const chopes =
@@ -55,7 +57,11 @@ export function BarrelsSection({
               Nenhum barril disponível no catálogo no momento.
             </p>
           ) : (
-            <BarrelCarousel3D items={chopes} renderItemMedia={renderItemMedia} />
+            <BarrelCarousel3D
+              items={chopes}
+              renderItemMedia={renderItemMedia}
+              publishedMedia={publishedMedia}
+            />
           ))}
 
         <div className={styles.specsGrid}>
