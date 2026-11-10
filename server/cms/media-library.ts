@@ -60,16 +60,20 @@ export function localMediaEnabled(
   CMS_MEDIA_PROCESSOR: Pick<Fetcher, 'fetch'>
 } {
   const url = new URL(request.url)
-  const homologationOrigin = 'https://chopp-delivery-homolog.pages.dev'
-  const homologation =
-    env.CMS_MEDIA_ENVIRONMENT === 'homologation' &&
+  // Cada ambiente remoto exige o rótulo, o opt-in, a origem HTTPS exata e nenhum atalho local.
+  const remote = (environment: string, origin: string) =>
+    env.CMS_MEDIA_ENVIRONMENT === environment &&
     env.CMS_MEDIA_ENABLED === 'enabled' &&
-    env.ADMIN_ORIGIN === homologationOrigin &&
-    url.origin === homologationOrigin &&
+    env.ADMIN_ORIGIN === origin &&
+    url.origin === origin &&
     !env.ADMIN_ALLOW_INSECURE_LOCAL &&
     !env.CMS_MEDIA_LOCAL
+  const homologation = remote('homologation', 'https://chopp-delivery-homolog.pages.dev')
+  // Fechado por padrão: a configuração de produção não define estas variáveis nem os bindings.
+  const production = remote('production', 'https://chopp-delivery-prod.pages.dev')
   return (
     (homologation ||
+      production ||
       (env.CMS_MEDIA_LOCAL === 'disposable-v1' &&
         env.ADMIN_ALLOW_INSECURE_LOCAL === '1' &&
         url.protocol === 'http:' &&

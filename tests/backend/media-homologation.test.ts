@@ -48,6 +48,40 @@ it('requires explicit homologation capabilities and the exact HTTPS canonical or
   }
 })
 
+it('production media stays closed unless label, opt-in, exact production origin and bindings all match', () => {
+  const production = 'https://chopp-delivery-prod.pages.dev'
+  const open = {
+    ...capability,
+    ADMIN_ORIGIN: production,
+    CMS_MEDIA_ENVIRONMENT: 'production',
+  } as unknown as LocalMediaEnv
+  expect(localMediaEnabled(request(production), open)).toBe(true)
+  // Sem as variáveis de produção (a configuração atual) o recurso continua desligado.
+  expect(
+    localMediaEnabled(request(production), {
+      ADMIN_ORIGIN: production,
+    } as unknown as LocalMediaEnv),
+  ).toBe(false)
+  for (const patch of [
+    { CMS_MEDIA_ENABLED: undefined },
+    { CMS_MEDIA_ENABLED: 'disabled' },
+    { CMS_MEDIA_ENVIRONMENT: 'homologation' },
+    { CMS_MEDIA_BUCKET: undefined },
+    { CMS_MEDIA_PROCESSOR: undefined },
+    { ADMIN_ORIGIN: origin },
+    { ADMIN_ALLOW_INSECURE_LOCAL: '1' },
+    { CMS_MEDIA_LOCAL: 'disposable-v1' },
+  ])
+    expect(localMediaEnabled(request(production), { ...open, ...patch })).toBe(false)
+  for (const url of [
+    'http://chopp-delivery-prod.pages.dev',
+    'https://main.chopp-delivery-prod.pages.dev',
+    'https://chopp-delivery-prod.pages.dev.evil.invalid',
+    origin,
+  ])
+    expect(localMediaEnabled(request(url), { ...open, ADMIN_ORIGIN: url })).toBe(false)
+})
+
 it('keeps native Images processing private with no deployment or remote activation by default', () => {
   const config = JSON.parse(readFileSync('config/cloudflare/media-processor.jsonc', 'utf8'))
   expect(config.workers_dev).toBe(false)
