@@ -2766,7 +2766,7 @@ test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitr
     }
   })
 
-  test('FAQ publicado pelo CMS: o primeiro clique não desloca a pergunta clicada (1440 e 390)', async ({
+  test('FAQ publicado pelo CMS: nasce fechado, nunca rola e não acumula deslocamento (1440 e 390)', async ({
     page,
     integration,
     browser,
@@ -2801,7 +2801,7 @@ test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitr
           { timeout: 20_000 },
         )
         const faq = shop.locator('#faq button[aria-expanded]')
-        await expect(faq.first()).toHaveAttribute('aria-expanded', 'true')
+        await expect(faq.first()).toHaveAttribute('aria-expanded', 'false')
         await shop.evaluate((height) => {
           const list = document
             .querySelector('#faq button[aria-expanded]')
@@ -2811,16 +2811,33 @@ test.describe('Publicação do CMS: rascunho → publicar → /api/site → vitr
           window.scrollTo({ top: top - height * 0.2, behavior: 'instant' })
         }, height)
         await shop.waitForTimeout(400)
-        const topOf = () => faq.nth(1).evaluate((node) => node.getBoundingClientRect().top)
-        const before = await topOf()
-        const scrollBefore = await shop.evaluate(() => window.scrollY)
-        const box = await faq.nth(1).boundingBox()
-        if (!box) throw new Error('botão fora da tela')
-        await shop.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-        await expect(faq.nth(1)).toHaveAttribute('aria-expanded', 'true')
-        await expect(faq.first()).toHaveAttribute('aria-expanded', 'false')
-        expect(Math.abs((await topOf()) - before), `${width}px`).toBeLessThan(1.5)
-        expect(await shop.evaluate(() => window.scrollY)).toBeLessThan(scrollBefore)
+        const click = (index: number) =>
+          faq.nth(index).evaluate((node) => (node as HTMLButtonElement).click())
+        const scrollY = () => shop.evaluate(() => window.scrollY)
+        // Nasce fechado: abrir a 1ª pergunta não rola a página.
+        const scrollBefore = await scrollY()
+        await click(0)
+        await expect(faq.first()).toHaveAttribute('aria-expanded', 'true')
+        expect(Math.abs((await scrollY()) - scrollBefore), `${width}px abrir 1ª`).toBeLessThan(1.5)
+        const firstTop = await faq.first().evaluate((node) => node.getBoundingClientRect().top)
+        // Dez ciclos entre a 1ª e a 2ª pergunta: o componente nunca rola a página e nada se acumula.
+        for (let cycle = 1; cycle <= 10; cycle++) {
+          await click(1)
+          await expect(faq.nth(1)).toHaveAttribute('aria-expanded', 'true')
+          await expect(faq.first()).toHaveAttribute('aria-expanded', 'false')
+          expect(
+            Math.abs((await scrollY()) - scrollBefore),
+            `${width}px ciclo ${cycle}: ida`,
+          ).toBeLessThan(1.5)
+          await click(0)
+          await expect(faq.first()).toHaveAttribute('aria-expanded', 'true')
+          expect(
+            Math.abs((await scrollY()) - scrollBefore),
+            `${width}px ciclo ${cycle}: volta`,
+          ).toBeLessThan(1.5)
+          const first = await faq.first().evaluate((node) => node.getBoundingClientRect().top)
+          expect(Math.abs(first - firstTop), `${width}px ciclo ${cycle}: 1ª`).toBeLessThan(1.5)
+        }
       } finally {
         await context.close()
       }

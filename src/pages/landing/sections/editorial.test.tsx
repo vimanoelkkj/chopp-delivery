@@ -115,7 +115,7 @@ describe('P3: typed editorial content and escaped rendering', () => {
       expect(html).not.toContain('dangerouslySetInnerHTML')
     })
   }
-  it('keeps FAQ button/panel relationships and the first item expanded', () => {
+  it('keeps FAQ button/panel relationships and starts with every item collapsed', () => {
     const html = renderToStaticMarkup(
       <FaqSection
         editorial={{
@@ -133,7 +133,7 @@ describe('P3: typed editorial content and escaped rendering', () => {
       ),
     ]
     expect(buttons).toHaveLength(2)
-    expect(buttons.map((button) => button[2])).toEqual(['true', 'false'])
+    expect(buttons.map((button) => button[2])).toEqual(['false', 'false'])
     for (const button of buttons)
       expect(html).toContain(`id="${button[3]}" aria-labelledby="${button[1]}"`)
   })

@@ -1,5 +1,4 @@
-import { useId, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { useId, useState } from 'react'
 import styles from './Faq.module.css'
 import type { FaqItem } from './faq-items'
 
@@ -7,26 +6,17 @@ type FaqProps = {
   items: FaqItem[]
 }
 
-/** Acordeão com um item aberto por vez. Cada pergunta é um botão alcançável por teclado. */
+/**
+ * Acordeão com um item aberto por vez. Cada pergunta é um botão alcançável por teclado.
+ *
+ * Nasce com tudo fechado e não mexe na rolagem: abrir uma pergunta nunca desloca nada, e a única
+ * mudança de posição é a física do próprio layout (ao trocar de item, a resposta que fecha acima do
+ * botão clicado faz a página abaixo dela subir). Compensar isso com `scrollBy` foi tentado e
+ * descartado: segurar a pergunta clicada em todo clique acumula deslocamento a cada ciclo.
+ */
 export function Faq({ items }: FaqProps) {
-  const [openId, setOpenId] = useState<string | null>(items[0]?.id ?? null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const baseId = useId()
-  const triggers = useRef(new Map<string, HTMLButtonElement>())
-
-  // O primeiro item nasce aberto. Ao abrir outra pergunta, a resposta aberta fecha ACIMA do botão
-  // clicado e a página abaixo dela sobe de uma vez (a altura inteira da resposta). O scroll
-  // anchoring do navegador ancora acima da região que encolhe, então a janela não acompanha e o
-  // botão clicado foge do ponteiro. Medimos o botão antes da troca e, com a troca já aplicada ao
-  // DOM, rolamos exatamente o quanto ele andou: a pergunta clicada fica parada e só a resposta muda.
-  function toggle(id: string, open: boolean) {
-    const trigger = triggers.current.get(id)
-    const before = trigger?.getBoundingClientRect().top
-    flushSync(() => setOpenId(open ? null : id))
-    if (!trigger || before === undefined) return
-    const moved = trigger.getBoundingClientRect().top - before
-    // `instant` ignora o `scroll-behavior: smooth` global: a correção não pode ser animada.
-    if (Math.abs(moved) >= 1) window.scrollBy({ top: moved, left: 0, behavior: 'instant' })
-  }
 
   return (
     <div className={styles.list}>
@@ -40,14 +30,10 @@ export function Faq({ items }: FaqProps) {
               <button
                 type="button"
                 id={buttonId}
-                ref={(node) => {
-                  if (node) triggers.current.set(item.id, node)
-                  else triggers.current.delete(item.id)
-                }}
                 className={styles.trigger}
                 aria-expanded={open}
                 aria-controls={panelId}
-                onClick={() => toggle(item.id, open)}
+                onClick={() => setOpenId(open ? null : item.id)}
               >
                 <span>{item.question}</span>
                 <span className={styles.sign} aria-hidden="true">
