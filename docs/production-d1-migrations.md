@@ -1,5 +1,7 @@
 # Migrations D1 de produção (H10.8)
 
+> **Atualização:** este documento descreve a aplicação inicial (`0001`–`0012`, já feita em produção). Pendentes para o próximo release: `0013_catalog_item_media.sql` e `0014_catalog_write_trigger_lighter_ordering.sql`, nesta ordem, antes do deploy do Pages. O procedimento (backup, bookmark, `migrations apply` com `--config wrangler.production.jsonc`, verificação e rollback) está em [production-release-runbook.md](production-release-runbook.md). A `0014` corrige o erro `SQLITE_ERROR 7500` do `PUT /api/admin/catalog/v2` no D1 remoto.
+
 **Estado: preparado e validado em D1 local descartável. Nenhuma migration remota foi aplicada. Aplicar exige autorização explícita do responsável.** Wrangler 4.151.0; PowerShell na raiz do repositório.
 
 ## Alvo

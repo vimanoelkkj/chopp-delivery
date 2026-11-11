@@ -1,6 +1,6 @@
 # Habilitação da mídia do CMS em produção (preparação)
 
-**Estado: preparado localmente. Nada foi criado, publicado ou alterado no Cloudflare (bucket, Worker, bindings, Access, secrets, D1).** Cada passo remoto abaixo exige autorização explícita.
+**Estado: a mídia foi validada de ponta a ponta na HOMOLOGAÇÃO (upload, processamento, associação, entrega pública, proteção de exclusão). Em produção nada foi criado, publicado ou alterado (bucket, Worker, bindings, Access, secrets, D1).** Cada passo remoto exige autorização explícita. O procedimento vigente, com os perfis do guard, os dois gates e a ordem de abrir/fechar, está em [production-release-runbook.md](production-release-runbook.md) (seções 3 e 6); este documento fica como referência de segurança e de causas.
 
 Decisão: o contrato continua exigindo imagem publicável no hero (validador, gatilho SQL da `0012` e inventário `ready`). Não há fallback novo nem migration para dispensar a imagem.
 
@@ -18,7 +18,9 @@ Decisão: o contrato continua exigindo imagem publicável no hero (validador, ga
 
 Há ainda um 409 distinto, `MEDIA_BUSY` (job do mesmo `operationId` ainda `running`), e `MEDIA_REFERENCED` (exclusão de mídia referenciada).
 
-**Qual deles ocorreu na homologação não é determinável pelos arquivos locais.** A resposta do navegador só mostra o rótulo genérico; a causa está nos logs da Function da homologação (`code` e `stage`). Antes de qualquer nova tentativa remota, ler esses logs (leitura apenas). Criar um bucket R2 não resolve o 409 por si: nenhuma das causas acima é "bucket ausente".
+**Qual deles ocorreu no 409 antigo da homologação não é determinável pelos arquivos locais.** A resposta do navegador só mostra o rótulo genérico; a causa está nos logs da Function (`code` e `stage`). Na homologação a mídia voltou a funcionar de ponta a ponta com os dois gates abertos e sem esse 409. Criar um bucket R2 não resolve um 409 por si: nenhuma das causas acima é "bucket ausente".
+
+**Falha por gate do Worker (comprovada):** com `CMS_MEDIA_ENABLED=enabled` no Pages e `CMS_MEDIA_PROCESSOR_ENABLED=disabled` no Worker, o upload responde **503 `MEDIA_UNAVAILABLE`** (log `CMS_MEDIA_FAILURE`, `stage=processor.transform`, `code=MEDIA_PROCESSOR`, perfil `hero`), porque o Worker devolve 404 e a Function trata resposta não-OK como falha do processador.
 
 **Produção hoje nunca chega ao 409.** O gate `localMediaEnabled` respondia 404 para qualquer origem que não fosse a de homologação. Agora ele aceita também `https://chopp-delivery-prod.pages.dev`, mas só se `CMS_MEDIA_ENVIRONMENT=production`, `CMS_MEDIA_ENABLED=enabled`, origem exata e os dois bindings existirem. A configuração atual não define nada disso, então segue desligada.
 
@@ -33,25 +35,25 @@ Há ainda um 409 distinto, `MEDIA_BUSY` (job do mesmo `operationId` ainda `runni
 | Worker processador (`server/cms/image-worker.mjs`, binding `IMAGES`) | emulado | **falta**; disponibilidade do Cloudflare Images na conta e custo não verificados |
 | Binding de serviço `CMS_MEDIA_PROCESSOR` | emulado | **falta** (`services` ausente) |
 | Variáveis de habilitação | n/a | **faltam** |
-| Guarda de deploy | n/a | **proíbe** `r2_buckets` e `services` na configuração e no preview |
+| Guarda de deploy | n/a | perfil `base` **proíbe** `r2_buckets` e `services`; os perfis `media-closed`/`media-open` aceitam **exatamente** o bucket `chopp-cms-media-production` e o serviço `chopp-cms-image-processor-production` (runbook, seção 2) |
 
-## 3. Configuração mínima proposta (não aplicada)
+## 3. Configuração de produção (arquivos prontos, nada aplicado)
 
-Worker processador, arquivo pronto em [config/cloudflare/production-media-processor.jsonc](../config/cloudflare/production-media-processor.jsonc): sem `workers_dev`, sem preview, sem rotas nem cron, só o binding `IMAGES`, habilitado por variável. Não precisa de D1, R2 nem credenciais.
+Worker processador: [production-media-processor.jsonc](../config/cloudflare/production-media-processor.jsonc) (nasce **fechado**, `CMS_MEDIA_PROCESSOR_ENABLED=disabled`) e [production-media-processor-open.jsonc](../config/cloudflare/production-media-processor-open.jsonc) (idêntico, só com a variável `enabled`; é *enviado* como versão e ativado na janela). Sem `workers_dev`, sem preview, sem rotas nem cron, só o binding `IMAGES`. Não precisa de D1, R2 nem credenciais.
 
-Acréscimos ao `wrangler.production.jsonc` somente no contexto principal (`env.preview` continua vazio):
+Pages: dois arquivos revisados, [wrangler.production.media.jsonc](../wrangler.production.media.jsonc) (gate `disabled`) e [wrangler.production.media-open.jsonc](../wrangler.production.media-open.jsonc) (gate `enabled`), cada um com hash fixo no guard. O conteúdo acrescentado ao `wrangler.production.jsonc` (que continua sendo o perfil `base`) é somente no contexto principal (`env.preview` continua vazio):
 
 ```jsonc
 "vars": {
   "ADMIN_ORIGIN": "https://chopp-delivery-prod.pages.dev",
   "CMS_MEDIA_ENVIRONMENT": "production",
-  "CMS_MEDIA_ENABLED": "enabled"
+  "CMS_MEDIA_ENABLED": "disabled"   // "enabled" só no perfil media-open
 },
 "r2_buckets": [{ "binding": "CMS_MEDIA_BUCKET", "bucket_name": "chopp-cms-media-production" }],
 "services": [{ "binding": "CMS_MEDIA_PROCESSOR", "service": "chopp-cms-image-processor-production" }]
 ```
 
-Mudar esse arquivo muda `PRODUCTION_CONFIG_SHA256`. O mesmo commit precisa: relaxar o guarda em `scripts/production-pages-deploy.mjs` para aceitar **exatamente** esses dois bindings (e continuar recusando qualquer outro bucket/serviço e qualquer binding no preview), atualizar o hash e os testes de `tests/backend/production-pages-deploy.test.ts` que hoje exigem R2/serviço vazios.
+O guard (`scripts/production-pages-deploy.mjs`) aceita esses bindings **só** nos perfis de mídia e continua recusando qualquer outro bucket/serviço e qualquer binding no preview; os testes estão em `tests/backend/production-media-profiles.test.ts`.
 
 ## 4. Segurança, permissões e limites
 
@@ -67,12 +69,12 @@ Mudar esse arquivo muda `PRODUCTION_CONFIG_SHA256`. O mesmo commit precisa: rela
 
 1. Ler os logs da homologação e identificar o `code` do 409. Se for lease por latência do Images remoto, tratar isso antes de produção.
 2. Confirmar Cloudflare Images na conta e o custo.
-3. Criar o bucket privado e implantar o Worker processador de produção (`CMS_MEDIA_PROCESSOR_ENABLED=enabled`).
-4. Commit único: bindings e variáveis no `wrangler.production.jsonc`, guarda de deploy, hash e testes. Snapshot, preflight e deploy pelo fluxo habitual.
+3. Criar o bucket privado e implantar o Worker processador de produção **fechado** (`CMS_MEDIA_PROCESSOR_ENABLED=disabled`), enviando também a versão aberta (runbook, seção 6).
+4. Deploy do Pages com `--profile media-closed` (bindings presentes, gate do Pages fechado), pelo fluxo habitual do guard.
 5. Acrescentar `/api/site/media/*` às exceções públicas do Access (apenas com a Proposta B aprovada).
-6. Enviar uma imagem pequena pelo painel, conferir recibo, derivados e a entrega privada; só então publicar.
+6. Janela supervisionada: abrir o Worker e depois o Pages (`--profile media-open`), enviar uma imagem pequena pelo painel, conferir recibo, derivados e a entrega; fechar o Pages e depois o Worker (runbook, seção 3).
 
-**Reversão:** `CMS_MEDIA_ENABLED=disabled` (novo release) devolve 404 a todo `/api/admin/media`; a mídia já publicada continua servida enquanto o binding existir. Retirar o binding faz `/api/site/media/*` responder 404 e a vitrine mantém suas imagens locais.
+**Reversão:** `deploy --profile media-closed` (`CMS_MEDIA_ENABLED=disabled`) devolve 404 a todo `/api/admin/media`; a mídia já publicada continua servida enquanto o binding existir. Retirar o binding faz `/api/site/media/*` responder 404 e a vitrine mantém suas imagens locais.
 
 ## 6. Publicar uma versão anterior ou recuperar uma publicação incorreta
 
