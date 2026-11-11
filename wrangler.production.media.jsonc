@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chopp-delivery-prod",
+  "pages_build_output_dir": "./dist-commercial",
+  "compatibility_date": "2026-08-06",
+  "d1_databases": [
+    {
+      "binding": "DELEGAS_DB",
+      "database_name": "chopp-delivery-prod-db",
+      "database_id": "fe4492e3-94a4-4f9a-b44c-10a39fe21bd1",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "ADMIN_ORIGIN": "https://chopp-delivery-prod.pages.dev",
+    "CMS_MEDIA_ENVIRONMENT": "production",
+    "CMS_MEDIA_ENABLED": "disabled"
+  },
+  "r2_buckets": [
+    {
+      "binding": "CMS_MEDIA_BUCKET",
+      "bucket_name": "chopp-cms-media-production"
+    }
+  ],
+  "services": [
+    {
+      "binding": "CMS_MEDIA_PROCESSOR",
+      "service": "chopp-cms-image-processor-production"
+    }
+  ],
+  "env": {
+    "preview": {
+      "d1_databases": [],
+      "vars": {},
+      "r2_buckets": [],
+      "services": []
+    }
+  }
+}

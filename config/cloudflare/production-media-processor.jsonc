@@ -1,5 +1,6 @@
 {
-  // PREPARADO, NÃO IMPLANTADO. Ver docs/production-media-enablement.md.
+  // Gate do processador FECHADO por padrão (deploy inicial = disabled). A variante aberta é production-media-processor-open.jsonc.
+  // Ver docs/production-media-enablement.md.
   // Worker privado: só é chamado pelo binding de serviço CMS_MEDIA_PROCESSOR do Pages de produção.
   // Não tem D1, R2, rotas, cron, workers.dev nem URLs de preview.
   "name": "chopp-cms-image-processor-production",
@@ -15,6 +16,6 @@
     "binding": "IMAGES"
   },
   "vars": {
-    "CMS_MEDIA_PROCESSOR_ENABLED": "enabled"
+    "CMS_MEDIA_PROCESSOR_ENABLED": "disabled"
   }
 }

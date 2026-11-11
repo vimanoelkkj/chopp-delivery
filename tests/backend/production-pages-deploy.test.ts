@@ -43,10 +43,11 @@ describe('comando fixo do deploy', () => {
       '--branch',
       'main',
       '--commit-hash',
-      'bead9d9c66be74b48604a045b25ae81f64ae2630',
+      '7a71df863c87b4913c29dde93edcf7e29e35a3dd',
       '--commit-dirty=false',
     ])
-    expect(COMMERCIAL_COMMIT).toBe('bead9d9c66be74b48604a045b25ae81f64ae2630')
+    // Último release publicado em produção (deployment 9e876c4d, 7a71df8).
+    expect(COMMERCIAL_COMMIT).toBe('7a71df863c87b4913c29dde93edcf7e29e35a3dd')
     expect(checkDeployCommand(deployArgs())).toEqual([])
   })
 
