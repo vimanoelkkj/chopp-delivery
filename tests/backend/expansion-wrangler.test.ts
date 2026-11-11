@@ -28,6 +28,10 @@ it.each(['ddl', 'backfill', 'retire', 'revision', 'equivalence'])(
     const file = join(migrationDir, '0005_catalog_expansion.sql')
     const sql = await readFile(file, 'utf8')
     await rm(file)
+    // A 0014 recria o gatilho criado pela 0005; só pode entrar junto com a 0005 restaurada.
+    const followUp = join(migrationDir, '0014_catalog_write_trigger_lighter_ordering.sql')
+    const followUpSql = await readFile(followUp, 'utf8')
+    await rm(followUp)
     const config = join(scratch, 'wrangler.jsonc'),
       state = join(scratch, 'state')
     await writeFile(
@@ -112,6 +116,7 @@ it.each(['ddl', 'backfill', 'retire', 'revision', 'equivalence'])(
       runtime = undefined
       // Restore the exact candidate and retry on the rolled-back database.
       await writeFile(file, sql)
+      await writeFile(followUp, followUpSql)
       migrate()
       runtime = open()
       db = await runtime.getD1Database('DB')
@@ -121,6 +126,13 @@ it.each(['ddl', 'backfill', 'retire', 'revision', 'equivalence'])(
           .first('price_cents'),
       ).toBe(12345)
       expect(await db.prepare('SELECT COUNT(*) FROM catalog_ready').first('COUNT(*)')).toBe(1)
+      // 0005 -> 0014 no mesmo banco: o gatilho final não tem mais o UPDATE ... FROM (WITH ... MATERIALIZED).
+      const trigger = String(
+        await db
+          .prepare("SELECT sql FROM sqlite_schema WHERE name='catalog_write_command'")
+          .first('sql'),
+      )
+      expect(trigger).not.toMatch(/MATERIALIZED/)
     } finally {
       await runtime?.dispose()
       await cleanup(scratch, marker)

@@ -3,6 +3,7 @@ import { readPatchBody } from '../admin-catalog/validation'
 import { requireAdmin } from '../auth/guard'
 import { type AuthEnv, authError, authJson, wrongMethod } from '../auth/http'
 import { publicItemImages } from '../catalog-media/repository'
+import { sqlFailureTag } from './diagnostics'
 import { expandedRepository, publicSnapshot } from './repository'
 import { EXPANSION_LIMITS, validateExpanded } from './validation'
 
@@ -18,8 +19,8 @@ export async function handlePublicCatalog(request: Request, db: D1Database): Pro
   try {
     const { snapshot } = await expandedRepository(db).load()
     return authJson(publicSnapshot(snapshot, await publicItemImages(db)))
-  } catch {
-    console.error('CATALOG_UNAVAILABLE')
+  } catch (error) {
+    console.error('CATALOG_UNAVAILABLE', sqlFailureTag(error))
     return catalogFailure()
   }
 }
@@ -78,7 +79,7 @@ export async function handleExpandedCatalog(request: Request, env: AuthEnv): Pro
           'Preserve todas as identidades e variantes; referências de criação não podem ser reutilizadas.',
       })
     if (/\bCATALOG_UNAUTHORIZED\b/.test(message)) return authError('UNAUTHENTICATED', 401)
-    console.error('ADMIN_CATALOG_V2_UNAVAILABLE')
+    console.error('ADMIN_CATALOG_V2_UNAVAILABLE', sqlFailureTag(error))
     return catalogFailure()
   }
 }
