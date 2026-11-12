@@ -258,10 +258,8 @@ describe('preflight dos perfis de mídia (leituras injetadas)', () => {
     expect(run('media-closed', { worker: 'disabled' })).toEqual({ ok: true, problems: [] })
   })
 
-  it('media-closed: bloqueia se o Worker estiver aberto (fechar Pages antes e depois o Worker)', () => {
-    expect(run('media-closed', { worker: 'enabled' }).problems.join()).toMatch(
-      /fechar o Pages antes/,
-    )
+  it('media-closed: permite fechar o Pages primeiro com o Worker ainda aberto', () => {
+    expect(run('media-closed', { worker: 'enabled' })).toEqual({ ok: true, problems: [] })
   })
 
   it('media-open: exige o Worker já aberto; com ele aberto aprova', () => {

@@ -24,7 +24,7 @@ Validado em homologação (`dffb3fe` + migrations 0001–0014): escrita real do 
 | `media-closed` | `wrangler.production.media.jsonc` | bindings `CMS_MEDIA_BUCKET` → `chopp-cms-media-production` e `CMS_MEDIA_PROCESSOR` → `chopp-cms-image-processor-production`; `CMS_MEDIA_ENABLED=disabled` |
 | `media-open` | `wrangler.production.media-open.jsonc` | idêntico ao anterior, só com `CMS_MEDIA_ENABLED=enabled` |
 
-Os perfis de mídia exigem bindings e variáveis **exatos** (nome do bucket e do serviço, nenhum extra, `env.preview` sem bindings, nada de homologação). No `preflight` o guard lê (somente leitura) se o bucket e o Worker existem; `media-open` exige o gate do Worker **já aberto** e `media-closed` recusa um Worker aberto. O bloqueio de infraestrutura do perfil `base` continua integral.
+Os perfis de mídia exigem bindings e variáveis **exatos** (nome do bucket e do serviço, nenhum extra, `env.preview` sem bindings, nada de homologação). No `preflight` o guard lê (somente leitura) se o bucket e o Worker existem; `media-open` exige o gate do Worker **já aberto** e `media-closed` aceita o Worker aberto ou fechado para permitir fechar o Pages primeiro. O bloqueio de infraestrutura do perfil `base` continua integral.
 
 ## 3. Os dois gates de mídia e a ordem segura
 

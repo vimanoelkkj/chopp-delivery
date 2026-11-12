@@ -345,8 +345,6 @@ function mediaProblems(profile, { run, env }) {
     if (gate === null) problems.push('não foi possível ler CMS_MEDIA_PROCESSOR_ENABLED do Worker')
     else if (PROFILES[profile].gate === 'enabled' && gate !== 'enabled')
       problems.push('abrir o Pages exige o gate do Worker processador já aberto (enabled)')
-    else if (PROFILES[profile].gate === 'disabled' && gate === 'enabled')
-      problems.push('o gate do Worker está aberto: fechar o Pages antes e depois o Worker')
   } catch {
     problems.push(`o Worker ${PRODUCTION_MEDIA_PROCESSOR} não existe ou não pôde ser lido`)
   }
