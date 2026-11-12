@@ -22,8 +22,8 @@ export function PromoSection({
           <p className={styles.text}>
             {editorial?.body ?? (
               <>
-                Chopeira elétrica profissional inclusa e instalação técnica em São João del-Rei e
-                região. Consulte pacotes e datas para seu evento via WhatsApp.
+                Chopeira elétrica profissional inclusa e instalação técnica no local. Consulte
+                pacotes e datas para seu evento via WhatsApp.
               </>
             )}
           </p>

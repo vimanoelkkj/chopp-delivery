@@ -7,12 +7,13 @@ import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './ContactSection.module.css'
 
 type ContactSectionProps = {
+  deliveryRegion?: string
   editorial?: CmsContentsV2['contact']
   /** Marca o CTA final para a página saber quando ele está na tela. */
   ctaRef?: Ref<HTMLDivElement>
 }
 
-export function ContactSection({ ctaRef, editorial }: ContactSectionProps) {
+export function ContactSection({ ctaRef, deliveryRegion, editorial }: ContactSectionProps) {
   return (
     <section id="contato" className={styles.section} aria-labelledby="contato-title">
       <Container className={styles.inner}>
@@ -41,7 +42,7 @@ export function ContactSection({ ctaRef, editorial }: ContactSectionProps) {
           <AgeNotice variant="footer" />
           <p className={styles.meta}>
             <span>
-              {contact.address ?? placeholders.address}
+              {deliveryRegion ?? contact.address ?? placeholders.address}
               {contact.hours ? ` · ${contact.hours}` : ''}
             </span>
             {contact.instagram && <span>{contact.instagram}</span>}

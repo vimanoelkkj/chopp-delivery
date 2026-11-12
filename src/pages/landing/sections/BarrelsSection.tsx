@@ -87,7 +87,7 @@ export function BarrelsSection({
             </span>
           </div>
           <div className={styles.specCard}>
-            <span className={styles.specValue}>São João del-Rei</span>
+            <span className={styles.specValue}>Delivery</span>
             <span className={styles.specLabel}>
               Entrega, instalação técnica no local e recolhimento sem taxa oculta
             </span>

@@ -98,7 +98,7 @@ export function Hero({
             <>
               Barris em aço inox escovado das melhores cervejarias artesanais e tradicionais. Receba
               com chopeira elétrica regulada pronta para servir. Entrega e instalação profissional
-              em São João del-Rei e região.
+              no local do evento.
             </>
           )}
         </p>

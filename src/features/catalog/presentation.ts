@@ -98,5 +98,5 @@ export function chopesNote(count: number | null): string {
   if (count === 0) return 'Consulte os valores e as apresentações disponíveis na câmara fria.'
   const amount = count < WORDS.length ? WORDS[count] : String(count)
   const noun = count === 1 ? 'opção' : 'opções'
-  return `${amount} ${noun} de chopp com valores verificados da câmara fria de São João del-Rei. Chopeira profissional inclusa.`
+  return `${amount} ${noun} de chopp com preços por litragem. Chopeira profissional inclusa.`
 }

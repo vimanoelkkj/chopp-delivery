@@ -15,7 +15,7 @@ export const faqItems: FaqItem[] = [
     id: 'entrega',
     question: 'Vocês entregam no meu bairro?',
     answer:
-      'Entregamos em São João del-Rei e região. A confirmação para o seu bairro, além de prazo, agendamento de horário e eventual taxa de entrega, é realizada diretamente no atendimento via WhatsApp.',
+      'Consulte pelo WhatsApp se atendemos seu bairro. Por lá, confirmamos prazo, agendamento e eventual taxa de entrega.',
   },
   {
     id: 'instalacao',

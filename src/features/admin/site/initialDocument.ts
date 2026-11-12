@@ -13,7 +13,7 @@ export const INITIAL_COPY = {
   hero: {
     heading: 'O melhor do chopp. Direto para o seu evento.',
     summary:
-      'Barris em aço inox escovado das melhores cervejarias artesanais e tradicionais. Receba com chopeira elétrica regulada pronta para servir. Entrega e instalação profissional em São João del-Rei e região.',
+      'Barris em aço inox escovado das melhores cervejarias artesanais e tradicionais. Receba com chopeira elétrica regulada pronta para servir. Entrega e instalação profissional no local do evento.',
   },
   carousel: {
     heading: 'Escolha seu barril em 3D',
@@ -51,7 +51,7 @@ export const INITIAL_COPY = {
   },
   highlight: {
     heading: 'Condições especiais para eventos',
-    body: 'Chopeira elétrica profissional inclusa e instalação técnica em São João del-Rei e região. Consulte pacotes e datas para seu evento via WhatsApp.',
+    body: 'Chopeira elétrica profissional inclusa e instalação técnica no local. Consulte pacotes e datas para seu evento via WhatsApp.',
   },
   faq: { heading: 'Perguntas frequentes' },
   contact: {

@@ -25,7 +25,7 @@ const sqlPath = 'migrations/0011_cms_delivery_region.sql'
 it('edits an optional region in old v2 documents without changing commercial data', () => {
   const doc = v2(),
     before = structuredClone(doc)
-  expect(readField(hero(doc), 'deliveryRegion')).toBe('S\u00e3o Jo\u00e3o del-Rei e regi\u00e3o')
+  expect(readField(hero(doc), 'deliveryRegion')).toBe('Belo Horizonte e regi\u00e3o')
   const changed = setField(doc, 'hero', 'deliveryRegion', region)
   expect(readField(hero(changed), 'deliveryRegion')).toBe(region)
   expect(kindOf('deliveryRegion')).toBe('heading')
@@ -65,7 +65,7 @@ it('keeps v1 strict and the public header unchanged while the preview uses the s
   )
   expect(preview).toContain(`Entrega e instala\u00e7\u00e3o em ${region}`)
   const publicHeader = renderToStaticMarkup(<SiteHeader />)
-  expect(publicHeader).toContain('S\u00e3o Jo\u00e3o del-Rei e regi\u00e3o')
+  expect(publicHeader).toContain('Belo Horizonte e regi\u00e3o')
   expect(publicHeader).not.toContain(region)
 })
 

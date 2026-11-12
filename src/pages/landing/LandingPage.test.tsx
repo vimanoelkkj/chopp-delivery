@@ -74,6 +74,10 @@ describe('approved storefront with published editorial content', () => {
       for (const id of ['barris', 'chopes', 'como', 'sobre', 'faq', 'contato'])
         expect(html).toContain(`id="${id}"`)
       expect(html).toContain('O melhor do chopp.')
+      expect(html).toContain(
+        'Operação exclusiva por delivery • Entrega e instalação em Belo Horizonte e região • Sem retirada',
+      )
+      expect(html).not.toMatch(/s[aã]o jo[aã]o del[ -]?rei/i)
       expect(html).toContain('Produto comercial')
       expect(html).toContain('510,00')
       expect(html).toContain('Pedir no WhatsApp')
@@ -92,7 +96,9 @@ describe('approved storefront with published editorial content', () => {
     const html = render()
     expect(html).toContain('Hero público')
     expect(html).toContain('Resumo público')
-    expect(html).toContain('Região publicada')
+    expect(html).toContain('Entrega e instalação em Região publicada • Sem retirada')
+    expect(html).toContain('<span>Região publicada</span>')
+    expect(html).not.toMatch(/s[aã]o jo[aã]o del[ -]?rei/i)
     expect(html).toContain('wa.me/5531999999999')
     expect(html).toContain('href="#barris"')
     expect(html.indexOf('id="como"')).toBeLessThan(html.indexOf('id="faq"'))

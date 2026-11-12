@@ -37,8 +37,8 @@ export function AboutSection({
           </p>
           {editorial === undefined && (
             <p className={styles.text}>
-              Fundado em São João del-Rei, o Chopp Delivery une a pontualidade da entrega local com
-              equipamentos profissionais de refrigeração para fazer cada brinde memorável.
+              O Chopp Delivery une a pontualidade da entrega local com equipamentos profissionais de
+              refrigeração para fazer cada brinde memorável.
             </p>
           )}
         </div>

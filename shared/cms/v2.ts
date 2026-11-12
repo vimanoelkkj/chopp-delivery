@@ -2,7 +2,7 @@ import type { CmsCommercial, CmsMediaRef, CmsNavigation } from './common'
 import type { CmsContents, CmsDocument as CmsDocumentV1, CmsModule } from './v1'
 
 export type CmsCarouselEntry = { itemId: string; media: CmsMediaRef | null }
-export const CMS_DEFAULT_DELIVERY_REGION = 'São João del-Rei e região'
+export const CMS_DEFAULT_DELIVERY_REGION = 'Belo Horizonte e região'
 
 export type CmsContentsV2 = Omit<CmsContents, 'barrels' | 'hero'> & {
   hero: CmsContents['hero'] & {

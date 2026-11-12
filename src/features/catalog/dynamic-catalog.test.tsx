@@ -84,7 +84,7 @@ describe('F4A.5.2: vitrine comercial dinâmica', () => {
     expect(html).not.toContain('Outras apresentações')
     expect(html).not.toContain(' ml')
     expect(html).toContain(
-      'Oito opções de chopp com valores verificados da câmara fria de São João del-Rei. Chopeira profissional inclusa.',
+      'Oito opções de chopp com preços por litragem. Chopeira profissional inclusa.',
     )
     // 8 produtos: 30 L em 5 (3 só vendem 50 L) + 50 L em 8 = 13 pedidos, todos pela tabela.
     expect(messages(html)).toHaveLength(13)

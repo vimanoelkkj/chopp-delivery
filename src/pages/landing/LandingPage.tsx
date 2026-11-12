@@ -72,7 +72,11 @@ export function LandingPage() {
               retry={retry}
               settled={editorial.status !== 'loading'}
             />
-            <ContactSection ctaRef={finalCtaRef} editorial={contact?.content} />
+            <ContactSection
+              ctaRef={finalCtaRef}
+              deliveryRegion={hero?.content.deliveryRegion}
+              editorial={contact?.content}
+            />
           </main>
           <StickyCta visible={!heroCtaInView && !finalCtaInView} />
         </div>
