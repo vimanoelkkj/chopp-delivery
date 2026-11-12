@@ -140,6 +140,23 @@
   display: none;
 }
 
+@media (width < 48rem) {
+  .bar {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  .logo {
+    margin-inline-end: auto;
+  }
+
+  .nav {
+    order: 1;
+    margin-left: 0;
+  }
+}
+
 @media (min-width: 48rem) {
   .bar {
     flex-wrap: wrap;
