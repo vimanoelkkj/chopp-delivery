@@ -83,6 +83,11 @@ describe('approved storefront with published editorial content', () => {
       expect(html).toContain('Pedir no WhatsApp')
       if (contact.whatsappNumber) expect(html).toContain(`wa.me/${contact.whatsappNumber}`)
       expect(html).not.toContain('/api/admin/')
+      expect(html).not.toMatch(/promoções|promoção|Quero essa|câmara fria|Higienização rigorosa/i)
+      expect(html).toContain('Pix, dinheiro, cartão de crédito e cartão de débito')
+      expect(html).toContain('antes da conclusão do pedido')
+      expect(html).toContain('frete é calculado conforme o bairro')
+      expect(html).toContain('escadas')
     },
   )
   it('renders supported modules in published order with matching navigation and CTAs', () => {

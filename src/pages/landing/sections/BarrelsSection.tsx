@@ -36,8 +36,8 @@ export function BarrelsSection({
           <p className={styles.lead}>
             {editorial?.lead ?? (
               <>
-                Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as
-                setas para inspecionar detalhes, litragens e valores de cada cervejaria.
+                Navegue pelos nossos barris de chopp. Arraste horizontalmente ou use as setas para
+                inspecionar detalhes, litragens e valores de cada cervejaria.
               </>
             )}
           </p>
@@ -89,7 +89,7 @@ export function BarrelsSection({
           <div className={styles.specCard}>
             <span className={styles.specValue}>Delivery</span>
             <span className={styles.specLabel}>
-              Entrega, instalação técnica no local e recolhimento sem taxa oculta
+              Frete calculado conforme o bairro e confirmado no atendimento
             </span>
           </div>
         </div>

@@ -95,7 +95,7 @@ const WORDS = [
 /** Chamada comercial da seção de chopes; a contagem vem do catálogo, nunca de um número fixo. */
 export function chopesNote(count: number | null): string {
   if (count === null) return 'Consulte os valores dos barris de 30 e de 50 litros.'
-  if (count === 0) return 'Consulte os valores e as apresentações disponíveis na câmara fria.'
+  if (count === 0) return 'Consulte os valores e as apresentações disponíveis no atendimento.'
   const amount = count < WORDS.length ? WORDS[count] : String(count)
   const noun = count === 1 ? 'opção' : 'opções'
   return `${amount} ${noun} de chopp com preços por litragem. Chopeira profissional inclusa.`

@@ -35,7 +35,6 @@ describe('documento inicial do CMS v2', () => {
       'catalog',
       'how',
       'about',
-      'highlight',
       'faq',
       'contact',
     ])
@@ -94,9 +93,10 @@ describe('documento inicial do CMS v2', () => {
     expect(about).toContain(c.about.heading)
     expect(about).toContain(c.about.body)
 
-    const promo = html(<PromoSection />)
-    expect(promo).toContain(c.highlight.heading)
-    expect(promo).toContain(c.highlight.body)
+    expect(html(<PromoSection />)).toBe('')
+    expect(buildInitialDocument().modules.some((module) => module.template === 'highlight')).toBe(
+      false,
+    )
 
     const faq = html(<FaqSection />)
     expect(faq).toContain('Perguntas')

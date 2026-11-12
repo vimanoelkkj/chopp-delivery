@@ -1,9 +1,8 @@
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { Container } from '@/shared/ui/Container'
 import type { CmsContentsV2 } from '../../../../shared/cms/v2'
 import styles from './PromoSection.module.css'
 
-/** Promoção ainda não definida: título e texto são placeholders do design. */
+/** Destaque apenas quando fornecido pelo editor; não existe campanha padrão ativa. */
 export function PromoSection({
   editorial,
   headingId = 'promo-title',
@@ -11,26 +10,17 @@ export function PromoSection({
   headingId?: string
   editorial?: Pick<CmsContentsV2['highlight'], 'heading' | 'body'>
 } = {}) {
+  if (!editorial) return null
+
   return (
     <section className={styles.section} aria-labelledby={headingId}>
       <Container className={styles.inner}>
         <div className={styles.copy}>
-          <p className={styles.eyebrow}>Happy hour · promoções</p>
           <h2 id={headingId} className={styles.title}>
-            {editorial?.heading ?? <>Condições especiais para eventos</>}
+            {editorial.heading}
           </h2>
-          <p className={styles.text}>
-            {editorial?.body ?? (
-              <>
-                Chopeira elétrica profissional inclusa e instalação técnica no local. Consulte
-                pacotes e datas para seu evento via WhatsApp.
-              </>
-            )}
-          </p>
+          <p className={styles.text}>{editorial.body}</p>
         </div>
-        <WhatsAppButton message="promo" variant="gold" size="lg">
-          Quero essa
-        </WhatsAppButton>
       </Container>
     </section>
   )

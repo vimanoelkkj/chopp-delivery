@@ -17,7 +17,7 @@ export const INITIAL_COPY = {
   },
   carousel: {
     heading: 'Escolha seu barril em 3D',
-    lead: 'Navegue pelos barris reais da nossa câmara fria. Arraste horizontalmente ou use as setas para inspecionar detalhes, litragens e valores de cada cervejaria.',
+    lead: 'Navegue pelos nossos barris de chopp. Arraste horizontalmente ou use as setas para inspecionar detalhes, litragens e valores de cada cervejaria.',
   },
   ticker: ['Chope gelado', 'Barril 30 L', 'Barril 50 L', '100% Delivery', 'Instalação inclusa'],
   catalog: {
@@ -47,11 +47,7 @@ export const INITIAL_COPY = {
   },
   about: {
     heading: 'O chopp como centro da sua celebração',
-    body: 'Somos especialistas dedicados na cadeia do barril de chopp e também entregamos cachaça em garrafa. Mantemos nossa câmara fria estritamente controlada para que a carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao seu evento.',
-  },
-  highlight: {
-    heading: 'Condições especiais para eventos',
-    body: 'Chopeira elétrica profissional inclusa e instalação técnica no local. Consulte pacotes e datas para seu evento via WhatsApp.',
+    body: 'Entregamos chopp em barril e cachaça em garrafa.',
   },
   faq: { heading: 'Perguntas frequentes' },
   contact: {
@@ -61,7 +57,7 @@ export const INITIAL_COPY = {
 } as const
 
 /** Quantas seções o documento inicial cria (para a tela dizer o que será criado). */
-export const INITIAL_SECTION_COUNT = 9
+export const INITIAL_SECTION_COUNT = 8
 
 /** Os ids opcionais seguem `module_<uuid v4>`; os obrigatórios têm id fixo (regra do contrato). */
 export function buildInitialDocument(
@@ -113,13 +109,6 @@ export function buildInitialDocument(
         visible: true,
         navigation: 'none',
         content: { heading: c.about.heading, body: c.about.body, media: null },
-      },
-      {
-        id: newId(),
-        template: 'highlight',
-        visible: true,
-        navigation: 'none',
-        content: { heading: c.highlight.heading, body: c.highlight.body, media: null },
       },
       {
         id: newId(),

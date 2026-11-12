@@ -15,7 +15,7 @@ export const faqItems: FaqItem[] = [
     id: 'entrega',
     question: 'Vocês entregam no meu bairro?',
     answer:
-      'Consulte pelo WhatsApp se atendemos seu bairro. Por lá, confirmamos prazo, agendamento e eventual taxa de entrega.',
+      'Entregamos exclusivamente por delivery em Belo Horizonte e região. O frete é calculado conforme o bairro e confirmado no atendimento pelo WhatsApp, junto com o prazo e o agendamento.',
   },
   {
     id: 'instalacao',
@@ -26,6 +26,6 @@ export const faqItems: FaqItem[] = [
     id: 'pagamento',
     question: 'Quais as formas de pagamento?',
     answer:
-      'As condições e opções de pagamento são informadas mediante confirmação comercial do estabelecimento no atendimento.',
+      'Aceitamos Pix, dinheiro, cartão de crédito e cartão de débito. Eventuais condições ou acréscimos serão confirmados no atendimento antes da conclusão do pedido.',
   },
 ]

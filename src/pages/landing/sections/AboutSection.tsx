@@ -26,19 +26,11 @@ export function AboutSection({
             {editorial?.heading ?? <>O chopp como centro da sua celebração</>}
           </h2>
           <p className={styles.lead}>
-            {editorial?.body ?? (
-              <>
-                Somos especialistas dedicados na cadeia do barril de chopp e também entregamos
-                cachaça em garrafa. Mantemos nossa câmara fria estritamente controlada para que a
-                carbonatação, a espuma cremosa e a frescura de cada cervejaria cheguem intactas ao
-                seu evento.
-              </>
-            )}
+            {editorial?.body ?? <>Entregamos chopp em barril e cachaça em garrafa.</>}
           </p>
           {editorial === undefined && (
             <p className={styles.text}>
-              O Chopp Delivery une a pontualidade da entrega local com equipamentos profissionais de
-              refrigeração para fazer cada brinde memorável.
+              Operação exclusiva por delivery em Belo Horizonte e região.
             </p>
           )}
         </div>
@@ -62,8 +54,8 @@ export function AboutSection({
             </div>
           )}
           <div className={styles.captionRow}>
-            <span>Barris em aço inoxidável padrão alimentício</span>
-            <span className={styles.badge}>• Higienização rigorosa</span>
+            <span>Barris de chopp</span>
+            <span className={styles.badge}>• Delivery</span>
           </div>
         </div>
       </Container>

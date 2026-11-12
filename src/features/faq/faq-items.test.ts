@@ -8,14 +8,25 @@ describe('faqItems', () => {
     expect(payment?.question).toBe('Quais as formas de pagamento?')
   })
 
-  it('deixa a resposta de pagamento como pendente de confirmação comercial', () => {
-    expect(payment?.answer).toContain('confirmação comercial')
+  it('informa os quatro meios aprovados e confirma condições antes de concluir o pedido', () => {
+    for (const method of ['Pix', 'dinheiro', 'cartão de crédito', 'cartão de débito'])
+      expect(payment?.answer).toContain(method)
+    expect(payment?.answer).toContain('Eventuais condições ou acréscimos')
+    expect(payment?.answer).toContain('antes da conclusão do pedido')
   })
 
-  it('não afirma meios de pagamento, taxas ou percentuais sem fonte', () => {
+  it('não inventa percentuais, parcelamento, descontos ou isenção de taxas', () => {
     for (const item of faqItems) {
-      expect(item.answer).not.toMatch(/%|pix|crédito|débito|cartão|dinheiro|parcela/i)
+      expect(item.answer).not.toMatch(/%|parcela|desconto|sem taxa|grátis|gratuit/i)
     }
+  })
+
+  it('informa frete por bairro e orienta avisar sobre escadas', () => {
+    const delivery = faqItems.find((item) => item.id === 'entrega')?.answer
+    expect(delivery).toContain('exclusivamente por delivery em Belo Horizonte e região')
+    expect(delivery).toContain('frete é calculado conforme o bairro')
+    expect(delivery).toContain('confirmado no atendimento pelo WhatsApp')
+    expect(faqItems.find((item) => item.id === 'instalacao')?.answer).toContain('escadas')
   })
 
   it('usa ids únicos', () => {
