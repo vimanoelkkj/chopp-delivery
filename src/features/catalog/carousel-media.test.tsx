@@ -33,7 +33,7 @@ describe('mídia editorial no carrossel', () => {
     expect(render([A, B], () => null)).toBe(baseline)
     expect(render([A, B], () => undefined)).toBe(baseline)
     expect(baseline).not.toContain('/api/site/media/')
-    expect(baseline).toContain('keg-studio-30l') // Dronken: foto atual
+    expect(baseline).toContain('dronken.webp') // Dronken: foto atual
     expect(baseline).toContain('data-keg-placeholder') // produto novo: silhueta neutra
   })
 
@@ -63,13 +63,13 @@ describe('mídia editorial no carrossel', () => {
     const html = render([A, B], (id) => (id === 'item_novo' ? { id: MEDIA_B, alt: 'Novo' } : null))
     const [dronken, novo] = cards(html)
     expect(mediaOf(dronken)).toBeUndefined()
-    expect(dronken).toContain('keg-studio-30l')
+    expect(dronken).toContain('dronken.webp')
     expect(mediaOf(novo)).toBe(MEDIA_B)
   })
 
   it('a foto atual (fallback) fica montada até a imagem carregar e o alt só é anunciado depois', () => {
     const html = render([A], () => ({ id: MEDIA_A, alt: 'Dronken editorial' }))
-    expect(html).toContain('keg-studio-30l') // fallback presente
+    expect(html).toContain('dronken.webp') // fallback presente
     expect(html).toContain('aria-hidden="true"') // imagem publicada ainda não anunciada
     expect(html).not.toContain('Dronken editorial')
   })

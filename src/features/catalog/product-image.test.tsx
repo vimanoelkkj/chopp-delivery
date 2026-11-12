@@ -86,7 +86,7 @@ describe('precedência da imagem no carrossel', () => {
     const baseline = render(items)
     expect(render(items, () => null)).toBe(baseline)
     expect(baseline).not.toContain('/api/site/media/')
-    expect(baseline).toContain('keg-studio-30l')
+    expect(baseline).toContain('dronken.webp')
     expect(baseline).toContain('data-keg-placeholder')
   })
 
@@ -107,7 +107,7 @@ describe('precedência da imagem no carrossel', () => {
     }
     // Enquanto carrega, a foto aprovada (Dronken) e a silhueta (novo) continuam montadas.
     const [first, second] = cards(render([a, b]))
-    expect(first).toContain('keg-studio-30l')
+    expect(first).toContain('dronken.webp')
     expect(second).toContain('data-keg-placeholder')
   })
 
@@ -126,7 +126,7 @@ describe('precedência da imagem no carrossel', () => {
     const a = item('dronken', 'Dronken', { id: MEDIA_A, alt: 'Principal' })
     const html = renderToStaticMarkup(<BarrelCarousel3D items={[a]} productImages={false} />)
     expect(html).not.toContain('/api/site/media/')
-    expect(html).toContain('keg-studio-30l')
+    expect(html).toContain('dronken.webp')
     // A editorial continua valendo, com ou sem a principal.
     expect(
       renderToStaticMarkup(

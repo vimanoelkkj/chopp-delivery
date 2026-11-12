@@ -1,29 +1,40 @@
+import brahmaKeg from '../assets/kegs/brahma.webp'
+import wineKeg from '../assets/kegs/chopp-de-vinho.webp'
+import dronkenKeg from '../assets/kegs/dronken.webp'
+import heinekenKeg from '../assets/kegs/heineken.webp'
+import kaiserKeg from '../assets/kegs/kaiser.webp'
 import heroKeg from '../assets/kegs/keg-hero-50l.webp'
 import studioKeg from '../assets/kegs/keg-studio-30l.webp'
+import krugKeg from '../assets/kegs/krug-bier.webp'
+import palatoKeg from '../assets/kegs/palato-beber.webp'
+import villaKeg from '../assets/kegs/villa-alema.webp'
 import styles from './KegCutout.module.css'
 
-/** As duas fotografias de barril existentes, recortadas com transparência real (WebP). */
+/** Recortes WebP transparentes. */
 const PHOTOS = {
   hero50: { src: heroKeg, width: 452, height: 690 },
   studio30: { src: studioKeg, width: 605, height: 864 },
+  brahma: { src: brahmaKeg, width: 900, height: 900 },
+  'chopp-de-vinho': { src: wineKeg, width: 900, height: 900 },
+  dronken: { src: dronkenKeg, width: 900, height: 900 },
+  heineken: { src: heinekenKeg, width: 900, height: 900 },
+  kaiser: { src: kaiserKeg, width: 900, height: 900 },
+  'krug-bier': { src: krugKeg, width: 900, height: 900 },
+  'palato-beber': { src: palatoKeg, width: 900, height: 900 },
+  'villa-alema': { src: villaKeg, width: 900, height: 900 },
 } as const
 
 export type KegPhoto = keyof typeof PHOTOS
 
-/**
- * Fotografia específica de cada chope do catálogo original, por identidade. É o mesmo resultado que
- * a antiga regra por posição dava na ordem aprovada, mas agora não muda se a ordem ou a seleção
- * mudar. Produto fora desta lista não tem foto própria: usa `KegPlaceholder`.
- */
 const PHOTO_BY_ITEM: Record<string, KegPhoto> = {
-  dronken: 'studio30',
-  'palato-beber': 'studio30',
-  'villa-alema': 'studio30',
-  'krug-bier': 'hero50',
-  brahma: 'studio30',
-  kaiser: 'hero50',
-  heineken: 'studio30',
-  'chopp-de-vinho': 'hero50',
+  brahma: 'brahma',
+  'chopp-de-vinho': 'chopp-de-vinho',
+  dronken: 'dronken',
+  heineken: 'heineken',
+  kaiser: 'kaiser',
+  'krug-bier': 'krug-bier',
+  'palato-beber': 'palato-beber',
+  'villa-alema': 'villa-alema',
 }
 
 export function kegPhotoForItem(itemId: string): KegPhoto | null {
