@@ -1977,8 +1977,13 @@ test('P4: frame API corruption clears private DOM and missing/hidden products ar
     frame.getByRole('button', { name: 'Pedir Barril Dronken no WhatsApp' }),
   ).toBeDisabled()
   // M2B: a prévia pede cada imagem salva à rota autenticada por ID e perfil. Sem laboratório de mídia
-  // o servidor responde 404 e a prévia cai no espaço reservado, sem quebrar a página.
-  await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(3)
+  // o servidor responde 404: hero e "sobre" (MediaFrame) mostram o alerta acessível de indisponibilidade
+  // e a entrada do carrossel (MediaImage) cai no espaço reservado, sem quebrar a página.
+  await frame.locator('#sobre').scrollIntoViewIfNeeded()
+  await expect(
+    frame.getByRole('alert').filter({ hasText: 'Esta imagem não está disponível agora' }),
+  ).toHaveCount(2)
+  await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(1)
   expect(mediaRequests.length).toBeGreaterThan(0)
   for (const url of mediaRequests)
     expect(new URL(url).pathname).toMatch(
@@ -2322,7 +2327,10 @@ test.describe('M2B: biblioteca visual de imagens', () => {
     await expect(
       frame.getByRole('heading', { level: 1, name: 'Rascunho privado P4' }),
     ).toBeVisible()
-    await expect(frame.getByRole('img', { name: 'Mídia privada não carregada' })).toHaveCount(1)
+    // Hero usa MediaFrame: o 404 vira o alerta acessível de indisponibilidade (não um placeholder).
+    await expect(
+      frame.getByRole('alert').filter({ hasText: 'Esta imagem não está disponível agora' }),
+    ).toHaveCount(1)
     await preview.close()
   })
 
@@ -3412,11 +3420,15 @@ test.describe('F4A.6.3: imagens das entradas do carrossel no CMS real', () => {
             dronkenCard.locator('img[alt="Barril de Chopp Dronken em Aço Inox"]'),
           ).toHaveCount(1)
           await expect(dronkenCard.locator('img[src^="/api/site/media/"]')).toHaveCount(0)
-          expect(
-            await failing.evaluate(
-              () => [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length,
-            ),
-          ).toBe(0)
+          // PublishedMedia mantém o <img> (invisível, aria-hidden) até `load`; o erro troca para o
+          // fallback no render seguinte. Espera a condição, sem sleep: imagem quebrada permanente falha.
+          await expect
+            .poll(() =>
+              failing.evaluate(
+                () => [...document.images].filter((i) => i.complete && i.naturalWidth === 0).length,
+              ),
+            )
+            .toBe(0)
         } finally {
           await offline.close()
         }

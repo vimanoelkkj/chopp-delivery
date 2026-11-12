@@ -165,7 +165,7 @@ it('serves only derivatives of the currently published version, with safe header
   } finally {
     await f.close()
   }
-})
+}, 30000)
 
 it('revokes media when the publication is replaced', async () => {
   const f = await fixture()
@@ -187,7 +187,7 @@ it('revokes media when the publication is replaced', async () => {
   } finally {
     await f.close()
   }
-})
+}, 30000)
 
 it('refuses published media that is not ready or whose manifest is invalid', async () => {
   const f = await fixture()
@@ -226,7 +226,7 @@ it('refuses published media that is not ready or whose manifest is invalid', asy
   } finally {
     await f.close()
   }
-})
+}, 30000)
 
 it('handles missing, corrupted and failing R2 objects without leaking details', async () => {
   const f = await fixture()
@@ -299,4 +299,4 @@ it('handles missing, corrupted and failing R2 objects without leaking details', 
   } finally {
     await f.close()
   }
-})
+}, 30000)

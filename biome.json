@@ -6,6 +6,7 @@
     "includes": [
       "**",
       "!ref",
+      "!prototypes",
       "!dist",
       "!shots",
       "!docs/design/*.html",
