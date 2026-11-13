@@ -29,7 +29,7 @@ export function BenefitsSection() {
     <section id="diferenciais" aria-labelledby="diferenciais-title" className={styles.section}>
       <Container>
         <h2 id="diferenciais-title" className={styles.title}>
-          Diferenciais da Delegas
+          Nossos diferenciais
         </h2>
         <ul className={styles.grid}>
           {benefits.map((benefit) => (
