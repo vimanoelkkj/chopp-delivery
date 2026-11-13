@@ -81,7 +81,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
               label={`${v.label} ${v.volumeMl ? `${v.volumeMl} ml` : ''}`}
               presentation={`${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''}`}
               price={v.priceCents !== null ? centsToReais(v.priceCents) : null}
-              buttonLabel={`Adicionar ${v.label}`}
+              buttonLabel="Pedir cachaça no WhatsApp"
             />
           ))
         ) : (
@@ -90,7 +90,7 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
             label={`Garrafa ${item.bottleMl} ml`}
             presentation={`Garrafa ${item.bottleMl}ml`}
             price={item.price}
-            buttonLabel="Adicionar ao Pedido"
+            buttonLabel="Pedir cachaça no WhatsApp"
           />
         )}
       </div>

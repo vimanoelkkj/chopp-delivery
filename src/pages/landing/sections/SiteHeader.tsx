@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { type Ref, useEffect, useId, useState } from 'react'
 import logo from '@/assets/logo-header.png'
 import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { Container } from '@/shared/ui/Container'
@@ -10,7 +10,9 @@ import { StorefrontThemeSwitcher } from './StorefrontThemeSwitcher'
 export function SiteHeader({
   links = navLinks,
   deliveryRegion = CMS_DEFAULT_DELIVERY_REGION,
+  headerRef,
 }: {
+  headerRef?: Ref<HTMLElement>
   links?: readonly { href: string; label: string }[]
   deliveryRegion?: string
 } = {}) {
@@ -34,7 +36,7 @@ export function SiteHeader({
           {`Operação exclusiva por delivery • Entrega e instalação em ${deliveryRegion} • Sem retirada`}
         </span>
       </aside>
-      <header className={styles.header}>
+      <header ref={headerRef} className={styles.header}>
         <a className={styles.skip} href="#conteudo">
           Ir para o conteúdo
         </a>

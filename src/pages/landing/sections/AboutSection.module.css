@@ -24,6 +24,11 @@
   gap: 1.25rem;
 }
 
+.inner.compact {
+  display: block;
+  padding-block: 2rem;
+}
+
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 0.875rem;

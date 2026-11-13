@@ -98,6 +98,10 @@
 }
 
 /* Announce editorial availability without changing the approved composition or layout. */
+.page [id] {
+  scroll-margin-top: calc(var(--storefront-header-height, 7rem) + 1rem);
+}
+
 .editorialStatus {
   position: absolute;
   width: 1px;

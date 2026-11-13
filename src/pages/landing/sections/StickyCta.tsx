@@ -12,6 +12,7 @@ type StickyCtaProps = {
 export function StickyCta({ visible }: StickyCtaProps) {
   return (
     <div
+      id="whatsapp-flutuante"
       className={[styles.bar, visible ? styles.shown : ''].filter(Boolean).join(' ')}
       inert={!visible}
       data-testid="sticky-cta"

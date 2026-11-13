@@ -64,6 +64,57 @@ beforeEach(() => {
 })
 
 describe('approved storefront with published editorial content', () => {
+  it.each(['absent', 'ready'] as const)(
+    'explains chopp in one compact section without repeating service benefits during %s',
+    (status) => {
+      if (status === 'ready')
+        source.editorial = { status, site: parsePublishedSite(projectPublicCmsV2(published())) }
+      const html = render()
+      expect(html.match(/id="por-que-chopp"/g)).toHaveLength(1)
+      expect(html.indexOf('id="diferenciais"')).toBeLessThan(html.indexOf('id="por-que-chopp"'))
+      expect(html.indexOf('id="chopes"')).toBeLessThan(html.indexOf('id="por-que-chopp"'))
+      expect(html.indexOf('id="por-que-chopp"')).toBeLessThan(html.indexOf('id="como"'))
+      const section = html.match(/<section id="por-que-chopp"[\s\S]*?<\/section>/)?.[0] ?? ''
+      expect(section).toContain('Por que escolher chopp para seu evento?')
+      expect(section).toContain('Chopp é uma cerveja servida diretamente do barril')
+      expect(section.match(/<dt /g)).toHaveLength(3)
+      for (const title of ['Praticidade', 'Menos embalagens', 'Experiência'])
+        expect(section).toContain(title)
+      expect(section).toContain('garrafas e latas individuais')
+      expect(section).not.toMatch(
+        /Copos inclusos|Entrega e instalação|Atendimento rápido|Oito marcas|Escolha o chopp|Dados e tomada|R\$|barato|saudável|sabor|qualidade|temperatura|gelado|<li |<a |<button/i,
+      )
+    },
+  )
+  it.each(['absent', 'ready'] as const)(
+    'places the four confirmed benefits after the carousel with editorial state %s',
+    (status) => {
+      if (status === 'ready')
+        source.editorial = { status, site: parsePublishedSite(projectPublicCmsV2(published())) }
+      const html = render()
+      expect(html.match(/id="diferenciais"/g)).toHaveLength(1)
+      expect(html.indexOf('id="barris"')).toBeLessThan(html.indexOf('id="diferenciais"'))
+      expect(html.indexOf('id="chopes"')).toBeLessThan(html.indexOf('id="diferenciais"'))
+      expect(html.indexOf('id="diferenciais"')).toBeLessThan(html.indexOf('id="como"'))
+      const section = html.match(/<section id="diferenciais"[\s\S]*?<\/section>/)?.[0] ?? ''
+      expect(section.match(/<li /g)).toHaveLength(4)
+      for (const title of [
+        'Copos descartáveis inclusos',
+        'Entrega e instalação',
+        'Atendimento rápido',
+        'Variedade',
+      ])
+        expect(section).toContain(title)
+      expect(section).toContain(
+        'Fornecemos de 50 a 100 copos descartáveis, conforme a necessidade combinada para seu evento.',
+      )
+      expect(section).toContain('Oito marcas de chopp')
+      expect(section).not.toMatch(/grátis|gratuit|consigna|\d+\s*(?:minutos|horas)|<a |<button/i)
+      expect(section.match(/aria-hidden="true"/g)).toHaveLength(4)
+      expect(html).toContain('Produto comercial')
+      expect(html).toContain('510,00')
+    },
+  )
   it.each(['loading', 'absent', 'error'] as const)(
     'keeps the current fallback and commercial path during %s',
     (status) => {
@@ -71,8 +122,10 @@ describe('approved storefront with published editorial content', () => {
       const html = render()
       expect(html).toContain(`data-editorial-state="${status}"`)
       expect(html).toContain('role="status" aria-live="polite" aria-atomic="true"')
-      for (const id of ['barris', 'chopes', 'como', 'sobre', 'faq', 'contato'])
+      for (const id of ['barris', 'chopes', 'como', 'faq', 'contato'])
         expect(html).toContain(`id="${id}"`)
+      expect(html).not.toContain('id="sobre"')
+      expect(html).not.toContain('O chopp como centro da sua celebração')
       expect(html).toContain('O melhor do chopp.')
       expect(html).toContain(
         'Operação exclusiva por delivery • Entrega e instalação em Belo Horizonte e região • Sem retirada',
@@ -90,6 +143,21 @@ describe('approved storefront with published editorial content', () => {
       expect(html).toContain('escadas')
     },
   )
+  it('preserves institutional content when published by the CMS', () => {
+    const doc = published()
+    const about = doc.modules.find((m) => m.template === 'about')
+    if (!about) throw Error('Missing institutional fixture')
+    about.content = {
+      ...about.content,
+      heading: 'Institucional publicado',
+      body: 'Conteúdo institucional aprovado pelo editor.',
+    }
+    source.editorial = { status: 'ready', site: parsePublishedSite(projectPublicCmsV2(doc)) }
+    const html = render()
+    expect(html).toContain('id="sobre"')
+    expect(html).toContain('Institucional publicado')
+    expect(html).toContain('Conteúdo institucional aprovado pelo editor.')
+  })
   it('renders supported modules in published order with matching navigation and CTAs', () => {
     const doc = published()
     const how = doc.modules.find((m) => m.template === 'how')
@@ -161,6 +229,7 @@ describe('approved storefront with published editorial content', () => {
     expect(html).not.toContain('href="#barris"')
     expect(html).not.toContain('href="#como"')
     expect(html).not.toContain('id="como"')
+    expect(html).not.toContain('id="diferenciais"')
     expect(html).toContain('id="chopes"')
     expect(html).toContain('Produto comercial')
   })

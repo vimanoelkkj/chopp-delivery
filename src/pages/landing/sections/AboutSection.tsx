@@ -17,9 +17,10 @@ export function AboutSection({
   mediaFallback?: ReactNode
   editorial?: Pick<CmsContentsV2['about'], 'heading' | 'body'>
 } = {}) {
+  const showMedia = editorial !== undefined || publishedMedia != null || mediaFallback != null
   return (
     <section id="sobre" className={styles.section} aria-labelledby="sobre-title">
-      <Container className={styles.inner}>
+      <Container className={`${styles.inner} ${showMedia ? '' : styles.compact}`}>
         <div className={styles.copy}>
           <p className={styles.eyebrow}>{sectionNumber ?? '04'} • Origem e compromisso</p>
           <h2 id="sobre-title" className={styles.title}>
@@ -28,36 +29,33 @@ export function AboutSection({
           <p className={styles.lead}>
             {editorial?.body ?? <>Entregamos chopp em barril e cachaça em garrafa.</>}
           </p>
-          {editorial === undefined && (
-            <p className={styles.text}>
-              Operação exclusiva por delivery em Belo Horizonte e região.
-            </p>
-          )}
         </div>
 
-        <div className={styles.mediaCard}>
-          {mediaFallback ?? (
-            <div className={styles.stage}>
-              <PublishedMedia
-                media={publishedMedia}
-                profile="section"
-                fit="cover"
-                eager={false}
-                fallback={
-                  <KegCutout
-                    photo="studio30"
-                    alt="Barril de chopp em aço inox escovado"
-                    eager={false}
-                  />
-                }
-              />
+        {showMedia && (
+          <div className={styles.mediaCard}>
+            {mediaFallback ?? (
+              <div className={styles.stage}>
+                <PublishedMedia
+                  media={publishedMedia}
+                  profile="section"
+                  fit="cover"
+                  eager={false}
+                  fallback={
+                    <KegCutout
+                      photo="studio30"
+                      alt="Barril de chopp em aço inox escovado"
+                      eager={false}
+                    />
+                  }
+                />
+              </div>
+            )}
+            <div className={styles.captionRow}>
+              <span>Barris de chopp</span>
+              <span className={styles.badge}>• Delivery</span>
             </div>
-          )}
-          <div className={styles.captionRow}>
-            <span>Barris de chopp</span>
-            <span className={styles.badge}>• Delivery</span>
           </div>
-        </div>
+        )}
       </Container>
     </section>
   )

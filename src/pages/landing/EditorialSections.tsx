@@ -1,8 +1,11 @@
+import { Fragment } from 'react'
 import type { CatalogState } from '@/features/catalog/useCatalog'
 import { type PublishedSite, selectEditorialCarousel } from '@/features/site/api'
 import { AboutSection } from './sections/AboutSection'
 import { BarrelsSection } from './sections/BarrelsSection'
+import { BenefitsSection } from './sections/BenefitsSection'
 import { CatalogSection } from './sections/CatalogSection'
+import { ChoppIntroSection } from './sections/ChoppIntroSection'
 import { FaqSection } from './sections/FaqSection'
 import { HowItWorks } from './sections/HowItWorks'
 import { PromoSection } from './sections/PromoSection'
@@ -26,8 +29,9 @@ export function EditorialSections({
         <BarrelsSection state={catalog} productImages={settled} />
         <Ticker />
         <CatalogSection state={catalog} retry={retry} />
+        <BenefitsSection />
+        <ChoppIntroSection />
         <HowItWorks />
-        <AboutSection />
         <PromoSection />
         <FaqSection />
       </>
@@ -63,13 +67,20 @@ export function EditorialSections({
         return <Ticker key={module.id} editorial={module.content} />
       case 'catalog':
         return (
-          <CatalogSection
-            key={module.id}
-            state={catalog}
-            retry={retry}
-            editorial={module.content}
-            sectionNumber={sectionNumber}
-          />
+          <Fragment key={module.id}>
+            <CatalogSection
+              state={catalog}
+              retry={retry}
+              editorial={module.content}
+              sectionNumber={sectionNumber}
+            />
+            {site.document.modules.some((m) => m.template === 'carousel' && m.visible) && (
+              <>
+                <BenefitsSection />
+                <ChoppIntroSection />
+              </>
+            )}
+          </Fragment>
         )
       case 'how':
         return (

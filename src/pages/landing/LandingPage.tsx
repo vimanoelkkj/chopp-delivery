@@ -1,10 +1,9 @@
-import { useRef } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useCatalog } from '@/features/catalog/useCatalog'
 import { WhatsAppNumberContext } from '@/features/contact/WhatsAppNumberContext'
 import { usePublishedSite } from '@/features/site/usePublishedSite'
 import { PASTEL_THEME, useDocumentTheme } from '@/shared/lib/documentTheme'
 import { themeAttributes } from '@/shared/lib/theme'
-import { useInView } from '@/shared/lib/useInView'
 import { EditorialSections } from './EditorialSections'
 import styles from './LandingPage.module.css'
 import { ContactSection } from './sections/ContactSection'
@@ -12,6 +11,7 @@ import { Hero } from './sections/Hero'
 import { SiteHeader } from './sections/SiteHeader'
 import { StickyCta } from './sections/StickyCta'
 import { StorefrontThemeContext, useStorefrontTheme } from './useStorefrontTheme'
+import { useVisibleOrderCta } from './useVisibleOrderCta'
 
 export function LandingPage() {
   const theme = useStorefrontTheme()
@@ -40,10 +40,20 @@ export function LandingPage() {
     ready:
       'Conteúdo publicado carregado. Imagens padrão preservadas quando a editorial não carrega.',
   }[editorial.status]
-  const heroCtaRef = useRef<HTMLDivElement>(null)
-  const finalCtaRef = useRef<HTMLDivElement>(null)
-  const heroCtaInView = useInView(heroCtaRef)
-  const finalCtaInView = useInView(finalCtaRef)
+  const mainRef = useRef<HTMLElement>(null)
+  const headerRef = useRef<HTMLElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+  const orderCtaInView = useVisibleOrderCta(mainRef, headerHeight)
+
+  useEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const measure = () => setHeaderHeight(Math.ceil(header.getBoundingClientRect().height))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <WhatsAppNumberContext value={site?.document.commercial.whatsappNumber ?? null}>
@@ -53,15 +63,23 @@ export function LandingPage() {
           id="topo"
           className={styles.page}
           data-editorial-state={editorial.status}
+          style={
+            headerHeight
+              ? ({ '--storefront-header-height': `${headerHeight}px` } as CSSProperties)
+              : undefined
+          }
         >
-          <SiteHeader links={links} deliveryRegion={hero?.content.deliveryRegion} />
+          <SiteHeader
+            headerRef={headerRef}
+            links={links}
+            deliveryRegion={hero?.content.deliveryRegion}
+          />
           <p className={styles.editorialStatus} role="status" aria-live="polite" aria-atomic="true">
             {status}
           </p>
-          <main id="conteudo">
+          <main id="conteudo" ref={mainRef}>
             <Hero
               state={catalogState}
-              ctaRef={heroCtaRef}
               editorial={hero?.content}
               publishedMedia={hero?.content.media}
               carouselHref={site ? site.layout.heroCarouselHref : undefined}
@@ -73,12 +91,11 @@ export function LandingPage() {
               settled={editorial.status !== 'loading'}
             />
             <ContactSection
-              ctaRef={finalCtaRef}
               deliveryRegion={hero?.content.deliveryRegion}
               editorial={contact?.content}
             />
           </main>
-          <StickyCta visible={!heroCtaInView && !finalCtaInView} />
+          <StickyCta visible={!orderCtaInView} />
         </div>
       </StorefrontThemeContext>
     </WhatsAppNumberContext>

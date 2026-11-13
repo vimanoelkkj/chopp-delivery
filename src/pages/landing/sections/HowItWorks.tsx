@@ -38,10 +38,6 @@ export function HowItWorks({
           <h2 id="como-title" className={styles.title}>
             {editorial?.heading ?? <>Como funciona a entrega</>}
           </h2>
-          <p className={styles.lead}>
-            Operação exclusivamente por delivery. Levamos o barril gelado, conectamos a chopeira
-            elétrica e deixamos pronta para o brinde.
-          </p>
         </div>
 
         <ol className={styles.stepsGrid}>

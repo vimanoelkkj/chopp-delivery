@@ -86,13 +86,10 @@ export function BarrelsSection({
               Chopeira elétrica profissional 110V/220V e cilindro de CO2 regulado
             </span>
           </div>
-          <div className={styles.specCard}>
-            <span className={styles.specValue}>Delivery</span>
-            <span className={styles.specLabel}>
-              Frete calculado conforme o bairro e confirmado no atendimento
-            </span>
-          </div>
         </div>
+        <p className={styles.specLabel}>
+          Frete calculado conforme o bairro e confirmado no atendimento
+        </p>
       </Container>
     </section>
   )
