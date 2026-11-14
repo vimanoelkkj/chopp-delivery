@@ -1,0 +1,29 @@
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.add {
+  width: 100%;
+}
+
+/* Link secundário: texto sublinhado, sem caixa de botão, mas com alvo de toque de 44 px. */
+.direct {
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border-color: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.added {
+  min-height: 1.1rem;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--accent-text, var(--color-gold));
+}

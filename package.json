@@ -28,6 +28,7 @@
     "dev:admin:real": "node scripts/dev-admin-integration.mts",
     "dev:admin:mock": "vite --mode admin-mock",
     "preview:admin:theme": "node scripts/admin-theme-preview.mts",
+    "test:e2e:cart": "playwright test --config playwright.cart.config.ts",
     "test:e2e:real": "playwright test --config playwright.real.config.ts",
     "test:e2e:release": "playwright test --config playwright.release.config.ts"
   },

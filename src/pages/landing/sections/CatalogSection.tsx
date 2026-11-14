@@ -70,6 +70,7 @@ export function CatalogSection({
                     <CachacaBanner
                       key={i.id}
                       item={{
+                        id: i.id,
                         title: i.name,
                         description: i.description,
                         variants: i.variants,

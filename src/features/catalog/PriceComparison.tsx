@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { OrderActions } from '@/features/cart/OrderActions'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { formatOrderTotal } from '@/shared/lib/quantity'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
+import { reaisToCents } from '../../../shared/money'
 import styles from './PriceComparison.module.css'
 import { lowestPrice } from './pricing'
 import { BARREL_SIZES, type BarrelSize, type Product } from './types'
@@ -49,14 +50,25 @@ function Offer({
           total={formatOrderTotal(price, quantity)}
           className={styles.quantity}
         />
-        <WhatsAppButton
-          customText={orderMessage(product, size, quantity)}
-          variant="gold"
+        <OrderActions
+          line={{
+            itemId: product.id,
+            variantCode: String(size),
+            name: product.name,
+            label: `Barril de ${size} L`,
+            unitPriceCents: reaisToCents(price),
+          }}
+          quantity={quantity}
+          directMessage={orderMessage(product, size, quantity)}
+          subject={`${product.name}, barril de ${size} litros`}
+          legacyLabel={
+            <>
+              Pedir
+              <span className="visually-hidden">{` ${product.name}, barril de ${size} litros`}</span>
+            </>
+          }
           className={styles.order}
-        >
-          Pedir
-          <span className="visually-hidden">{` ${product.name}, barril de ${size} litros`}</span>
-        </WhatsAppButton>
+        />
       </div>
     </td>
   )

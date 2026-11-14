@@ -1,13 +1,13 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { OrderActions } from '@/features/cart/OrderActions'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
 import { KegCutout, KegPlaceholder, kegPhotoForItem } from '@/shared/ui/KegCutout'
 import { PublishedMedia } from '@/shared/ui/PublishedMedia'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
-import { centsToReais } from '../../../shared/money'
+import { centsToReais, reaisToCents } from '../../../shared/money'
 import styles from './BarrelCarousel3D.module.css'
 import { labelMentionsVolume, presentationText } from './presentation'
 
@@ -456,9 +456,23 @@ export function BarrelCarousel3D({
           total={formatOrderTotal(activeVariant?.price, quantity)}
           className={styles.quantity}
         />
-        <WhatsAppButton customText={orderMessage} variant="gold">
-          Pedir Barril {currentKeg.name} no WhatsApp
-        </WhatsAppButton>
+        <OrderActions
+          line={
+            activeVariant && typeof activeVariant.price === 'number'
+              ? {
+                  itemId: currentKeg.id,
+                  variantCode: activeVariant.code,
+                  name: currentKeg.name,
+                  label: activeVariant.label,
+                  unitPriceCents: reaisToCents(activeVariant.price),
+                }
+              : undefined
+          }
+          quantity={quantity}
+          directMessage={orderMessage}
+          subject={`${currentKeg.name}, ${activePresentationText}`}
+          legacyLabel={<>Pedir Barril {currentKeg.name} no WhatsApp</>}
+        />
       </div>
     </div>
   )

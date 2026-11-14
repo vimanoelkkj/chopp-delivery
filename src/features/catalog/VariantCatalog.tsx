@@ -1,6 +1,6 @@
 import { useState } from 'react'
+import { OrderActions } from '@/features/cart/OrderActions'
 import { buildBarrelOrderMessage } from '@/features/contact/messages'
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL, formatCatalogVolume } from '@/shared/lib/format'
 import { formatOrderTotal } from '@/shared/lib/quantity'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
@@ -49,19 +49,30 @@ function VariantLine({
                 total={formatOrderTotal(price, quantity)}
                 className={styles.quantity}
               />
-              <WhatsAppButton
-                customText={buildBarrelOrderMessage(
+              <OrderActions
+                line={{
+                  itemId: item.id,
+                  variantCode: variant.code,
+                  name: item.name,
+                  label: variant.label,
+                  unitPriceCents: variant.priceCents as number,
+                }}
+                quantity={quantity}
+                directMessage={buildBarrelOrderMessage(
                   item.name,
                   presentationText(variant.label, variant.volumeMl),
                   price,
                   quantity,
                 )}
-                variant="gold"
+                subject={subject}
+                legacyLabel={
+                  <>
+                    Pedir
+                    <span className="visually-hidden">{` ${subject}`}</span>
+                  </>
+                }
                 className={styles.order}
-              >
-                Pedir
-                <span className="visually-hidden">{` ${subject}`}</span>
-              </WhatsAppButton>
+              />
             </>
           ) : null}
         </>

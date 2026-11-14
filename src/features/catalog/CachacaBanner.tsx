@@ -1,15 +1,16 @@
 import { useState } from 'react'
+import { OrderActions } from '@/features/cart/OrderActions'
 import { describeOrderPrice } from '@/features/contact/messages'
-import { WhatsAppButton } from '@/features/contact/WhatsAppButton'
 import { formatBRL } from '@/shared/lib/format'
 import { formatOrderTotal, normalizeQuantity } from '@/shared/lib/quantity'
 import { QuantityStepper } from '@/shared/ui/QuantityStepper'
 import type { PublicCatalog } from '../../../shared/catalog'
-import { centsToReais } from '../../../shared/money'
+import { centsToReais, reaisToCents } from '../../../shared/money'
 import styles from './CachacaBanner.module.css'
 import type { Cachaca } from './types'
 
 type ExpandedBottle = Pick<Cachaca, 'title' | 'description'> & {
+  id?: string
   variants: PublicCatalog['categories'][number]['items'][number]['variants']
 }
 
@@ -25,7 +26,9 @@ function BottleOffer({
   presentation,
   price,
   buttonLabel,
+  line,
 }: {
+  line?: { itemId: string; variantCode: string; name: string; label: string }
   productName: string
   label: string
   presentation: string
@@ -53,9 +56,17 @@ function BottleOffer({
             subject={`${productName}, ${presentation}`}
             total={formatOrderTotal(price, qty, true)}
           />
-          <WhatsAppButton customText={message} variant="gold" size="md">
-            {buttonLabel}
-          </WhatsAppButton>
+          <OrderActions
+            line={
+              line && typeof price === 'number'
+                ? { ...line, unitPriceCents: reaisToCents(price) }
+                : undefined
+            }
+            quantity={qty}
+            directMessage={message}
+            subject={`${productName}, ${presentation}`}
+            legacyLabel={buttonLabel}
+          />
         </>
       ) : null}
     </div>
@@ -82,6 +93,16 @@ export function CachacaBanner({ item }: { item: Cachaca | ExpandedBottle }) {
               presentation={`${v.label}${v.volumeMl ? ` - ${v.volumeMl}ml` : ''}`}
               price={v.priceCents !== null ? centsToReais(v.priceCents) : null}
               buttonLabel="Pedir cachaça no WhatsApp"
+              line={
+                item.id
+                  ? {
+                      itemId: item.id,
+                      variantCode: v.code,
+                      name: productName,
+                      label: v.label,
+                    }
+                  : undefined
+              }
             />
           ))
         ) : (

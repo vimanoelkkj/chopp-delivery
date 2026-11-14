@@ -258,13 +258,14 @@ describe('F4A.5.2: carrossel', () => {
       Object.fromEntries(
         [
           ...carousel(items).matchAll(
-            /src="[^"]*keg-(hero-50l|studio-30l)[^"]*"[^>]*alt="Barril de Chopp ([^"]*?) em/g,
+            /src="[^"]*\/(dronken|krug-bier|brahma|kaiser|heineken|palato-beber|villa-alema|chopp-de-vinho|keg-hero-50l|keg-studio-30l)(?:[-.][^"/]*)?\.webp"[^>]*alt="Barril de Chopp ([^"]*?) em/g,
           ),
         ].map((m) => [m[2], m[1]]),
       )
     const dronken = std('dronken', 'Dronken', 51000, 65000)
     const krug = std('krug-bier', 'Krug Bier', 57000, 76000)
-    const expected = { Dronken: 'studio-30l', 'Krug Bier': 'hero-50l' }
+    // Cada marca tem o próprio recorte WebP; nunca a foto genérica nem a de outro produto.
+    const expected = { Dronken: 'dronken', 'Krug Bier': 'krug-bier' }
     expect(photos([dronken, krug])).toEqual(expected)
     expect(photos([krug, dronken])).toEqual(expected)
   })

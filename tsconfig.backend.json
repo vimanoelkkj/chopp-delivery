@@ -11,8 +11,10 @@
     "shared",
     "tests",
     "e2e",
+    "e2e-cart",
     "worker-configuration.d.ts",
     "playwright.config.ts",
+    "playwright.cart.config.ts",
     "playwright.real.config.ts",
     "scripts/dev-admin-integration.mts"
   ]

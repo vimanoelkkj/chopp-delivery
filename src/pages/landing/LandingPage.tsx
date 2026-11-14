@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { CartProvider } from '@/features/cart/CartProvider'
 import { useCatalog } from '@/features/catalog/useCatalog'
 import { WhatsAppNumberContext } from '@/features/contact/WhatsAppNumberContext'
 import { usePublishedSite } from '@/features/site/usePublishedSite'
@@ -69,33 +70,40 @@ export function LandingPage() {
               : undefined
           }
         >
-          <SiteHeader
-            headerRef={headerRef}
-            links={links}
-            deliveryRegion={hero?.content.deliveryRegion}
-          />
-          <p className={styles.editorialStatus} role="status" aria-live="polite" aria-atomic="true">
-            {status}
-          </p>
-          <main id="conteudo" ref={mainRef}>
-            <Hero
-              state={catalogState}
-              editorial={hero?.content}
-              publishedMedia={hero?.content.media}
-              carouselHref={site ? site.layout.heroCarouselHref : undefined}
-            />
-            <EditorialSections
-              site={site}
-              catalog={catalogState}
-              retry={retry}
-              settled={editorial.status !== 'loading'}
-            />
-            <ContactSection
+          <CartProvider>
+            <SiteHeader
+              headerRef={headerRef}
+              links={links}
               deliveryRegion={hero?.content.deliveryRegion}
-              editorial={contact?.content}
             />
-          </main>
-          <StickyCta visible={!orderCtaInView} />
+            <p
+              className={styles.editorialStatus}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {status}
+            </p>
+            <main id="conteudo" ref={mainRef}>
+              <Hero
+                state={catalogState}
+                editorial={hero?.content}
+                publishedMedia={hero?.content.media}
+                carouselHref={site ? site.layout.heroCarouselHref : undefined}
+              />
+              <EditorialSections
+                site={site}
+                catalog={catalogState}
+                retry={retry}
+                settled={editorial.status !== 'loading'}
+              />
+              <ContactSection
+                deliveryRegion={hero?.content.deliveryRegion}
+                editorial={contact?.content}
+              />
+            </main>
+            <StickyCta visible={!orderCtaInView} />
+          </CartProvider>
         </div>
       </StorefrontThemeContext>
     </WhatsAppNumberContext>
