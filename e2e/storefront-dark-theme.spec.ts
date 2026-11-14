@@ -209,8 +209,9 @@ for (const width of [390, 1440]) {
       for (const mode of ['Claro', 'Escuro']) {
         await page
           .getByRole('group', { name: 'Tema da página' })
-          .getByRole('button', { name: mode, exact: true })
+          .getByRole('button', { name: /^Tema da página:/ })
           .click()
+        await page.getByRole('menuitemradio', { name: mode, exact: true }).click()
         await page.waitForTimeout(300)
         const result = await measure(page)
         expect(result.checked, mode).toBeGreaterThan(30)

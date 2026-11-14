@@ -67,7 +67,7 @@ export function SiteHeader({
             </ul>
           </nav>
 
-          <StorefrontThemeSwitcher />
+          <StorefrontThemeSwitcher onOpen={() => setMenuOpen(false)} />
 
           <div className={styles.cta}>
             <WhatsAppButton message="order">Pedir no WhatsApp</WhatsAppButton>

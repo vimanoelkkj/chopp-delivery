@@ -8,8 +8,15 @@ import { expect, type Page, test } from '@playwright/test'
 const STORE_KEY = 'chopp.storefront.theme'
 const ADMIN_KEY = 'chopp.admin.theme'
 const group = (page: Page) => page.getByRole('group', { name: 'Tema da página' })
+const trigger = (page: Page) => group(page).getByRole('button', { name: /^Tema da página:/ })
 const option = (page: Page, name: 'Claro' | 'Escuro' | 'Sistema') =>
-  group(page).getByRole('button', { name, exact: true })
+  group(page).getByRole('menuitemradio', { name, exact: true })
+async function choose(page: Page, name: 'Claro' | 'Escuro' | 'Sistema') {
+  await trigger(page).click()
+  await option(page, name).click()
+  await expect(trigger(page)).toHaveAttribute('aria-expanded', 'false')
+  await expect(trigger(page)).toHaveAccessibleName(`Tema da página: ${name}`)
+}
 const modeOf = (page: Page) => page.locator('#topo').getAttribute('data-color-mode')
 const htmlMode = (page: Page) => page.evaluate(() => document.documentElement.dataset.colorMode)
 const seed = (page: Page, entries: Record<string, string>) =>
@@ -19,7 +26,7 @@ const seed = (page: Page, entries: Record<string, string>) =>
 async function open(page: Page, path = '/') {
   await page.goto(path)
   await expect(page.locator('#topo')).toBeVisible()
-  await expect(option(page, 'Claro')).toBeVisible()
+  await expect(trigger(page)).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }
 
@@ -55,7 +62,7 @@ const contrast = (page: Page, fg: string, bg: string, under = 'rgb(255, 255, 255
     [fg, bg, under],
   )
 
-for (const width of [390, 1440]) {
+for (const width of [320, 390, 768, 1440]) {
   test.describe(`alternância da vitrine a ${width}px`, () => {
     test.beforeEach(async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
@@ -64,35 +71,43 @@ for (const width of [390, 1440]) {
     test('claro por padrão, controle cabe no cabeçalho e tem alvos de 44 px', async ({ page }) => {
       await open(page)
       expect(await modeOf(page)).toBe('light')
-      await expect(option(page, 'Claro')).toHaveAttribute('aria-pressed', 'true')
+      await expect(trigger(page)).toHaveAccessibleName('Tema da página: Claro')
+      const button = await trigger(page).boundingBox()
+      expect(button?.width).toBeGreaterThanOrEqual(44)
+      expect(button?.height).toBeGreaterThanOrEqual(44)
+      await trigger(page).click()
+      await expect(option(page, 'Claro')).toHaveAttribute('aria-checked', 'true')
       for (const name of ['Claro', 'Escuro', 'Sistema'] as const) {
         const box = await option(page, name).boundingBox()
         expect(box?.width).toBeGreaterThanOrEqual(44)
         expect(box?.height).toBeGreaterThanOrEqual(44)
         expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width)
       }
+      const menu = await page.getByRole('menu').boundingBox()
+      expect(menu?.x).toBeGreaterThanOrEqual(0)
+      expect((menu?.x ?? 0) + (menu?.width ?? 0)).toBeLessThanOrEqual(width)
+      await page.keyboard.press('Escape')
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
       ).toBe(true)
       // O menu e a marca continuam alcançáveis ao lado do controle.
-      if (width === 390)
-        await expect(page.getByRole('button', { name: 'Abrir menu' })).toBeVisible()
+      if (width < 768) await expect(page.getByRole('button', { name: 'Abrir menu' })).toBeVisible()
       await expect(page.getByRole('link', { name: /Chopp Delivery Delegas, início/ })).toBeVisible()
       expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([])
     })
 
     test('escolher persiste só na chave da vitrine e sobrevive ao reload', async ({ page }) => {
       await open(page)
-      await option(page, 'Escuro').click()
+      await choose(page, 'Escuro')
       expect(await modeOf(page)).toBe('dark')
       expect(await htmlMode(page)).toBe('dark')
-      await expect(option(page, 'Escuro')).toHaveAttribute('aria-pressed', 'true')
+      await expect(trigger(page)).toHaveAccessibleName('Tema da página: Escuro')
       expect(await page.evaluate((k) => localStorage.getItem(k), STORE_KEY)).toBe('dark')
       expect(await page.evaluate((k) => localStorage.getItem(k), ADMIN_KEY)).toBeNull()
       await page.reload()
       await expect(page.locator('#topo')).toHaveAttribute('data-color-mode', 'dark')
-      await expect(option(page, 'Escuro')).toHaveAttribute('aria-pressed', 'true')
-      await option(page, 'Claro').click()
+      await expect(trigger(page)).toHaveAccessibleName('Tema da página: Escuro')
+      await choose(page, 'Claro')
       await page.reload()
       await expect(page.locator('#topo')).toHaveAttribute('data-color-mode', 'light')
     })
@@ -102,7 +117,7 @@ for (const width of [390, 1440]) {
     }) => {
       await page.emulateMedia({ colorScheme: 'light' })
       await open(page)
-      await option(page, 'Sistema').click()
+      await choose(page, 'Sistema')
       expect(await modeOf(page)).toBe('light')
       await page.emulateMedia({ colorScheme: 'dark' })
       await expect(page.locator('#topo')).toHaveAttribute('data-color-mode', 'dark')
@@ -110,8 +125,8 @@ for (const width of [390, 1440]) {
       await page.emulateMedia({ colorScheme: 'light' })
       await expect(page.locator('#topo')).toHaveAttribute('data-color-mode', 'light')
       await page.reload()
-      await expect(option(page, 'Sistema')).toHaveAttribute('aria-pressed', 'true')
-      await option(page, 'Claro').click()
+      await expect(trigger(page)).toHaveAccessibleName('Tema da página: Sistema')
+      await choose(page, 'Claro')
       await page.emulateMedia({ colorScheme: 'dark' })
       expect(await modeOf(page)).toBe('light')
     })
@@ -124,9 +139,9 @@ for (const width of [390, 1440]) {
       const second = await context.newPage()
       await open(first)
       await open(second)
-      await option(first, 'Escuro').click()
+      await choose(first, 'Escuro')
       await expect(second.locator('#topo')).toHaveAttribute('data-color-mode', 'dark')
-      await expect(option(second, 'Escuro')).toHaveAttribute('aria-pressed', 'true')
+      await expect(trigger(second)).toHaveAccessibleName('Tema da página: Escuro')
       await second.evaluate((k) => {
         localStorage.setItem(k, '<script>')
         window.dispatchEvent(new StorageEvent('storage', { key: k, newValue: '<script>' }))
@@ -145,7 +160,7 @@ for (const width of [390, 1440]) {
       })
       await open(page)
       expect(await modeOf(page)).toBe('light')
-      await option(page, 'Escuro').click()
+      await choose(page, 'Escuro')
       expect(await modeOf(page)).toBe('dark')
     })
 
@@ -154,10 +169,9 @@ for (const width of [390, 1440]) {
     }) => {
       await open(page)
       for (const mode of ['Claro', 'Escuro'] as const) {
-        await option(page, mode).click()
-        await option(page, 'Sistema').focus()
-        await page.keyboard.press('Tab')
-        await page.keyboard.press('Shift+Tab')
+        await choose(page, mode)
+        await trigger(page).focus()
+        await page.keyboard.press('ArrowUp')
         await expect(option(page, 'Sistema')).toBeFocused()
         const outline = await option(page, 'Sistema').evaluate((n) => {
           const s = getComputedStyle(n)
@@ -172,7 +186,7 @@ for (const width of [390, 1440]) {
         const pageBg = await page
           .locator('#topo')
           .evaluate((n) => getComputedStyle(n).backgroundColor)
-        // Estado atual: texto/ícone e fundo do botão pressionado.
+        // Estado atual: texto/ícone e fundo da opção selecionada.
         const pressed = await option(page, mode).evaluate((n) => {
           const s = getComputedStyle(n)
           return { color: s.color, bg: s.backgroundColor }
@@ -190,13 +204,67 @@ for (const width of [390, 1440]) {
         })
         expect(hover.bg).not.toBe('rgba(0, 0, 0, 0)')
         expect(await contrast(page, hover.color, hover.bg, pageBg)).toBeGreaterThanOrEqual(4.5)
+        await page.keyboard.press('Escape')
+      }
+    })
+
+    test('setas, Home, End, Enter, Escape, Tab e clique externo', async ({ page }) => {
+      await open(page)
+      await trigger(page).focus()
+      await page.keyboard.press('Enter')
+      await expect(option(page, 'Claro')).toBeFocused()
+      await page.keyboard.press('ArrowDown')
+      await expect(option(page, 'Escuro')).toBeFocused()
+      await page.keyboard.press('End')
+      await expect(option(page, 'Sistema')).toBeFocused()
+      await page.keyboard.press('ArrowDown')
+      await expect(option(page, 'Claro')).toBeFocused()
+      await page.keyboard.press('ArrowUp')
+      await expect(option(page, 'Sistema')).toBeFocused()
+      await page.keyboard.press('Home')
+      await page.keyboard.press('ArrowDown')
+      await page.keyboard.press('Enter')
+      await expect(trigger(page)).toBeFocused()
+      await expect(trigger(page)).toHaveAccessibleName('Tema da página: Escuro')
+      await page.keyboard.press('Space')
+      await expect(option(page, 'Escuro')).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(trigger(page)).toBeFocused()
+      await expect(page.getByRole('menu')).toHaveCount(0)
+      await page.keyboard.press('ArrowDown')
+      await page.keyboard.press('Tab')
+      await expect(page.getByRole('menu')).toHaveCount(0)
+      await trigger(page).click()
+      await page.getByRole('complementary', { name: 'Aviso de entrega' }).click()
+      await expect(page.getByRole('menu')).toHaveCount(0)
+    })
+
+    test('menu de tema não se sobrepõe ao hambúrguer ou WhatsApp', async ({ page }) => {
+      await open(page)
+      if (width < 768) {
+        const hamburger = page.getByRole('button', { name: 'Abrir menu', exact: true })
+        await hamburger.click()
+        await trigger(page).click()
+        await expect(hamburger).toHaveAttribute('aria-expanded', 'false')
+        await hamburger.click()
+        await expect(page.getByRole('menu')).toHaveCount(0)
+        await page.getByRole('button', { name: 'Fechar menu', exact: true }).click()
+      } else {
+        await trigger(page).click()
+        const menu = await page.getByRole('menu').boundingBox()
+        const cta = await page
+          .locator('header')
+          .getByRole('button', { name: 'Pedir no WhatsApp' })
+          .boundingBox()
+        if (!menu || !cta) throw new Error('Controle ausente')
+        expect(menu.x + menu.width <= cta.x || menu.y >= cta.y + cta.height).toBe(true)
       }
     })
 
     test('aviso do WhatsApp legível no claro e no escuro', async ({ page }) => {
       await open(page)
       for (const mode of ['Claro', 'Escuro'] as const) {
-        await option(page, mode).click()
+        await choose(page, mode)
         const cta = page.getByRole('button', { name: 'Pedir no WhatsApp' }).first()
         await cta.click()
         const notice = page.getByRole('status').filter({ hasText: 'número do WhatsApp' }).first()
