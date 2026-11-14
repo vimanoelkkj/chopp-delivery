@@ -22,11 +22,12 @@ import {
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const PROJECT_NAME = 'chopp-delivery-prod'
 export const PRODUCTION_BRANCH = 'main'
-// Último release PUBLICADO em produção (deployment 9e876c4d). É só a BASE de ancestralidade: um novo
-// candidato NUNCA é aprovado por esta constante. Todo preflight/deploy exige `--commit <sha1>` explícito,
-// validado por `checkReleaseCommit` (descendente desta base e ancestral de HEAD). Só atualizar esta
-// constante DEPOIS de o novo release estar publicado e verificado em produção.
-export const COMMERCIAL_COMMIT = '7a71df863c87b4913c29dde93edcf7e29e35a3dd'
+// BASE INCLUSIVA de ancestralidade, ancorada em um release publicado e verificado em produção.
+// Todo preflight/deploy exige `--commit <sha1>` explícito, validado por `checkReleaseCommit`
+// (esta base ou descendente dela, e ancestral de HEAD). O mesmo SHA pode usar perfis diferentes.
+// Publicação reconfirmada: deployment 458da44b-6657-4086-9fe5-d16f8436c75a (Production, main).
+// Só atualizar esta constante DEPOIS de o novo release estar publicado e verificado em produção.
+export const COMMERCIAL_COMMIT = 'e105fc8c1f7fed5665f3d69f05676d21ebc3e47f'
 export const BUILD_DIR = 'dist-commercial'
 // Hash fixo do wrangler.production.jsonc revisado (arquivo ainda fora do Git). Mudar a configuração
 // de produção exige revisar e atualizar este valor: o deploy nunca usa um arquivo não revisado.
@@ -137,7 +138,7 @@ const gitBlobSha1 = (buffer) =>
 
 /**
  * Valida o commit de release informado em `--commit`: SHA-1 completo em minúsculas, existente no
- * repositório, descendente do último release publicado (COMMERCIAL_COMMIT) e ancestral de HEAD
+ * repositório, igual à base de ancestralidade (COMMERCIAL_COMMIT) ou descendente dela, e ancestral de HEAD
  * (ou o próprio HEAD). Impede publicar um commit arbitrário, anterior ou fora da linha de release.
  */
 export function checkReleaseCommit(commit, { root = ROOT } = {}) {
@@ -147,8 +148,6 @@ export function checkReleaseCommit(commit, { root = ROOT } = {}) {
   if (git(['cat-file', '-e', `${commit}^{commit}`]).status !== 0)
     return ['o commit de release não existe no repositório']
   const problems = []
-  if (commit === COMMERCIAL_COMMIT)
-    problems.push('o commit de release é o já publicado; nada a publicar')
   if (git(['merge-base', '--is-ancestor', COMMERCIAL_COMMIT, commit]).status !== 0)
     problems.push('o commit de release não descende do último release publicado')
   if (git(['merge-base', '--is-ancestor', commit, 'HEAD']).status !== 0)
@@ -393,7 +392,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`BLOQUEADO: perfil desconhecido (${Object.keys(PROFILES).join(', ')})`)
     process.exit(1)
   }
-  // `command` sem --commit imprime o comando do último release publicado (referência); preflight e
+  // `command` sem --commit imprime o comando da base de ancestralidade (referência); preflight e
   // deploy exigem o commit do release explicitamente e o validam.
   const commit = requested ?? COMMERCIAL_COMMIT
   const printed = `npx wrangler ${deployArgs(commit).join(' ')}`

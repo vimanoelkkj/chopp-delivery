@@ -1,9 +1,9 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   EXPECTED_ACCOUNT_ID,
   HOMOLOGATION_D1_ID,
@@ -26,6 +26,8 @@ import {
 // Guardas do deploy de produção do Pages. Nada é publicado: o Wrangler nunca é chamado com `deploy`
 // e a consulta remota é substituída por leituras injetadas.
 
+vi.mock('node:child_process', { spy: true })
+
 const reviewed = readFileSync('wrangler.production.jsonc', 'utf8')
 const okInfo = () => JSON.stringify({ uuid: PRODUCTION_D1_ID, name: PRODUCTION_D1_NAME })
 const projects = (names: string[]) => () =>
@@ -43,11 +45,11 @@ describe('comando fixo do deploy', () => {
       '--branch',
       'main',
       '--commit-hash',
-      '7a71df863c87b4913c29dde93edcf7e29e35a3dd',
+      'e105fc8c1f7fed5665f3d69f05676d21ebc3e47f',
       '--commit-dirty=false',
     ])
-    // Último release publicado em produção (deployment 9e876c4d, 7a71df8).
-    expect(COMMERCIAL_COMMIT).toBe('7a71df863c87b4913c29dde93edcf7e29e35a3dd')
+    // Base inclusiva reconfirmada em produção (deployment 458da44b, e105fc8).
+    expect(COMMERCIAL_COMMIT).toBe('e105fc8c1f7fed5665f3d69f05676d21ebc3e47f')
     expect(checkDeployCommand(deployArgs())).toEqual([])
   })
 
@@ -426,12 +428,39 @@ describe('commit de release explícito', () => {
     expect(checkReleaseCommit(commit).length).toBeGreaterThan(0)
   })
 
-  it('recusa o commit já publicado (nada a publicar)', () => {
-    expect(checkReleaseCommit(COMMERCIAL_COMMIT).join()).toMatch(/já publicado/)
+  it('aceita igualdade com a base inclusiva de ancestralidade', () => {
+    expect(checkReleaseCommit(COMMERCIAL_COMMIT)).toEqual([])
   })
 
-  it('aceita HEAD quando ele descende do último release publicado', () => {
-    if (head === COMMERCIAL_COMMIT) return
+  it('recusa um commit anterior à base', () => {
+    const previous = execFileSync('git', ['rev-parse', `${COMMERCIAL_COMMIT}^`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).trim()
+    expect(checkReleaseCommit(previous).join()).toMatch(/não descende/)
+  })
+
+  it.each([
+    ['fora da linhagem da base', [0, 1, 0], /não descende/],
+    ['à frente de HEAD', [0, 0, 1], /não é HEAD nem ancestral/],
+  ] as const)('recusa commit existente %s', (_name, statuses, expected) => {
+    // Simula topologias Git sem criar commits ou alterar referências do repositório.
+    const mock = vi.mocked(spawnSync)
+    for (const status of statuses)
+      mock.mockReturnValueOnce({ status, stdout: '', stderr: '', pid: 0, output: [], signal: null })
+    try {
+      expect(checkReleaseCommit(next).join()).toMatch(expected)
+      expect(mock.mock.calls.slice(-3).map((call) => call[1])).toEqual([
+        ['cat-file', '-e', `${next}^{commit}`],
+        ['merge-base', '--is-ancestor', COMMERCIAL_COMMIT, next],
+        ['merge-base', '--is-ancestor', next, 'HEAD'],
+      ])
+    } finally {
+      mock.mockReset()
+    }
+  })
+
+  it('aceita HEAD quando ele é a base ou descende dela', () => {
     expect(checkReleaseCommit(head)).toEqual([])
   })
 

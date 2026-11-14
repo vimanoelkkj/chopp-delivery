@@ -1,10 +1,10 @@
 # Release completo (pós-`7a71df8`): catálogo dinâmico, imagens de produto e mídia
 
-**Estado: candidato consolidado e validado localmente. Nada foi publicado, migrado nem criado em produção. Cada passo remoto abaixo exige autorização explícita do responsável.**
+**Estado: procedimento de referência, com publicação do código reconfirmada abaixo. Os demais estados e pré-requisitos remotos devem ser conferidos antes de cada execução. Cada passo remoto abaixo exige autorização explícita do responsável.**
 
 Alvo: Pages `chopp-delivery-prod`, branch `main`, D1 `chopp-delivery-prod-db` (`fe4492e3-94a4-4f9a-b44c-10a39fe21bd1`), conta `7d8a62a0e64b693184975560c7cb788d`, WhatsApp `5531984400001`.
 
-**Último release PUBLICADO:** `7a71df863c87b4913c29dde93edcf7e29e35a3dd` (deployment `9e876c4d`, 12 migrations). `COMMERCIAL_COMMIT` em `scripts/production-pages-deploy.mjs` é só a **base de ancestralidade** desse release: ela nunca aprova um candidato. Todo `preflight`/`deploy` exige `--commit <SHA completo>` explícito, validado por `checkReleaseCommit` (existente, descendente de `7a71df8`, `HEAD` ou ancestral de `HEAD`, diferente de `7a71df8`). Só atualizar a constante **depois** de o novo release estar publicado e verificado.
+**Publicação reconfirmada em 13/11/2026:** `e105fc8c1f7fed5665f3d69f05676d21ebc3e47f`, deployment `458da44b-6657-4086-9fe5-d16f8436c75a` (Production, branch `main`, publicação concluída com sucesso). `COMMERCIAL_COMMIT` em `scripts/production-pages-deploy.mjs` é a **base inclusiva de ancestralidade**. Todo `preflight`/`deploy` exige `--commit <SHA completo>` explícito: existente, igual à base ou descendente dela, e `HEAD` ou ancestral de `HEAD`. O mesmo SHA pode ser publicado novamente, inclusive para trocar perfis, mantendo todas as guardas de configuração, snapshot, conta e mídia. A constante não registra o histórico de deployments; só deve avançar após publicação e verificação do novo release.
 
 ## 1. O que entra
 
@@ -71,7 +71,7 @@ node scripts/production-pages-deploy.mjs command   --commit $Release            
 node scripts/production-pages-deploy.mjs deploy --dir $Dir --commit $Release --profile base --confirm chopp-delivery-prod
 ```
 
-5. **Verificação** (seção 7). Depois da publicação, atualizar `COMMERCIAL_COMMIT` para `$Release`.
+5. **Verificação** (seção 7). Depois da publicação e verificação, avançar `COMMERCIAL_COMMIT` para `$Release` se houver novo código. Trocas de perfil podem reutilizar o mesmo SHA; registrar SHA, perfil e ID do deployment separadamente.
 
 ## 5. Abrir a vitrine sem remover a autenticação do CMS
 

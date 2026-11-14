@@ -11,7 +11,9 @@ import {
 } from '../../scripts/production-account-guard.mjs'
 import {
   BUILD_DIR,
+  COMMERCIAL_COMMIT,
   checkDeployDir,
+  checkReleaseCommit,
   PRODUCTION_CONFIG_SHA256,
   PRODUCTION_MEDIA_BUCKET,
   PRODUCTION_MEDIA_PROCESSOR,
@@ -260,6 +262,23 @@ describe('preflight dos perfis de mídia (leituras injetadas)', () => {
 
   it('media-closed: permite fechar o Pages primeiro com o Worker ainda aberto', () => {
     expect(run('media-closed', { worker: 'enabled' })).toEqual({ ok: true, problems: [] })
+  })
+
+  it('permite media-open → media-closed com o mesmo SHA da base e Worker aberto', () => {
+    for (const profile of ['media-open', 'media-closed'] as const) {
+      expect(checkReleaseCommit(COMMERCIAL_COMMIT)).toEqual([])
+      writeFileSync(join(dir, 'wrangler.jsonc'), read(PROFILES[profile].file))
+      expect(
+        preflight({
+          dir,
+          commit: COMMERCIAL_COMMIT,
+          profile,
+          env: okEnv,
+          info: okInfo,
+          run: fake({ worker: 'enabled' }),
+        }),
+      ).toEqual({ ok: true, problems: [] })
+    }
   })
 
   it('media-open: exige o Worker já aberto; com ele aberto aprova', () => {
